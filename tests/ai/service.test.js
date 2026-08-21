@@ -53,6 +53,22 @@ describe('ai service', () => {
     expect(result.tags).toEqual(['react', 'hooks'])
   })
 
+  it('categorizeContent falls back to 其他 on API error', async () => {
+    mockCreate.mockRejectedValue(new Error('rate limit'))
+
+    const result = await service.categorizeContent('foo')
+    expect(result.category).toBe('其他')
+    expect(result.tags).toEqual([])
+    expect(result.error).toBe('rate limit')
+  })
+
+  it('categorizeContent handles malformed JSON', async () => {
+    mockCreate.mockResolvedValue({ choices: [{ message: { content: 'not json {' } }] })
+
+    const result = await service.categorizeContent('foo')
+    expect(result.category).toBe('其他')
+  })
+
   it('semanticSearch returns matched IDs', async () => {
     mockCreate.mockResolvedValue({
       choices: [{ message: { content: '{"matchedIds":[1,3,5],"reasoning":"relevance"}' } }]
@@ -61,5 +77,13 @@ describe('ai service', () => {
     const result = await service.semanticSearch('query', ['note 1', 'note 3', 'note 5'])
     expect(result.matchedIds).toEqual([1, 3, 5])
     expect(result.reasoning).toBe('relevance')
+  })
+
+  it('semanticSearch returns error info on API failure', async () => {
+    mockCreate.mockRejectedValue(new Error('timeout'))
+
+    const result = await service.semanticSearch('q', ['a'])
+    expect(result.matchedIds).toEqual([])
+    expect(result.error).toContain('timeout')
   })
 })

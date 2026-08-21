@@ -71,4 +71,27 @@ describe('search', () => {
     const results = searchNotes(db, 'common', 5)
     expect(results.length).toBeLessThanOrEqual(5)
   })
+
+  it('returns empty array for empty or whitespace query', () => {
+    addNote(db, { title: 'A', content: 'B', tags: [] })
+    expect(searchNotes(db, '')).toEqual([])
+    expect(searchNotes(db, '   ')).toEqual([])
+  })
+
+  it('handles FTS5 special characters without crashing', () => {
+    addNote(db, { title: 'Note', content: 'something', tags: [] })
+    expect(() => searchNotes(db, '100%')).not.toThrow()
+    expect(() => searchNotes(db, '(test)')).not.toThrow()
+    expect(() => searchNotes(db, 'a:b')).not.toThrow()
+  })
+
+  it('addNote applies default values for missing fields', () => {
+    const id = addNote(db, { content: 'just content' })
+    expect(id).toBeGreaterThan(0)
+    const row = db.prepare('SELECT title, category, tags, original_content FROM notes WHERE id = ?').get(id)
+    expect(row.title).toBe('')
+    expect(row.category).toBe('uncategorized')
+    expect(row.tags).toBe('[]')
+    expect(row.original_content).toBe('')
+  })
 })

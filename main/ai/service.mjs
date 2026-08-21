@@ -1,5 +1,5 @@
 import OpenAI from 'openai'
-import { SYSTEM_PROMPT, CATEGORIZE_PROMPT, buildFormatPrompt, buildSemanticSearchPrompt } from './prompts.js'
+import { SYSTEM_PROMPT, CATEGORIZE_PROMPT, buildFormatPrompt, buildSemanticSearchPrompt } from './prompts.mjs'
 
 export class AIService {
   constructor(config) {
@@ -47,7 +47,7 @@ export class AIService {
         tags: (result.tags || '').split(',').map(t => t.trim()).filter(t => t)
       }
     } catch (error) {
-      return { category: '其他', tags: [] }
+      return { category: '其他', tags: [], error: error.message }
     }
   }
 

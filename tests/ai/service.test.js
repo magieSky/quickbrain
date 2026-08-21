@@ -1,22 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { AIService } from '../../main/ai/service.js'
 
-// Mock OpenAI
-vi.mock('openai', () => {
-  return {
-    default: vi.fn().mockImplementation(() => ({
-      chat: {
-        completions: {
-          create: vi.fn()
-        }
-      }
-    }))
-  }
-})
+const { mockCreate } = vi.hoisted(() => ({
+  mockCreate: vi.fn()
+}))
+
+vi.mock('openai', () => ({
+  default: vi.fn().mockImplementation(() => ({
+    chat: { completions: { create: mockCreate } }
+  }))
+}))
+
+import { AIService } from '../../main/ai/service.mjs'
 
 describe('ai service', () => {
   let service
-  let mockCreate
 
   beforeEach(() => {
     service = new AIService({
@@ -25,7 +22,7 @@ describe('ai service', () => {
       model: 'test-model',
       defaultStyle: 'summary'
     })
-    mockCreate = service.client.chat.completions.create
+    mockCreate.mockReset()
   })
 
   it('formatContent returns formatted text on success', async () => {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildFormatPrompt, buildSemanticSearchPrompt } from '../../main/ai/prompts.js'
+import { buildFormatPrompt, buildSemanticSearchPrompt } from '../../main/ai/prompts.mjs'
 
 describe('prompts', () => {
   it('buildFormatPrompt returns summary prompt by default', () => {

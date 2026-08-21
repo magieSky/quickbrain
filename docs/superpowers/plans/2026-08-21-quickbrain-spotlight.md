@@ -1006,7 +1006,7 @@ git commit -m "feat(ai): add AI service with format/categorize/semanticSearch"
 - Create: `main/db-init.js`
 - Create: `tests/db-init.test.js`
 
-- [ ] **Step 1: 写失败的测试**
+- [x] **Step 1: 写失败的测试**
 
 创建 `E:\note\quickbrain\tests\db-init.test.js`：
 
@@ -1043,7 +1043,7 @@ describe('db-init', () => {
 })
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 ```bash
 cd E:\note\quickbrain
@@ -1052,7 +1052,7 @@ npm test -- tests/db-init.test.js
 
 期望：Cannot find module db-init.js —— 测试失败。
 
-- [ ] **Step 3: 实现 db-init.js**
+- [x] **Step 3: 实现 db-init.js**
 
 创建 `E:\note\quickbrain\main\db-init.js`：
 
@@ -1096,7 +1096,7 @@ function closeDatabase() {
 module.exports = { initDatabase, getDB, closeDatabase }
 ```
 
-- [ ] **Step 4: 跑测试验证通过**
+- [x] **Step 4: 跑测试验证通过**
 
 ```bash
 cd E:\note\quickbrain
@@ -1105,7 +1105,7 @@ npm test -- tests/db-init.test.js
 
 期望：1 个 db-init 测试通过。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 cd E:\note\quickbrain

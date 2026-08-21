@@ -2672,3 +2672,35 @@ git commit -m "chore: ignore build artifacts"
 **Plan version**: v1.0
 **Spec reference**: `docs/superpowers/specs/2026-08-21-quickbrain-spotlight-design.md`
 **Ready for execution**
+
+---
+
+## Task 7 Review Deviations（code quality review 记录）
+
+> 由 Task 7 code quality reviewer（Herschel）记录。Verdict: **Yes**（ready to merge）。以下为可选改进项，**不阻塞后续 task**。
+
+### Important
+
+- **I-1**：main/db-init.js 未复用 main/db/index.js 的 createDatabase，绕过 Phase 9 fallback 钩子链。Reviewer 免责说明：plan Step 3 模板本身直接 
+ew Database + exec，是 plan-level 设计模糊。
+  - **建议处理**：Phase 9 Task 23 之前补一个 micro-refactor task；或在本 plan 显式标注 deviation。
+- **I-2**：	ests/db-init.test.js 仅 1 个 happy path，遗漏单例语义（重复调用同实例、closeDatabase 重置）。
+  - **建议处理**：Task 8 implementer 可顺手补 2 个单例测试，成本 < 5 分钟。
+- **I-3**：sync initDatabase() 内部无 wait，签名与实现不一致。
+  - **建议处理**：加 JSDoc 注释说明 "currently synchronous, async signature reserved for future migration to fs.promises / async driver"。
+
+### Minor
+
+- **M-1**：existsSync 检查冗余（mkdirSync({recursive:true}) 已幂等）。
+- **M-2**：getDB() 未初始化时静默返回 null（可加 throw 或保持现状，依赖 Task 19 调用方保证）。
+- **M-3**：electron stub 仅 mock pp.getPath，未 stub pp.on/whenReady/quit（Task 19 时扩展）。
+- **M-4**：Module._cache hack 注释可更详细（Task 8 implementer 可顺手补充）。
+- **M-5**：plan 第 1039 行路径偏差未标注 —— **此区块即作为正式标注**。
+
+### Reviewer Top Recommendations
+
+1. Phase 9 Task 23（fallback）前显式重构 db-init.js 复用 createDatabase，让 fallback 路径单点改造。
+2. 补充单例语义测试（见 I-2）。
+3. initDatabase() 加 JSDoc 注释（见 I-3）。
+
+---

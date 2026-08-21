@@ -694,7 +694,7 @@ git commit -m "feat(db): add search API with FTS5 and pinyin fallback"
 - Create: `main/ai/prompts.js`
 - Create: `tests/ai/prompts.test.js`
 
-- [ ] **Step 1: 写失败的测试**
+- [x] **Step 1: 写失败的测试**
 
 创建 `E:\note\quickbrain\tests\ai\prompts.test.js`：
 
@@ -732,7 +732,7 @@ describe('prompts', () => {
 })
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 ```bash
 cd E:\note\quickbrain
@@ -741,7 +741,7 @@ npm test -- tests/ai/prompts.test.js
 
 期望：Cannot find module prompts.js —— 测试失败。
 
-- [ ] **Step 3: 实现 prompts.js**
+- [x] **Step 3: 实现 prompts.js**
 
 创建 `E:\note\quickbrain\main\ai\prompts.js`：
 
@@ -775,7 +775,7 @@ module.exports = {
 }
 ```
 
-- [ ] **Step 4: 跑测试验证通过**
+- [x] **Step 4: 跑测试验证通过**
 
 ```bash
 cd E:\note\quickbrain
@@ -784,7 +784,7 @@ npm test -- tests/ai/prompts.test.js
 
 期望：5 个 prompts 测试通过。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 cd E:\note\quickbrain

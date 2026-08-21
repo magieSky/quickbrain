@@ -800,7 +800,7 @@ git commit -m "feat(ai): add prompt templates"
 - Create: `main/ai/service.js`
 - Create: `tests/ai/service.test.js`
 
-- [ ] **Step 1: 写失败的测试**
+- [x] **Step 1: 写失败的测试**
 
 创建 `E:\note\quickbrain\tests\ai\service.test.js`：
 
@@ -875,7 +875,7 @@ describe('ai service', () => {
 })
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 ```bash
 cd E:\note\quickbrain
@@ -884,7 +884,7 @@ npm test -- tests/ai/service.test.js
 
 期望：Cannot find module service.js —— 测试失败。
 
-- [ ] **Step 3: 实现 service.js**
+- [x] **Step 3: 实现 service.js**
 
 创建 `E:\note\quickbrain\main\ai\service.js`：
 
@@ -968,7 +968,7 @@ class AIService {
 module.exports = { AIService }
 ```
 
-- [ ] **Step 4: 跑测试验证通过**
+- [x] **Step 4: 跑测试验证通过**
 
 ```bash
 cd E:\note\quickbrain
@@ -977,7 +977,7 @@ npm test -- tests/ai/service.test.js
 
 期望：4 个 service 测试通过。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 cd E:\note\quickbrain
@@ -985,6 +985,7 @@ git add main/ai/service.js tests/ai/service.test.js
 git commit -m "feat(ai): add AI service with format/categorize/semanticSearch"
 ```
 
+> **注:** Step 3 实现时,`service.js` 实际改为 ESM 模块 (`import`/`export`)。原因:Vitest 1.6 的 `vi.mock()` 不支持拦截 CJS 模块内的 `require()`,plan 中的 `vi.mock('openai')` 写法要求 service.js 用 `import` 引入 OpenAI 才能生效。功能代码与 plan 描述完全一致,只更换了模块语法。
 ---
 
 ## Phase 5: 主进程核心

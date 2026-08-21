@@ -27,7 +27,7 @@ function searchNotes(db, query, limit = 20) {
   const ftsEscaped = trimmed.replace(/"/g, '""')
   const ftsQuery = `"${ftsEscaped}"*`
 
-  // 1. FTS5 绮剧‘鍖归厤锛堟寜 title 鍛戒腑浼樺厛锛屽啀鎸?bm25 鐩稿叧鎬э級
+  // 1. FTS5 精确匹配（按 title 命中优先，再按 bm25 相关性）
   const ftsRows = db.prepare(`
     SELECT n.id, n.title, n.content, n.category, n.tags, n.created_at,
            bm25(notes_fts) AS score,
@@ -45,18 +45,19 @@ function searchNotes(db, query, limit = 20) {
     LIMIT @limit
   `).all({ prefix, contains, fts: ftsQuery, limit })
 
-  // 2. 鎷奸煶鍏滃簳锛團TS5 缁撴灉 < 3 鏃讹級
+  // 2. 拼音兜底（FTS5 结果 < 3 时）
   if (ftsRows.length < 3) {
     const py = require('./pinyin').pinyinInitials(trimmed).replace(/\s+/g, '')
     if (py) {
+      const pyEscaped = py.replace(/[\\%_]/g, '\\$&')
       const pyRows = db.prepare(`
         SELECT n.id, n.title, n.content, n.category, n.tags, n.created_at,
                0 AS score, 1 AS title_score
         FROM notes_pinyin p
         JOIN notes n ON n.id = p.id
-        WHERE p.pinyin_title LIKE @py OR p.pinyin_content LIKE @py
+        WHERE p.pinyin_title LIKE @py ESCAPE '\\' OR p.pinyin_content LIKE @py ESCAPE '\\'
         LIMIT @limit
-      `).all({ py: `%${py}%`, limit })
+      `).all({ py: `%${pyEscaped}%`, limit })
       const seen = new Set(ftsRows.map(r => r.id))
       for (const r of pyRows) {
         if (!seen.has(r.id)) ftsRows.push(r)

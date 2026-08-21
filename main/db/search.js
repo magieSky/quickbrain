@@ -1,39 +1,41 @@
 const { generatePinyinForNote } = require('./pinyin')
 
 function addNote(db, note) {
-  const { title = '', content, tags = [], category = 'uncategorized',
-          original_content = '' } = note
-  const stmt = db.prepare(`
-    INSERT INTO notes (content, title, category, tags, original_content)
-    VALUES (?, ?, ?, ?, ?)
-  `)
-  const result = stmt.run(content, title, category, JSON.stringify(tags), original_content)
-  const id = result.lastInsertRowid
-  const py = generatePinyinForNote(title, content)
-  db.prepare(`INSERT INTO notes_pinyin (id, pinyin_title, pinyin_content) VALUES (?, ?, ?)`)
-    .run(id, py.pinyinTitle, py.pinyinContent)
-  return id
+  return db.transaction(() => {
+    const { title = '', content, tags = [], category = 'uncategorized',
+            original_content = '' } = note
+    const stmt = db.prepare(`
+      INSERT INTO notes (content, title, category, tags, original_content)
+      VALUES (?, ?, ?, ?, ?)
+    `)
+    const result = stmt.run(content, title, category, JSON.stringify(tags), original_content)
+    const id = result.lastInsertRowid
+    const py = generatePinyinForNote(title, content)
+    db.prepare(`INSERT INTO notes_pinyin (id, pinyin_title, pinyin_content) VALUES (?, ?, ?)`)
+      .run(id, py.pinyinTitle, py.pinyinContent)
+    return id
+  })()
 }
 
 function searchNotes(db, query, limit = 20) {
   if (!query || !query.trim()) return []
 
   const trimmed = query.trim()
-  const prefix = `${trimmed}%`
-  const contains = `%${trimmed}%`
-  const ftsQuery = `${trimmed}*`
+  const likeEscaped = trimmed.replace(/[\\%_]/g, '\\$&')
+  const prefix = `${likeEscaped}%`
+  const contains = `%${likeEscaped}%`
+  const ftsEscaped = trimmed.replace(/"/g, '""')
+  const ftsQuery = `"${ftsEscaped}"*`
 
-  // 1. FTS5 精确匹配（按 title 命中优先，再按 bm25 相关性）
+  // 1. FTS5 绮剧‘鍖归厤锛堟寜 title 鍛戒腑浼樺厛锛屽啀鎸?bm25 鐩稿叧鎬э級
   const ftsRows = db.prepare(`
     SELECT n.id, n.title, n.content, n.category, n.tags, n.created_at,
            bm25(notes_fts) AS score,
            CASE
-             WHEN n.title LIKE @prefix THEN 5
-             WHEN n.title LIKE @contains THEN 3
-             WHEN n.tags LIKE @prefix THEN 4
-             WHEN n.tags LIKE @contains THEN 2
-             WHEN n.content LIKE @prefix THEN 2
-             WHEN n.content LIKE @contains THEN 1
+             WHEN n.title LIKE @prefix ESCAPE '\\' THEN 5
+             WHEN n.title LIKE @contains ESCAPE '\\' THEN 3
+             WHEN n.content LIKE @prefix ESCAPE '\\' THEN 2
+             WHEN n.content LIKE @contains ESCAPE '\\' THEN 1
              ELSE 0
            END AS title_score
     FROM notes_fts
@@ -43,7 +45,7 @@ function searchNotes(db, query, limit = 20) {
     LIMIT @limit
   `).all({ prefix, contains, fts: ftsQuery, limit })
 
-  // 2. 拼音兜底（FTS5 结果 < 3 时）
+  // 2. 鎷奸煶鍏滃簳锛團TS5 缁撴灉 < 3 鏃讹級
   if (ftsRows.length < 3) {
     const py = require('./pinyin').pinyinInitials(trimmed).replace(/\s+/g, '')
     if (py) {

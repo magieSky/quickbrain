@@ -985,7 +985,17 @@ git add main/ai/service.js tests/ai/service.test.js
 git commit -m "feat(ai): add AI service with format/categorize/semanticSearch"
 ```
 
-> **注:** Step 3 实现时,`service.js` 实际改为 ESM 模块 (`import`/`export`)。原因:Vitest 1.6 的 `vi.mock()` 不支持拦截 CJS 模块内的 `require()`,plan 中的 `vi.mock('openai')` 写法要求 service.js 用 `import` 引入 OpenAI 才能生效。功能代码与 plan 描述完全一致,只更换了模块语法。
+> **注(修订版):** Step 3 实现后,ESM 决策进一步修订:AI 服务模块采用 `.mjs` 扩展名(`main/ai/service.mjs` + `main/ai/prompts.mjs`),强制 ESM 解析而不引入 `package.json "type": "module"`。三方案对比:
+> - **Option A(放弃)**:在 `package.json` 设 `"type": "module"` 统一 ESM。会强制 `main/db/*.js` / `main.js` / `ai-service.js` 全部改为 ESM(或 `.cjs` 改名),超出 Task 6 修复 scope(实测会让 `tests/db/search.test.js` 因 `main/db/pinyin.js` 的 `require` 报 ESM scope 错误)。
+> - **Option B(放弃)**:service.js 改回 CJS。实测 Vitest 1.6+`vi.hoisted` factory 仍无法对 CJS 的 `require('openai')` 注入 mock,真实 OpenAI SDK 仍被调用,返回 `Connection error.`(原 implementer 实测结论正确)。
+> - **Option C(采用)**:保留项目 CJS 基线,仅 AI 服务层用 `.mjs` 强制 ESM。`main.js` / `ai-service.js` / `main/db/*.js` / `package.json` 全部不变。
+> 
+> **下游 Task 影响**:
+> - **Task 8 (ipc.js)**:示例 `const { AIService } = require('./ai/service')` 改为 `await import('./main/ai/service.mjs')`(在 `registerIpcHandlers` 启动时或 `setAIService` 内 dynamic import;`app.whenReady()` 调用栈天然 async)。
+> - **Task 19 (main.js)**:在 `app.whenReady().then(async () => { ... })` 中 dynamic import `AIService`。
+> - **Task 7 / Task 9**:不变(不引用 AI service)。
+> 
+> **根本原因**:Vitest 1.6 的 `vi.mock('openai')` 仅对 ESM `import` 生效,CJS `require` 在 mock 注入前已同步执行。同时 Electron 28 自带 Node 18.18.2 不支持 `require(esm)`(Node 22.12+ 才稳定),故不能简单回 CJS `require()` AI 服务。代码 review I1 的根因。
 ---
 
 ## Phase 5: 主进程核心

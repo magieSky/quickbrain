@@ -19,6 +19,6 @@ describe('pinyin', () => {
   it('generatePinyinForNote returns title and content pinyin', () => {
     const result = generatePinyinForNote('React 笔记', '关于 React Hooks 的笔记')
     expect(result.pinyinTitle).toBe('react bj')
-    expect(result.pinyinContent).toContain('react hooks')
+    expect(result.pinyinContent).toBe('gy react hooks dbj')
   })
 })

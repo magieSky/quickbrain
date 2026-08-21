@@ -2,12 +2,13 @@ const { pinyin } = require('pinyin-pro')
 
 function pinyinInitials(text) {
   if (!text) return ''
-  const arr = pinyin(text, {
+  if (typeof text !== 'string') return ''
+  const py = pinyin(text, {
     pattern: 'first',
     toneType: 'none',
     type: 'array'
   })
-  return arr.join('').toLowerCase().trim()
+  return py.join('').toLowerCase().trim()
 }
 
 function generatePinyinForNote(title, content) {

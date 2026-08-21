@@ -7,24 +7,41 @@
     "start": "electron .",
     "dev": "electron . --dev",
     "build": "electron-builder",
-    "build:win": "electron-builder --win"
+    "build:win": "electron-builder --win",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
-  "keywords": ["knowledge", "notes", "search", "productivity"],
+  "keywords": [
+    "knowledge",
+    "notes",
+    "search",
+    "productivity"
+  ],
   "author": "",
   "license": "MIT",
   "devDependencies": {
     "electron": "^28.0.0",
-    "electron-builder": "^24.9.1"
+    "electron-builder": "^24.9.1",
+    "vitest": "^1.6.1"
   },
   "dependencies": {
-    "sql.js": "^1.10.3",
-    "openai": "^4.20.0"
+    "@node-rs/jieba": "^0.4.0",
+    "better-sqlite3": "^11.10.0",
+    "openai": "^4.20.0",
+    "pinyin-pro": "^3.29.3",
+    "sql.js": "^1.10.3"
   },
   "build": {
     "appId": "com.quickbrain.app",
     "productName": "QuickBrain",
-    "directories": {"output": "dist"},
-    "files": ["**/*", "!**/*.ts", "!**/node_modules/*"],
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "**/*",
+      "!**/*.ts",
+      "!**/node_modules/*"
+    ],
     "win": {
       "target": "nsis",
       "icon": "assets/icon.png"

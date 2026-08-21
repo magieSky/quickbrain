@@ -493,7 +493,7 @@ git commit -m "feat(db): add pinyin initial generation"
 - Create: `main/db/search.js`
 - Create: `tests/db/search.test.js`
 
-- [ ] **Step 1: 写失败的测试**
+- [x] **Step 1: 写失败的测试**
 
 创建 `E:\note\quickbrain\tests\db\search.test.js`：
 
@@ -574,7 +574,7 @@ describe('search', () => {
 })
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 ```bash
 cd E:\note\quickbrain
@@ -583,7 +583,7 @@ npm test -- tests/db/search.test.js
 
 期望：Cannot find module search.js —— 测试失败。
 
-- [ ] **Step 3: 实现 search.js**
+- [x] **Step 3: 实现 search.js**
 
 创建 `E:\note\quickbrain\main\db\search.js`：
 
@@ -667,7 +667,7 @@ function safeParseJSON(str, fallback) {
 module.exports = { searchNotes, addNote }
 ```
 
-- [ ] **Step 4: 跑测试验证通过**
+- [x] **Step 4: 跑测试验证通过**
 
 ```bash
 cd E:\note\quickbrain
@@ -676,7 +676,7 @@ npm test -- tests/db/search.test.js
 
 期望：6 个 search 测试通过。如有失败，按错误信息调整 SQL（常见：FTS5 MATCH 需要 `*` 通配符或 LIKE 大小写）。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 cd E:\note\quickbrain

@@ -443,6 +443,8 @@ npm test
 
 创建 `E:\note\quickbrain\main\db\pinyin.js`：
 
+> **注意**：pinyin-pro 在 `pattern: 'first'` 下，使用 `type: 'string', separator: ' '` 会输出「字符间空格」（如 `'b j'`）而非「词组级空格」（如 `'bj'`）。必须用 `type: 'array'` + 手动 `join('')` 才能得到正确的首字母字符串。
+
 ```js
 const { pinyin } = require('pinyin-pro')
 
@@ -451,10 +453,9 @@ function pinyinInitials(text) {
   const py = pinyin(text, {
     pattern: 'first',
     toneType: 'none',
-    type: 'string',
-    separator: ' '
+    type: 'array'
   })
-  return py.toLowerCase().trim()
+  return py.join('').toLowerCase().trim()
 }
 
 function generatePinyinForNote(title, content) {

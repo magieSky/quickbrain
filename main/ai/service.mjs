@@ -1,6 +1,6 @@
 import OpenAI from 'openai'
 import { SYSTEM_PROMPT, CATEGORIZE_PROMPT, buildFormatPrompt, buildSemanticSearchPrompt } from './prompts.mjs'
-import { getProvider } from './providers.mjs'
+import { getProvider } from './providers.js'
 
 export class AIService {
   constructor(config = {}) {

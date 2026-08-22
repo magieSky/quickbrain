@@ -1,8 +1,4 @@
-// AI Provider 元数据 - 全部使用 OpenAI 兼容协议
-// 配置格式: { provider: 'deepseek', apiKey: 'sk-xxx' }
-// Ollama 额外需要: baseURL, model
-
-export const PROVIDERS = [
+const PROVIDERS = [
   {
     id: 'deepseek',
     name: 'DeepSeek',
@@ -67,6 +63,8 @@ export const PROVIDERS = [
   }
 ]
 
-export function getProvider(id) {
+function getProvider(id) {
   return PROVIDERS.find(p => p.id === id)
 }
+
+module.exports = { PROVIDERS, getProvider }

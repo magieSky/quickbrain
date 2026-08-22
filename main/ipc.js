@@ -1,8 +1,7 @@
 ﻿const { ipcMain, BrowserWindow, app } = require('electron')
 const fs = require('fs')
 const path = require('path')
-const { PROVIDERS } = require('./ai/providers.mjs')
-const { AIService } = require('./ai/service.mjs')
+const { PROVIDERS } = require('./ai/providers.js')
 const { getDB } = require('./db-init')
 const { addNote, searchNotes, getNoteById } = require('./db/search')
 
@@ -27,11 +26,12 @@ function writeConfig(cfg) {
   fs.writeFileSync(getConfigPath(), JSON.stringify(cfg, null, 2), 'utf8')
 }
 
-function buildService(cfg) {
+async function buildService(cfg) {
   if (!cfg || !cfg.provider) return null
   const provider = PROVIDERS.find(p => p.id === cfg.provider)
   if (!provider) return null
   if (provider.requiresApiKey && !cfg.apiKey) return null
+  const { AIService } = await import('./ai/service.mjs')
   return new AIService(cfg)
 }
 
@@ -174,7 +174,7 @@ function registerIpcHandlers() {
       if (!provider) return { success: false, error: '未知的 provider' }
       if (provider.requiresApiKey && !clean.apiKey) return { success: false, error: '请填写 API Key' }
       writeConfig(clean)
-      const newService = buildService(clean)
+      const newService = await buildService(clean)
       setAIService(newService)
       console.log('[ipc] save-ai-config: provider=' + clean.provider + ' service=' + (newService ? 'OK' : 'NULL'))
       return { success: true, info: newService ? newService.getInfo() : null }
@@ -188,7 +188,7 @@ function registerIpcHandlers() {
       const provider = PROVIDERS.find(p => p.id === cfg.provider)
       if (!provider) return { success: false, error: '未知的 provider' }
       if (provider.requiresApiKey && !cfg.apiKey) return { success: false, error: '请填写 API Key' }
-      const service = buildService(cfg)
+      const service = await buildService(cfg)
       if (!service) return { success: false, error: '无法创建服务' }
       return await service.testConnection()
     } catch (e) {

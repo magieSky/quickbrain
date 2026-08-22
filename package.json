@@ -9,7 +9,11 @@
     "build": "electron-builder",
     "build:win": "electron-builder --win",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "rebuild:electron": "npx --yes @electron/rebuild -f -w better-sqlite3",
+    "rebuild:node": "npm rebuild better-sqlite3",
+    "test:all": "npm run rebuild:node && npm test",
+    "start:fresh": "npm run rebuild:electron && electron ."
   },
   "keywords": [
     "knowledge",

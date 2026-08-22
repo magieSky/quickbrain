@@ -93,9 +93,18 @@ async function doSearch(input) {
     return
   }
 
-  // new-content — 也展示"添加"建议
-  currentResults = [{ type: 'new-content', content: parsed.content }]
-  setStatus('按 Enter 添加')
+  // new-content — 默认搜索现有笔记, 附带"添加"建议
+  try {
+    const results = await api.searchNotes(parsed.content)
+    currentResults = results.map(n => ({ type: 'note', note: n }))
+    currentResults.push({ type: 'new-content', content: parsed.content })
+    setStatus(results.length > 0
+      ? `找到 ${results.length} 条 · 按 Enter 添加 / Shift+Enter 详情`
+      : '按 Enter 添加为新笔记')
+  } catch (e) {
+    currentResults = [{ type: 'new-content', content: parsed.content }]
+    setStatus('按 Enter 添加 (搜索失败)')
+  }
   render()
 }
 

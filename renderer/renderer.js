@@ -280,8 +280,8 @@ async function formatWithAI() {
 // Keyboard shortcuts
 function setupKeyboardShortcuts() {
   document.addEventListener('keydown', (e) => {
-    // Ctrl+A - Add new note
-    if (e.ctrlKey && e.key.toLowerCase() === 'a') {
+    // Ctrl+Alt+N - Add new note
+    if (e.ctrlKey && e.altKey && !e.shiftKey && e.key.toLowerCase() === 'n') {
       e.preventDefault();
       showAddDialog();
     }

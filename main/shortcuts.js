@@ -9,8 +9,8 @@ function registerShortcuts({ onPalette, onMainWindow, onAddNote }) {
   const main = globalShortcut.register('CommandOrControl+Q', () => onMainWindow && onMainWindow())
   if (main) unregister.push('CommandOrControl+Q')
 
-  const add = globalShortcut.register('CommandOrControl+A', () => onAddNote && onAddNote())
-  if (add) unregister.push('CommandOrControl+A')
+  const add = globalShortcut.register('CommandOrControl+Alt+N', () => onAddNote && onAddNote())
+  if (add) unregister.push('CommandOrControl+Alt+N')
 
   return unregister
 }

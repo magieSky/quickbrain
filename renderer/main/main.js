@@ -72,7 +72,7 @@ function render() {
       '<div class="empty">' +
         '<div class="icon">📝</div>' +
         '<div>还没有记录</div>' +
-        '<div class="hint">按 <kbd>Ctrl</kbd>+<kbd>A</kbd> 或点击上方按钮添加</div>' +
+        '<div class="hint">按 <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>N</kbd> 或点击上方按钮添加</div>' +
       '</div>'
     return
   }

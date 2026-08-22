@@ -18,7 +18,7 @@ els.input.addEventListener('input', () => {
   debounceTimer = setTimeout(() => doSearch(els.input.value), 100)
 })
 
-els.input.addEventListener('keydown', handleKeydown)
+window.addEventListener('keydown', handleKeydown)
 
 window.api = api
 if (api.onPaletteReset) api.onPaletteReset(() => {

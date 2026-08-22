@@ -48,12 +48,26 @@ function createPaletteWindow(preloadPath) {
   return paletteWindow
 }
 
+
+function getMainPosition() {
+  const display = screen.getPrimaryDisplay()
+  const { width, height } = display.workAreaSize
+  const winWidth = 480
+  const winHeight = Math.min(700, height - 80)
+  return {
+    x: width - winWidth - 20,
+    y: 40,
+    width: winWidth,
+    height: winHeight
+  }
+}
+
 function createMainWindow(preloadPath) {
   if (mainWindow && !mainWindow.isDestroyed()) return mainWindow
 
+  const pos = getMainPosition()
   mainWindow = new BrowserWindow({
-    width: 600,
-    height: 700,
+    ...pos,
     minWidth: 400,
     minHeight: 500,
     frame: false,

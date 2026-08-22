@@ -4,7 +4,7 @@ const path = require('path')
 let paletteWindow = null
 let mainWindow = null
 let preloadPathCache = null
-let suppressBlurHide = false  // showPalette 期间临时屏蔽 blur 触发�?hide
+let suppressBlurHide = false  // showPalette 期间临时屏蔽 blur 触发�?hide
 
 function getPalettePosition() {
   const display = screen.getPrimaryDisplay()
@@ -103,8 +103,13 @@ function createMainWindow(preloadPath) {
     }
   })
 
+  console.log('[windows] createMainWindow: loading index.html, pos=' + JSON.stringify(pos))
   mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'main', 'index.html'))
-  mainWindow.on('closed', () => { mainWindow = null })
+  mainWindow.webContents.on('did-finish-load', () => console.log('[windows] main did-finish-load, visible=' + mainWindow.isVisible() + ' bounds=' + JSON.stringify(mainWindow.getBounds())))
+  mainWindow.webContents.on('did-fail-load', (e, code, desc) => console.log('[windows] main did-fail-load code=' + code + ' desc=' + desc))
+  mainWindow.on('show', () => console.log('[windows] main show'))
+  mainWindow.on('hide', () => console.log('[windows] main hide'))
+  mainWindow.on('closed', () => { console.log('[windows] main closed'); mainWindow = null })
 
   return mainWindow
 }

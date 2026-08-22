@@ -2219,7 +2219,7 @@ Implementer 自加 5 个鲁棒性测试：
 **Files:**
 - Create: `renderer/palette/commands/registry.js`
 
-- [ ] **Step 1: 实现 registry.js**
+- [x] **Step 1: 实现 registry.js**
 
 创建 `E:\note\quickbrain\renderer\palette\commands\registry.js`：
 
@@ -2336,7 +2336,7 @@ function findCommand(name) {
 module.exports = { registry, findCommand }
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 cd E:\note\quickbrain
@@ -2345,6 +2345,46 @@ git commit -m "feat(palette): add command registry with 21 commands"
 ```
 
 ---
+
+
+### Task 16 Code Review Observations
+
+> Verdict: With fixes (Godel) → Yes (after fix). Implementation 19 commands, 4 plan-level bugs fixed.
+
+#### Plan-Level Bugs Found & Fixed (commit 0499b18)
+
+**C-1 + I-3**: registry.js 顶部两行死代码被删除：
+```js
+- const { app } = require("electron").remote ? require("electron").remote : {}
+- const path = require("path")
+```
+- `app` 在 renderer + contextIsolation:true 下是 undefined，无任何命令使用
+- `path` 整个文件未使用
+
+**C-2**: `清空所有笔记` 加 confirm 屏障（与 `删除` 命令对称）：
+```js
+- execute: (ctx) => { ctx.clearAll(); ctx.hidePalette() }
++ execute: (ctx) => { if (!confirm("确认清空所有笔记？此操作不可撤销。")) return; ctx.clearAll(); ctx.hidePalette() }
+```
+
+**I-2**: commit message 从 `21 commands` 改为 `19 commands`（与实现一致）
+
+#### Non-blocking Issues (deferred to Task 17)
+
+- **I-1 clipboard IPC**: `复制` 命令直接 `require("electron").clipboard`，应通过 preload contextBridge 暴露。Task 17 实现时改。
+- **M-2 confirm() UX**: 当前用浏览器原生 confirm()，未来可改主进程 `dialog.showMessageBox`。
+
+#### Architecture Notes
+
+- 19 个命令与 parser.COMMAND_NAMES 严格一一对应（meta 测试保护 Task 15）。
+- `execute(ctx, ...)` 契约统一，ctx 字段由 Task 17 palette.js 注入。
+- `危险` 标志：删除 / 清空所有笔记（现在都有 confirm）。
+- 命令分组：操作 7 + 导航 3 + 数据 5 + AI 1 + 系统 3 = 19。
+
+#### Minor Recommendations (future)
+
+- 补 `tests/renderer/palette/registry.test.js`（findCommand / 危险标记 / 名字对齐）。
+- findCommand O(n) 升级到 O(1) Map（命令增长时）。
 
 ### Task 17: 命令面板主 JS
 

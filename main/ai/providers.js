@@ -48,6 +48,18 @@ const PROVIDERS = [
     keyUrl: 'https://dashscope.console.aliyun.com/apiKey'
   },
   {
+    id: 'MiniMax',
+    name: 'MiniMax',
+    icon: '\u2B50',
+    description: 'MiniMax - \u56FD\u5185\u7248\u5927\u6A21\u578B',
+    baseURL: 'https://api.minimaxi.com/v1',
+    defaultModel: 'MiniMax-M3',
+    models: ['MiniMax-M3', 'MiniMax-Text-01'],
+    requiresApiKey: true,
+    keyHint: '\u4ECE platform.minimaxi.com \u83B7\u53D6 API Key',
+    keyUrl: 'https://platform.minimaxi.com/user-center/basic-information/interface-key'
+  },
+  {
     id: 'ollama',
     name: 'Ollama (\u672C\u5730)',
     icon: '\u{1F999}',

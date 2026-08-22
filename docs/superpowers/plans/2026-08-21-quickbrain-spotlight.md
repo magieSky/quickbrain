@@ -1669,7 +1669,7 @@ git commit -m "feat(main): add window management for palette and main window"
 **Files:**
 - Create: `preload/main-preload.js`
 
-- [ ] **Step 1: 实现 main-preload.js**
+- [x] **Step 1: 实现 main-preload.js**
 
 创建 `E:\note\quickbrain\preload\main-preload.js`：
 
@@ -1699,13 +1699,29 @@ contextBridge.exposeInMainWorld('quickbrain', {
 })
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 cd E:\note\quickbrain
 git add preload/main-preload.js
 git commit -m "feat(preload): add main window context bridge"
 ```
+
+
+### Task 12 Code Review Observations
+
+> Verdict: Yes (Popper). Implementation is **byte-level identical** to plan template (24 lines). All Minor issues are non-blocking.
+
+#### Minor Issues (non-blocking)
+
+- **M1**: `onLocateNote` lacks `offLocateNote` unregister. Acceptable now (main window is singleton, single SPA, webContents cleanup on destroy). Future-proofing if hot-reload or multi-SPA introduced.
+- **M2**: Param passthrough without validation. `contextIsolation: true` already blocks direct object access; IPC uses structured clone. Schema validation responsibility belongs to Task 8 ipc handlers.
+- **M3 (process)**: plan checklist Step 1 / Step 2 not flipped (pattern across Task 7-11, handled in independent doc commit).
+
+#### Architecture Notes for Task 13 / 19
+
+- API surface split is correct: main window uses `quickbrain` namespace (notes CRUD + window + locate listener), palette uses `paletteAPI` namespace (search + add + AI + semantic search + locate trigger).
+- Cross-window event chain complete: palette-preload `locateNoteInMain` -> `ipcRenderer.send("locate-note")` -> ipc.js `ipcMain.on("locate-note")` -> windows.js `mainWindow.webContents.send("locate-note", id)` -> main-preload `onLocateNote`.
 
 ---
 

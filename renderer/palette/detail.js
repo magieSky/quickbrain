@@ -5,8 +5,7 @@ const api = window.paletteAPI
 let currentNote = null
 
 async function load() {
-  const all = await api.searchNotes('')
-  currentNote = all.find(n => n.id === noteId)
+  currentNote = await api.getNote(noteId)
   if (!currentNote) {
     document.getElementById('title').textContent = '未找到'
     return
@@ -18,8 +17,7 @@ async function load() {
 
 document.getElementById('copy-btn').onclick = async () => {
   if (!currentNote) return
-  const { clipboard } = require('electron')
-  clipboard.writeText(currentNote.content)
+  await api.writeClipboard(currentNote.content)
   document.getElementById('copy-btn').textContent = '已复制 ✓'
 }
 

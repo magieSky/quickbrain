@@ -133,7 +133,8 @@ function render() {
     }
     els.results.appendChild(div)
   })
-  els.results.scrollTop = selectedIndex * 36 - 100
+  const itemHeight = 36
+  els.results.scrollTop = Math.max(0, selectedIndex * itemHeight - els.results.clientHeight / 2)
 }
 
 function escapeHTML(s) {
@@ -165,8 +166,7 @@ async function triggerAction(mode) {
       window.close()
     } else {
       // Enter 默认：复制
-      const { clipboard } = require('electron')
-      clipboard.writeText(item.note.content)
+      api.writeClipboard(item.note.content)
       setStatus('已复制到剪贴板')
       setTimeout(() => window.close(), 300)
     }
@@ -176,24 +176,20 @@ async function triggerAction(mode) {
 function buildContext() {
   return {
     api,
-    notify: (title, body) => {
-      // 通过 IPC 发通知（由主进程处理）
-      const { Notification } = require('electron')
-      new Notification(title, { body }).show()
-    },
+    notify: (title, body) => api.notify({ title, body }),
     hidePalette: () => window.close(),
-    showMainWindow: () => api.locateNoteInMain(0),
-    openSettings: () => alert('请在主窗口中打开设置'),
-    openDataDir: () => alert('请在主窗口中打开数据目录'),
-    openAISettings: () => alert('请在主窗口中打开 AI 设置'),
-    exportAll: () => alert('导出功能在主窗口'),
-    importAll: () => alert('导入功能在主窗口'),
-    backupDB: () => alert('备份功能在主窗口'),
-    clearAll: () => alert('清空功能在主窗口'),
-    showStats: () => alert('统计功能在主窗口'),
-    relaunch: () => { const { app } = require('electron'); app.relaunch(); app.quit() },
-    quit: () => { const { app } = require('electron'); app.quit() },
-    showAbout: () => alert('QuickBrain v1.0'),
+    showMainWindow: () => api.locateNoteInMain(null),
+    openSettings: () => { api.locateNoteInMain(0); window.close() },
+    openDataDir: () => { api.locateNoteInMain(0); window.close() },
+    openAISettings: () => { api.locateNoteInMain(0); window.close() },
+    exportAll: () => { api.locateNoteInMain(0); window.close() },
+    importAll: () => { api.locateNoteInMain(0); window.close() },
+    backupDB: () => { api.locateNoteInMain(0); window.close() },
+    clearAll: () => { api.locateNoteInMain(0); window.close() },
+    showStats: () => { api.locateNoteInMain(0); window.close() },
+    relaunch: () => api.relaunch(),
+    quit: () => api.quit(),
+    showAbout: () => api.notify({ title: 'QuickBrain v1.0', body: '个人知识助手' }),
     scheduleAIFormat: (id, content) => {
       // 后台异步 AI 格式化（不阻塞）
       api.formatWithAI({ content, style: 'summary' }).then(r => {
@@ -205,7 +201,11 @@ function buildContext() {
       if (r.success) await api.updateNote({ id: note.id, title: extractTitle(r.formattedContent), content: r.formattedContent, original_content: note.content, is_formatted: 1 })
     },
     runCategorize: async (content) => {
-      return { category: '其他', tags: [] } // 简化：实际调用 API
+      const r = await api.categorizeWithAI({ content })
+      if (r && r.success && r.category) {
+        return { category: r.category, tags: r.tags || [] }
+      }
+      return { category: '其他', tags: [] }
     }
   }
 }

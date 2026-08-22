@@ -10,6 +10,21 @@ const els = {
   aiBtn: document.getElementById('ai-btn'),
   settingsBtn: document.getElementById('settings-btn'),
   modal: document.getElementById('add-modal'),
+  aiModal: document.getElementById('ai-modal'),
+  aiProviderList: document.getElementById('provider-list'),
+  aiForm: document.getElementById('ai-form'),
+  aiFormTitle: document.getElementById('ai-form-title'),
+  aiApiKey: document.getElementById('ai-apikey'),
+  aiToggleKey: document.getElementById('ai-toggle-key'),
+  aiKeyHint: document.getElementById('ai-key-hint'),
+  aiExtraRow: document.getElementById('ai-extra-row'),
+  aiBaseURL: document.getElementById('ai-baseurl'),
+  aiModel: document.getElementById('ai-model'),
+  aiStatus: document.getElementById('ai-status'),
+  aiCurrent: document.getElementById('ai-current'),
+  aiCancel: document.getElementById('ai-cancel'),
+  aiTest: document.getElementById('ai-test'),
+  aiSave: document.getElementById('ai-save'),
   modalContent: document.getElementById('modal-content'),
   modalCategory: document.getElementById('modal-category'),
   modalSave: document.getElementById('modal-save'),
@@ -192,8 +207,132 @@ els.aiBtn.onclick = () => {
 }
 
 els.settingsBtn.onclick = () => {
-  api.notify({ title: '设置', body: '设置功能开发中' })
+  openAISettings()
 }
+
+let aiProviders = []
+let aiSelectedProvider = null
+let aiCurrentConfig = {}
+
+async function openAISettings() {
+  els.aiModal.classList.add('show')
+  els.aiStatus.className = 'ai-status'
+  els.aiStatus.textContent = ''
+  try {
+    aiProviders = await api.getProviders()
+    aiCurrentConfig = await api.getAIConfig()
+  } catch (e) {
+    api.log('error', ['[openAISettings]', e.message])
+    return
+  }
+  if (aiCurrentConfig.provider && aiCurrentConfig.hasApiKey) {
+    const p = aiProviders.find(x => x.id === aiCurrentConfig.provider)
+    els.aiCurrent.textContent = '当前使用: ' + (p ? p.icon + ' ' + p.name : aiCurrentConfig.provider) + ' · ' + (aiCurrentConfig.model || '')
+  } else {
+    els.aiCurrent.textContent = '未配置 AI 服务'
+  }
+  renderProviders()
+  const initial = aiCurrentConfig.provider || (aiProviders[0] && aiProviders[0].id)
+  selectProvider(initial)
+}
+
+function renderProviders() {
+  els.aiProviderList.innerHTML = ''
+  aiProviders.forEach(p => {
+    const div = document.createElement('div')
+    div.className = 'provider-card'
+    div.dataset.id = p.id
+    div.innerHTML = '<span class="picon">' + p.icon + '</span><div class="pname">' + p.name + '</div><div class="pdesc">' + p.description + '</div>'
+    div.onclick = () => selectProvider(p.id)
+    els.aiProviderList.appendChild(div)
+  })
+}
+
+function selectProvider(id) {
+  aiSelectedProvider = id
+  els.aiProviderList.querySelectorAll('.provider-card').forEach(c => c.classList.toggle('active', c.dataset.id === id))
+  const p = aiProviders.find(x => x.id === id)
+  if (!p) return
+  els.aiForm.classList.add('show')
+  els.aiFormTitle.textContent = p.requiresApiKey ? 'API Key' : 'API Key (可选)'
+  els.aiKeyHint.innerHTML = p.keyHint + (p.keyUrl ? ' · <a href="#" id="key-link">去申请</a>' : '')
+  if (p.keyUrl) {
+    const link = document.getElementById('key-link')
+    if (link) link.onclick = (e) => { e.preventDefault(); api.openExternal(p.keyUrl) }
+  }
+  if (p.customBaseURL || p.customModel) {
+    els.aiExtraRow.style.display = 'flex'
+    els.aiBaseURL.value = aiCurrentConfig.baseURL || p.baseURL || ''
+    els.aiModel.value = aiCurrentConfig.model || p.defaultModel || ''
+  } else {
+    els.aiExtraRow.style.display = 'none'
+  }
+  els.aiApiKey.value = ''
+  els.aiStatus.className = 'ai-status'
+  els.aiStatus.textContent = ''
+}
+
+function showAIStatus(msg, ok) {
+  els.aiStatus.className = 'ai-status show ' + (ok ? 'success' : 'error')
+  els.aiStatus.textContent = msg
+}
+
+function buildConfigFromForm() {
+  const cfg = {
+    provider: aiSelectedProvider,
+    apiKey: els.aiApiKey.value.trim() || (aiCurrentConfig.hasApiKey && aiCurrentConfig.provider === aiSelectedProvider ? '__KEEP__' : '')
+  }
+  const p = aiProviders.find(x => x.id === aiSelectedProvider)
+  if (p && p.customBaseURL) cfg.baseURL = els.aiBaseURL.value.trim()
+  if (p && p.customModel) cfg.model = els.aiModel.value.trim()
+  else if (p) cfg.model = p.defaultModel
+  return cfg
+}
+
+els.aiToggleKey.onclick = () => {
+  els.aiApiKey.type = els.aiApiKey.type === 'password' ? 'text' : 'password'
+}
+
+els.aiTest.onclick = async () => {
+  const cfg = buildConfigFromForm()
+  if (cfg.apiKey === '__KEEP__') cfg.apiKey = ''  // 测试时不能保留，让服务器报错
+  els.aiTest.disabled = true
+  showAIStatus('测试中...', true)
+  try {
+    const r = await api.testAIConnection(cfg)
+    if (r.success) showAIStatus('✅ ' + (r.message || '连接成功'), true)
+    else showAIStatus('❌ ' + (r.error || '连接失败'), false)
+  } catch (e) {
+    showAIStatus('❌ ' + e.message, false)
+  }
+  els.aiTest.disabled = false
+}
+
+els.aiSave.onclick = async () => {
+  const cfg = buildConfigFromForm()
+  if (cfg.apiKey === '__KEEP__') cfg.apiKey = ''  // 保存时也不传，让 main 保留原 key
+  els.aiSave.disabled = true
+  try {
+    const r = await api.saveAIConfig(cfg)
+    if (r.success) {
+      els.aiModal.classList.remove('show')
+      loadNotes()
+    } else {
+      showAIStatus('❌ ' + (r.error || '保存失败'), false)
+    }
+  } catch (e) {
+    showAIStatus('❌ ' + e.message, false)
+  }
+  els.aiSave.disabled = false
+}
+
+els.aiCancel.onclick = () => {
+  els.aiModal.classList.remove('show')
+}
+
+els.aiModal.addEventListener('click', (e) => {
+  if (e.target === els.aiModal) els.aiModal.classList.remove('show')
+})
 
 async function editNote(note) {
   // 简化: 用 prompt (虽然 contextIsolation 下 disabled, 主进程可走 IPC 弹窗; 暂留 TODO)

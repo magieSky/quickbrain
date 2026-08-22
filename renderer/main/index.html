@@ -167,6 +167,36 @@
     .form-row .form-group { flex: 1; }
     .modal-actions { display: flex; gap: 8px; margin-top: 16px; justify-content: flex-end; }
     .modal-actions .btn { flex: 0 0 auto; padding: 8px 20px; }
+    /* ====== AI 设置弹窗 ====== */
+    .ai-modal { max-width: 560px; }
+    .provider-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; margin-bottom: 16px; }
+    .provider-card {
+      padding: 10px 12px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.15s;
+      text-align: center;
+    }
+    .provider-card:hover { background: rgba(120,150,255,0.1); border-color: rgba(120,150,255,0.3); }
+    .provider-card.active { background: rgba(120,150,255,0.2); border-color: rgba(120,150,255,0.6); }
+    .provider-card .picon { font-size: 24px; display: block; margin-bottom: 4px; }
+    .provider-card .pname { font-size: 12px; font-weight: 500; color: #fff; }
+    .provider-card .pdesc { font-size: 10px; color: rgba(255,255,255,0.45); margin-top: 2px; line-height: 1.3; }
+    .ai-form { display: none; }
+    .ai-form.show { display: block; }
+    .ai-form .key-row { display: flex; gap: 6px; align-items: center; }
+    .ai-form .key-row input { flex: 1; font-family: ui-monospace; font-size: 12px; }
+    .ai-form .form-hint { font-size: 10px; color: rgba(255,255,255,0.4); margin-top: 4px; }
+    .ai-form .form-hint a { color: rgba(120,150,255,0.7); text-decoration: none; }
+    .ai-form .form-hint a:hover { text-decoration: underline; }
+    .ai-status { margin-top: 8px; padding: 8px 10px; border-radius: 6px; font-size: 11px; display: none; }
+    .ai-status.show { display: block; }
+    .ai-status.success { background: rgba(80,200,120,0.15); color: #7ed99a; }
+    .ai-status.error { background: rgba(255,80,80,0.15); color: #ff9a9a; }
+    .ai-current { font-size: 11px; color: rgba(255,255,255,0.4); margin-bottom: 12px; padding: 8px 12px; background: rgba(255,255,255,0.03); border-radius: 6px; }
+
   </style>
 </head>
 <body>
@@ -232,6 +262,42 @@
       <div class="modal-actions">
         <button class="btn" id="modal-cancel">取消</button>
         <button class="btn primary" id="modal-save">保存</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- AI 设置弹窗 -->
+  <div class="modal-overlay" id="ai-modal">
+    <div class="modal ai-modal">
+      <h2>🤖 AI 设置</h2>
+      <div class="ai-current" id="ai-current">未配置</div>
+      <div class="provider-list" id="provider-list"></div>
+      <div class="ai-form" id="ai-form">
+        <div class="form-group">
+          <label class="form-label" id="ai-form-title">API Key</label>
+          <div class="key-row">
+            <input type="password" class="form-input" id="ai-apikey" placeholder="sk-...">
+            <button class="btn" id="ai-toggle-key" style="flex: 0 0 auto; padding: 8px 12px;">👁</button>
+          </div>
+          <div class="form-hint" id="ai-key-hint"></div>
+        </div>
+        <div class="form-row" id="ai-extra-row" style="display: none;">
+          <div class="form-group">
+            <label class="form-label">Base URL</label>
+            <input type="text" class="form-input" id="ai-baseurl" placeholder="http://localhost:11434/v1">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Model</label>
+            <input type="text" class="form-input" id="ai-model" placeholder="qwen2.5:7b">
+          </div>
+        </div>
+        <div class="ai-status" id="ai-status"></div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" id="ai-cancel">取消</button>
+        <button class="btn" id="ai-test">测试连接</button>
+        <button class="btn primary" id="ai-save">保存</button>
       </div>
     </div>
   </div>

@@ -12,6 +12,13 @@ contextBridge.exposeInMainWorld('quickbrain', {
   formatWithAI: (params) => ipcRenderer.invoke('format-with-ai', params),
   categorizeWithAI: (params) => ipcRenderer.invoke('categorize-with-ai', params),
 
+  // AI config
+  getProviders: () => ipcRenderer.invoke('get-ai-providers'),
+  getAIConfig: () => ipcRenderer.invoke('get-ai-config'),
+  saveAIConfig: (cfg) => ipcRenderer.invoke('save-ai-config', cfg),
+  testAIConnection: (cfg) => ipcRenderer.invoke('test-ai-connection', cfg),
+  openExternal: (url) => ipcRenderer.invoke('open-external', url),
+
   // Forward renderer logs to main process log file
   log: (level, args) => ipcRenderer.send('debug-log', { level, args }),
 

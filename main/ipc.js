@@ -1,4 +1,8 @@
-const { ipcMain, BrowserWindow } = require('electron')
+﻿const { ipcMain, BrowserWindow, app } = require('electron')
+const fs = require('fs')
+const path = require('path')
+const { PROVIDERS } = require('./ai/providers.mjs')
+const { AIService } = require('./ai/service.mjs')
 const { getDB } = require('./db-init')
 const { addNote, searchNotes, getNoteById } = require('./db/search')
 
@@ -7,6 +11,30 @@ let aiService = null
 function setAIService(service) {
   aiService = service
 }
+
+function getConfigPath() {
+  return path.join(app.getPath('userData'), 'config.json')
+}
+
+function readConfig() {
+  const p = getConfigPath()
+  if (!fs.existsSync(p)) return {}
+  try { return JSON.parse(fs.readFileSync(p, 'utf8')) }
+  catch (e) { console.error('[ipc] readConfig failed:', e.message); return {} }
+}
+
+function writeConfig(cfg) {
+  fs.writeFileSync(getConfigPath(), JSON.stringify(cfg, null, 2), 'utf8')
+}
+
+function buildService(cfg) {
+  if (!cfg || !cfg.provider) return null
+  const provider = PROVIDERS.find(p => p.id === cfg.provider)
+  if (!provider) return null
+  if (provider.requiresApiKey && !cfg.apiKey) return null
+  return new AIService(cfg)
+}
+
 
 function registerIpcHandlers() {
   ipcMain.on('debug-log', (event, { level, args }) => {
@@ -46,17 +74,17 @@ function registerIpcHandlers() {
   })
 
   ipcMain.handle('format-with-ai', async (event, { content, style }) => {
-    if (!aiService) return { success: false, error: '未配置 AI 服务' }
+    if (!aiService) return { success: false, error: '鏈厤缃?AI 鏈嶅姟' }
     return await aiService.formatContent(content, style)
   })
 
   ipcMain.handle('categorize-with-ai', async (event, { content }) => {
-    if (!aiService) return { success: false, error: '未配置 AI 服务' }
+    if (!aiService) return { success: false, error: '鏈厤缃?AI 鏈嶅姟' }
     return await aiService.categorizeContent(content)
   })
 
   ipcMain.handle('semantic-search', async (event, { query, candidateSummaries }) => {
-    if (!aiService) return { success: false, error: '未配置 AI 服务' }
+    if (!aiService) return { success: false, error: '鏈厤缃?AI 鏈嶅姟' }
     return await aiService.semanticSearch(query, candidateSummaries)
   })
 
@@ -95,6 +123,12 @@ function registerIpcHandlers() {
     app.quit()
   })
 
+  ipcMain.handle('open-external', async (event, url) => {
+    const { shell } = require('electron')
+    if (/^https?:\/\//.test(url)) await shell.openExternal(url)
+    return true
+  })
+
   ipcMain.on('hide-window', (event) => {
     const win = BrowserWindow.fromWebContents(event.sender)
     if (win) win.hide()
@@ -103,6 +137,63 @@ function registerIpcHandlers() {
   ipcMain.on('show-window', (event) => {
     const win = BrowserWindow.fromWebContents(event.sender)
     if (win) win.show()
+  })
+
+
+  ipcMain.handle('get-ai-providers', async () => {
+    return PROVIDERS.map(p => ({
+      id: p.id, name: p.name, icon: p.icon, description: p.description,
+      defaultModel: p.defaultModel, models: p.models,
+      requiresApiKey: p.requiresApiKey, customBaseURL: !!p.customBaseURL,
+      customModel: !!p.customModel, keyHint: p.keyHint, keyUrl: p.keyUrl,
+      baseURL: p.baseURL
+    }))
+  })
+
+  ipcMain.handle('get-ai-config', async () => {
+    const cfg = readConfig()
+    const provider = cfg.provider ? PROVIDERS.find(p => p.id === cfg.provider) : null
+    return {
+      provider: cfg.provider || null,
+      hasApiKey: !!cfg.apiKey,
+      apiKeyPreview: cfg.apiKey ? cfg.apiKey.slice(0, 4) + '****' : null,
+      model: cfg.model || (provider && provider.defaultModel) || null,
+      baseURL: cfg.baseURL || null
+    }
+  })
+
+  ipcMain.handle('save-ai-config', async (event, cfg) => {
+    try {
+      const clean = {
+        provider: cfg.provider,
+        apiKey: cfg.apiKey || '',
+        model: cfg.model || undefined,
+        baseURL: cfg.baseURL || undefined
+      }
+      const provider = PROVIDERS.find(p => p.id === clean.provider)
+      if (!provider) return { success: false, error: '未知的 provider' }
+      if (provider.requiresApiKey && !clean.apiKey) return { success: false, error: '请填写 API Key' }
+      writeConfig(clean)
+      const newService = buildService(clean)
+      setAIService(newService)
+      console.log('[ipc] save-ai-config: provider=' + clean.provider + ' service=' + (newService ? 'OK' : 'NULL'))
+      return { success: true, info: newService ? newService.getInfo() : null }
+    } catch (e) {
+      return { success: false, error: e.message }
+    }
+  })
+
+  ipcMain.handle('test-ai-connection', async (event, cfg) => {
+    try {
+      const provider = PROVIDERS.find(p => p.id === cfg.provider)
+      if (!provider) return { success: false, error: '未知的 provider' }
+      if (provider.requiresApiKey && !cfg.apiKey) return { success: false, error: '请填写 API Key' }
+      const service = buildService(cfg)
+      if (!service) return { success: false, error: '无法创建服务' }
+      return await service.testConnection()
+    } catch (e) {
+      return { success: false, error: e.message }
+    }
   })
 
   ipcMain.on('locate-note', (event, id) => {
@@ -118,3 +209,4 @@ function safeParse(str, fallback) {
 }
 
 module.exports = { registerIpcHandlers, setAIService }
+

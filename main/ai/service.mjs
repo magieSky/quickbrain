@@ -1,14 +1,29 @@
 import OpenAI from 'openai'
 import { SYSTEM_PROMPT, CATEGORIZE_PROMPT, buildFormatPrompt, buildSemanticSearchPrompt } from './prompts.mjs'
+import { getProvider } from './providers.mjs'
 
 export class AIService {
-  constructor(config) {
-    this.client = new OpenAI({
-      apiKey: config.apiKey,
-      baseURL: config.baseURL || 'https://api.deepseek.com'
-    })
-    this.model = config.model || 'deepseek-chat'
+  constructor(config = {}) {
+    const provider = getProvider(config.provider) || getProvider('deepseek')
+    this.providerId = provider.id
+    this.providerName = provider.name
+    this.defaultModel = config.model || provider.defaultModel
     this.defaultStyle = config.defaultStyle || 'summary'
+
+    const baseURL = config.baseURL || provider.baseURL
+    const apiKey = provider.requiresApiKey
+      ? (config.apiKey || '')
+      : (config.apiKey || 'ollama')
+
+    this.client = new OpenAI({ apiKey, baseURL })
+  }
+
+  getInfo() {
+    return {
+      provider: this.providerId,
+      providerName: this.providerName,
+      model: this.defaultModel
+    }
   }
 
   async formatContent(content, style = null) {
@@ -16,7 +31,7 @@ export class AIService {
     const userPrompt = buildFormatPrompt(content, selectedStyle)
     try {
       const response = await this.client.chat.completions.create({
-        model: this.model,
+        model: this.defaultModel,
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
           { role: 'user', content: userPrompt }
@@ -26,14 +41,14 @@ export class AIService {
       })
       return { success: true, formattedContent: response.choices[0].message.content.trim() }
     } catch (error) {
-      return { success: false, error: error.message || '格式化失败' }
+      return { success: false, error: error.message || '\u683C\u5F0F\u5316\u5931\u8D25' }
     }
   }
 
   async categorizeContent(content) {
     try {
       const response = await this.client.chat.completions.create({
-        model: this.model,
+        model: this.defaultModel,
         messages: [
           { role: 'system', content: CATEGORIZE_PROMPT },
           { role: 'user', content: (content || '').substring(0, 1000) }
@@ -43,11 +58,11 @@ export class AIService {
       })
       const result = JSON.parse(response.choices[0].message.content)
       return {
-        category: result.category || '其他',
+        category: result.category || '\u5176\u4ED6',
         tags: (result.tags || '').split(',').map(t => t.trim()).filter(t => t)
       }
     } catch (error) {
-      return { category: '其他', tags: [], error: error.message }
+      return { category: '\u5176\u4ED6', tags: [], error: error.message }
     }
   }
 
@@ -55,9 +70,9 @@ export class AIService {
     const userPrompt = buildSemanticSearchPrompt(query, candidateSummaries)
     try {
       const response = await this.client.chat.completions.create({
-        model: this.model,
+        model: this.defaultModel,
         messages: [
-          { role: 'system', content: '你是一个语义检索助手。请分析用户查询，从候选笔记中返回最相关的笔记。' },
+          { role: 'system', content: '\u4F60\u662F\u4E00\u4E2A\u8BED\u4E49\u641C\u7D22\u52A9\u624B\u3002\u8BF7\u5206\u6790\u7528\u6237\u67E5\u8BE2\uFF0C\u4ECE\u5019\u9009\u7B14\u8BB0\u4E2D\u8FD4\u56DE\u6700\u76F8\u5173\u7684\u7B14\u8BB0\u3002' },
           { role: 'user', content: userPrompt }
         ],
         response_format: { type: 'json_object' },
@@ -70,6 +85,19 @@ export class AIService {
       }
     } catch (error) {
       return { matchedIds: [], reasoning: '', error: error.message }
+    }
+  }
+
+  async testConnection() {
+    try {
+      const response = await this.client.chat.completions.create({
+        model: this.defaultModel,
+        messages: [{ role: 'user', content: 'hi' }],
+        max_tokens: 5
+      })
+      return { success: true, message: '\u8FDE\u63A5\u6210\u529F' }
+    } catch (error) {
+      return { success: false, error: error.message || '\u8FDE\u63A5\u5931\u8D25' }
     }
   }
 }

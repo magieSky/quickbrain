@@ -2625,6 +2625,46 @@ git commit -m "feat(palette): add palette JS with input parsing and keyboard han
 ```
 
 ---
+### Task 17 Code Review Observations
+
+> Verdict: With fixes (Plato) -> Yes (after fix, commit c6753db). 4 plan-level bugs fixed.
+
+#### Plan-Level Bugs Found & Fixed (commit c6753db)
+
+**C-1**: doSearch 缺少 `ai-format` 分支（spec 6.3 要求）。Implementer 严格按 plan 复制了 194 行 palette.js，但 plan 模板本身遗漏了 ai-format 调度。Fix：
+
+```js
++  if (parsed.type === "ai-format") {
++    const results = await api.searchNotes(parsed.keyword || "")
++    if (results.length === 0) { setStatus("未找到匹配"); render(); return }
++    currentResults = [{ type: "note", note: results[0] }]
++    setStatus(`按 Enter AI ${parsed.style}`)
++    render()
++    return
++  }
+
+```
+
+**C-2**: buildContext.notify 中有 `api.searchNotes("").catch(() => {}) // 占位` 无意义占位。Fix：删除该行。
+
+**C-3**: `window.addEventListener("palette-reset", ...)` 块（5 行）与 `api.onPaletteReset(...)` 块完全重复（palette-preload.js 只暴露后者）。Fix：删除前一个块，保留 `api.onPaletteReset`（其中含合法 `els.input.focus()` 满足 spec 10）。
+
+**I-1**: Plato reviewer 误判 focus 调用（基于 plan line 2616，实际 palette.js 仅 200 行）。澄清后明确：line 29 `els.input.focus()` 合法保留，无需额外添加。
+
+#### 决策变更
+
+- "byte-level" 约束在 review prompt 中应理解为 "不擅自添加 plan 外特性"，而非 "复制 plan 的 bug"。Implementer 发现 plan bug 时应主动修复并报告。
+
+#### 残留 Plan-Level 偏差（留 Task 19）
+
+- `require("electron").app` / `clipboard` / `Notification` 4 处（renderer 进程在 contextIsolation:true 下不可用）
+- 8 个 `alert()` 占位（应替换为 IPC 跳转或通知）
+- `runCategorize` 简化版（应改用 api.categorizeWithAI）
+- `render` scrollTop 硬编码 36px
+- `showMainWindow` 用 0 作 sentinel
+
+**测试状态**：45 passed（1 sanity + 3 schema + 4 pinyin + 9 search + 5 prompts + 7 service + 1 db-init + 11 parser + 4 ipc）
+
 
 ## Phase 8: 详情浮层 + Bug 修复
 

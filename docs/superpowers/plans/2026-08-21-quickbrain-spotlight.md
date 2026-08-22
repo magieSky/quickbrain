@@ -2794,6 +2794,63 @@ load()
 **测试状态**: 45 passed（与 Task 17 一致，无新增测试 — plan 未要求）
 
 
+### Task 19 Code Review Observations
+
+> Verdict: **Yes** (self-verified, subagent reviewer errored with "high demand"). 3 commits: main.js refactor + 5 IPC channels + 8 renderer fixes.
+
+#### Commits
+
+| Hash | Message | Files |
+|---|---|---|
+| 5925cf2 | refactor(main): integrate modules into main.js entry point | main.js (rewrite) + ai-service.js (delete) |
+| 0144963 | feat(ipc): add 5 new IPC channels for renderer-side native access | main/db/search.js + main/ipc.js + preload/palette-preload.js + tests/ipc.test.js |
+| 8589f73 | fix(palette): replace plan-level require("electron")/alert with IPC | renderer/palette/palette.js + renderer/palette/detail.js |
+
+#### Plan-level bugs fixed (Step 1.5 修复)
+
+**B-1 (CRITICAL)**: detail.js `api.searchNotes("").find(...)` 永远 `[]` → 改用 `api.getNote(noteId)`。
+- 新增 `getNoteById(db, id)` in main/db/search.js
+- 新增 `get-note` IPC handler
+- `palette-preload.js` 暴露 `getNote(id)`
+- detail.js 改用 `api.getNote(noteId)`
+
+**B-2**: detail.js `require("electron").clipboard` 失败 → 改用 `api.writeClipboard(text)`。
+- 新增 `write-clipboard` IPC handler
+- `palette-preload.js` 暴露 `writeClipboard(text)`
+- detail.js 改用 `api.writeClipboard(...)`
+
+**B-3a/B-3b/B-3c/B-3d**: palette.js 4 处 `require("electron")` 替换为 IPC:
+- clipboard.writeText → api.writeClipboard
+- new Notification → api.notify
+- app.relaunch()/app.quit() → api.relaunch() / api.quit()
+- 新增 3 个 IPC handlers + palette-preload 暴露
+
+**B-4 (alert 占位)**: palette.js 9 个 alert() 占位:
+- 8 个改为 `api.locateNoteInMain(0); window.close()` (打开主窗口)
+- 1 个 (showAbout) 改为 `api.notify({...})`
+
+**B-5**: palette.js `runCategorize` 简化版 → 改用 `api.categorizeWithAI({ content })`
+
+**B-6 (minor)**: `showMainWindow: () => api.locateNoteInMain(0)` → `null` (0 是 note id 哨兵)
+
+**B-7 (minor)**: `render` scrollTop 36 硬编码 → 改为 `itemHeight` 常量 + `Math.max(0, ... - clientHeight/2)` 居中 clamp
+
+#### 关键决策
+
+1. **AIService ESM 处理**: plan 模板用 `require("./main/ai/service")`，但 `service.mjs` 是 ESM。Electron 28 Node 18.18.2 不支持 `require(esm)`。
+   - 改用 `const { AIService } = await import("./main/ai/service.mjs")` 在 `app.whenReady().then(async () => { ... })` 内
+   - `openAISettings` 闭包 `AIService` 引用避免循环依赖
+
+2. **main.js 体积**: 重写后 91 行（原 200 行），与 plan 模板 byte-level 一致（仅 ESM 处理 4 行差异）
+
+3. **测试覆盖**: 50 passed (45 + 5 new IPC tests). 5 个新测试覆盖 get-note/write-clipboard/notify/relaunch/quit
+
+#### 残留 plan-level bug（无）
+
+所有 Task 17/18 review 报告的 plan-level bug (B-1..B-7) 均已修复。
+
+**测试状态**: 50 passed (1 sanity + 3 schema + 4 pinyin + 9 search + 5 prompts + 7 service + 1 db-init + 11 parser + 9 ipc)
+
 - [ ] **Step 3: Commit**
 
 ```bash

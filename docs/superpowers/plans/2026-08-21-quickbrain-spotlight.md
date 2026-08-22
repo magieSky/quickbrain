@@ -3105,6 +3105,43 @@ git commit -m "chore: ignore build artifacts"
 
 ---
 
+### Task 21 Code Review Observations
+
+> Verdict: **Yes** (with 2 环境调整). NSIS installer 110.6 MB 生成成功.
+
+#### 构建产物
+
+| File | Size | 用途 |
+|---|---|---|
+| `dist/win-unpacked/QuickBrain.exe` | 176 MB | Unpacked Electron app (可直接运行) |
+| `dist/QuickBrain Setup 1.0.0.exe` | 110.6 MB | NSIS installer (双击安装) |
+| `dist/QuickBrain Setup 1.0.0.exe.blockmap` | 117 KB | Block map (delta updates) |
+
+#### 配置调整 (commit 814aa1e)
+
+1. **移除 `build.win.icon`**: electron-builder 无法解析手写 16x16 placeholder PNG (`flate: corrupt input before offset 9`). 改用默认 Electron 图标.
+2. **设置 `signAndEditExecutable: false`**: winCodeSign 7z 包含 darwin symlink, Windows 普通用户无 SeCreateSymbolicLinkPrivilege 权限.
+
+#### 跳过的 plan step
+
+- Step 3 (`echo "build/" >> .gitignore`): .gitignore 已包含 `dist/`, 无需修改.
+
+#### 验证状态
+
+- [x] `npm run build:win` 成功
+- [x] `dist/QuickBrain Setup 1.0.0.exe` 生成
+- [ ] 双击安装 (待用户在桌面执行)
+- [ ] 安装后启动验证 (待用户执行)
+
+#### 未来优化
+
+- 用 `png2icons` / `sharp` 生成有效 256x256 ICO 替换默认 icon
+- 配置 code signing certificate 重启 signing (避免 SmartScreen 警告)
+- CI 缓存 `~/.cache/electron-builder` 加速重复构建
+
+**测试状态**: 50 passed (Node ABI 137)
+**构建状态**: NSIS installer 生成 (commit 814aa1e)
+
 ## Self-Review Checklist
 
 - [x] **Spec coverage**: 13 个 spec 章节均有对应任务

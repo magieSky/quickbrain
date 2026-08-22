@@ -1120,7 +1120,7 @@ git commit -m "feat(main): add database initialization module"
 **Files:**
 - Create: `main/ipc.js`
 
-- [ ] **Step 1: 写失败的测试**
+- [x] **Step 1: 写失败的测试**
 
 创建 `E:\note\quickbrain\tests\ipc.test.js`：
 
@@ -1188,7 +1188,7 @@ describe('ipc', () => {
 })
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 ```bash
 cd E:\note\quickbrain
@@ -1197,7 +1197,7 @@ npm test -- tests/ipc.test.js
 
 期望：Cannot find module ipc.js —— 测试失败。
 
-- [ ] **Step 3: 实现 ipc.js**
+- [x] **Step 3: 实现 ipc.js**
 
 创建 `E:\note\quickbrain\main\ipc.js`：
 
@@ -1286,7 +1286,7 @@ function safeParse(str, fallback) {
 module.exports = { registerIpcHandlers, setAIService }
 ```
 
-- [ ] **Step 4: 跑测试验证通过**
+- [x] **Step 4: 跑测试验证通过**
 
 ```bash
 cd E:\note\quickbrain
@@ -1295,7 +1295,7 @@ npm test -- tests/ipc.test.js
 
 期望：4 个 ipc 测试通过。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 cd E:\note\quickbrain
@@ -1303,6 +1303,16 @@ git add main/ipc.js tests/ipc.test.js
 git commit -m "feat(main): add IPC handlers for notes/search/AI"
 ```
 
+
+
+### Task 8 实施偏差说明
+
+> 由 Task 8 spec reviewer (Confucius) 记录。**Verdict: With fixes**（仅 plan hygiene 问题），代码实现 verdict: Yes。
+
+- **偏差 1 (ESM/CJS)**: 实现未保留 plan 中的 ``const { AIService } = require('./ai/service')`` 行，因 ``AIService`` 在 ipc.js 中未被使用（死代码）。caller 改为在 Task 19 main.js 中通过 dynamic import 拿到实例后调用 ``setAIService(instance)``。这避免了对重构后 ``service.mjs`` 的 CJS require 错误（Electron 28 Node 18.18.2 不支持 require(esm)）。
+- **偏差 2 (测试 mock)**: vitest 1.x 对 ``.js`` 文件的 CJS require chain 不生效（``vi.mock`` 仅拦截 ESM ``import``）。改用 ``Module._cache`` 劫持（与 Task 7 db-init.test.js 同模式）。
+- **偏差 3 (测试注册)**: plan Step 1 测试代码假设 ``await import('../main/ipc.js')`` 即注册所有 handler，但 plan Step 3 实现代码把注册包在 ``registerIpcHandlers()`` 函数内。Implementer 选择在 ``beforeEach`` 中显式调用 ``registerIpcHandlers()`` 以匹配实际实现。
+- **偏差 4 (commit message)**: implementer 用 ``feat(main): add IPC handlers``，plan 模板建议 ``feat(main): add IPC handlers for notes/search/AI``。两者均合规（conventional commits 规范）。
 ---
 
 ### Task 9: 实现全局快捷键

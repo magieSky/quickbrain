@@ -8,7 +8,7 @@ const { createTray, notify } = require('./main/tray')
 const {
   createPaletteWindow, createMainWindow,
   showPalette, hidePalette, togglePalette,
-  toggleMainWindow, showMainWindow
+  toggleMainWindow, showMainWindow, getMainWindow
 } = require('./main/windows')
 
 function loadAIConfig(AIService) {
@@ -42,6 +42,18 @@ function openAISettings(AIService) {
   })
 }
 
+
+function showAddDialog() {
+  showMainWindow()
+  const win = getMainWindow()
+  if (win && !win.isDestroyed()) {
+    // 等渲染进程 ready 后再发送事件
+    setTimeout(() => {
+      win.webContents.send('show-add-dialog')
+    }, 100)
+  }
+}
+
 app.whenReady().then(async () => {
   await initDatabase()
 
@@ -65,7 +77,7 @@ app.whenReady().then(async () => {
   registerShortcuts({
     onPalette: togglePalette,
     onMainWindow: toggleMainWindow,
-    onAddNote: () => showPalette()
+    onAddNote: showAddDialog
   })
 
   app.on('activate', () => {

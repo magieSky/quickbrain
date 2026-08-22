@@ -3,13 +3,17 @@ const api = window.quickbrain
 const els = {
   search: document.getElementById('search-input'),
   list: document.getElementById('note-list'),
-  empty: document.getElementById('empty-state'),
   stats: document.getElementById('stats'),
   status: document.getElementById('status'),
   filters: document.getElementById('filters'),
   addBtn: document.getElementById('add-btn'),
   aiBtn: document.getElementById('ai-btn'),
-  settingsBtn: document.getElementById('settings-btn')
+  settingsBtn: document.getElementById('settings-btn'),
+  modal: document.getElementById('add-modal'),
+  modalContent: document.getElementById('modal-content'),
+  modalCategory: document.getElementById('modal-category'),
+  modalSave: document.getElementById('modal-save'),
+  modalCancel: document.getElementById('modal-cancel')
 }
 
 let allNotes = []
@@ -53,7 +57,7 @@ function render() {
       '<div class="empty">' +
         '<div class="icon">📝</div>' +
         '<div>还没有记录</div>' +
-        '<div class="hint">按 <kbd>Ctrl</kbd>+<kbd>A</kbd> 快速添加，或点击上方按钮</div>' +
+        '<div class="hint">按 <kbd>Ctrl</kbd>+<kbd>A</kbd> 或点击上方按钮添加</div>' +
       '</div>'
     return
   }
@@ -117,6 +121,54 @@ function formatDate(d) {
 
 function setStatus(text) { els.status.textContent = text }
 
+// ===== 添加笔记弹窗 =====
+function showAddModal() {
+  els.modalContent.value = ''
+  els.modalCategory.value = currentCategory === 'all' ? '其他' : currentCategory
+  els.modal.classList.add('show')
+  setTimeout(() => els.modalContent.focus(), 50)
+}
+
+function hideAddModal() {
+  els.modal.classList.remove('show')
+}
+
+async function saveModal() {
+  const content = els.modalContent.value.trim()
+  if (!content) {
+    setStatus('内容不能为空')
+    els.modalContent.focus()
+    return
+  }
+  const title = content.split('\n')[0].trim().substring(0, 50) || '(无标题)'
+  const category = els.modalCategory.value
+  els.modalSave.disabled = true
+  els.modalSave.textContent = '保存中...'
+  try {
+    await api.addNote({ content, title, category })
+    hideAddModal()
+    await loadNotes()
+    setStatus('已添加')
+  } catch (e) {
+    setStatus('添加失败: ' + e.message)
+  } finally {
+    els.modalSave.disabled = false
+    els.modalSave.textContent = '保存'
+  }
+}
+
+els.addBtn.onclick = showAddModal
+els.modalCancel.onclick = hideAddModal
+els.modalSave.onclick = saveModal
+els.modal.onclick = (e) => { if (e.target === els.modal) hideAddModal() }
+
+// 弹窗内键盘: Esc 关闭, Ctrl+Enter 保存
+els.modal.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') { e.preventDefault(); hideAddModal() }
+  else if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); saveModal() }
+})
+
+// ===== 搜索 & 筛选 =====
 let searchTimer = null
 els.search.addEventListener('input', () => {
   clearTimeout(searchTimer)
@@ -135,19 +187,6 @@ els.filters.addEventListener('click', (e) => {
   render()
 })
 
-els.addBtn.onclick = async () => {
-  const content = prompt('输入笔记内容:')
-  if (!content) return
-  const title = content.split('\n')[0].trim().substring(0, 50) || '(无标题)'
-  try {
-    await api.addNote({ content, title, category: currentCategory === 'all' ? '其他' : currentCategory })
-    await loadNotes()
-    setStatus('已添加')
-  } catch (e) {
-    setStatus('添加失败: ' + e.message)
-  }
-}
-
 els.aiBtn.onclick = () => {
   api.notify({ title: 'AI 格式化', body: '请使用 Ctrl+K 唤起命令面板，输入 "ai 摘要 关键字" 使用' })
 }
@@ -157,7 +196,8 @@ els.settingsBtn.onclick = () => {
 }
 
 async function editNote(note) {
-  const newContent = prompt('编辑内容:', note.content)
+  // 简化: 用 prompt (虽然 contextIsolation 下 disabled, 主进程可走 IPC 弹窗; 暂留 TODO)
+  const newContent = window.prompt('编辑内容:', note.content)
   if (newContent === null) return
   try {
     await api.updateNote({ id: note.id, content: newContent, title: newContent.split('\n')[0].trim().substring(0, 50) || '(无标题)' })
@@ -168,6 +208,7 @@ async function editNote(note) {
   }
 }
 
+// ===== 主进程事件 =====
 if (api.onLocateNote) {
   api.onLocateNote((id) => {
     const note = allNotes.find(n => n.id === id)
@@ -179,6 +220,12 @@ if (api.onLocateNote) {
       render()
       setStatus('定位到笔记 #' + id)
     }
+  })
+}
+
+if (api.onShowAddDialog) {
+  api.onShowAddDialog(() => {
+    showAddModal()
   })
 }
 

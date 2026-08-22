@@ -19,5 +19,10 @@ contextBridge.exposeInMainWorld('quickbrain', {
   // Listen for locate-note event
   onLocateNote: (callback) => {
     ipcRenderer.on('locate-note', (event, id) => callback(id))
+  },
+
+  // Listen for show-add-dialog event (triggered by Ctrl+A)
+  onShowAddDialog: (callback) => {
+    ipcRenderer.on('show-add-dialog', () => callback())
   }
 })

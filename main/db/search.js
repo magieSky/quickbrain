@@ -76,6 +76,21 @@ function searchNotes(db, query, limit = 20) {
   }))
 }
 
+
+function getNoteById(db, id) {
+  if (!id) return null
+  const row = db.prepare('SELECT * FROM notes WHERE id = ?').get(id)
+  if (!row) return null
+  return {
+    id: row.id,
+    title: row.title,
+    content: row.content,
+    category: row.category,
+    tags: safeParseJSON(row.tags, []),
+    created_at: row.created_at
+  }
+}
+
 function safeParseJSON(str, fallback) {
   try { return JSON.parse(str) } catch { return fallback }
 }

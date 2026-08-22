@@ -1,6 +1,6 @@
 const { ipcMain, BrowserWindow } = require('electron')
 const { getDB } = require('./db-init')
-const { addNote, searchNotes } = require('./db/search')
+const { addNote, searchNotes, getNoteById } = require('./db/search')
 
 let aiService = null
 
@@ -54,6 +54,35 @@ function registerIpcHandlers() {
     const db = getDB()
     return db.prepare('SELECT * FROM notes ORDER BY created_at DESC').all()
       .map(row => ({ ...row, tags: safeParse(row.tags, []) }))
+  })
+
+
+  ipcMain.handle('get-note', async (event, id) => {
+    const db = getDB()
+    return getNoteById(db, id)
+  })
+
+  ipcMain.handle('write-clipboard', async (event, text) => {
+    const { clipboard } = require('electron')
+    clipboard.writeText(text || '')
+    return true
+  })
+
+  ipcMain.handle('notify', async (event, { title, body }) => {
+    const { Notification } = require('electron')
+    new Notification({ title, body }).show()
+    return true
+  })
+
+  ipcMain.handle('relaunch', async () => {
+    const { app } = require('electron')
+    app.relaunch()
+    app.quit()
+  })
+
+  ipcMain.handle('quit', async () => {
+    const { app } = require('electron')
+    app.quit()
   })
 
   ipcMain.on('hide-window', (event) => {

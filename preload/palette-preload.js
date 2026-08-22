@@ -11,6 +11,12 @@ contextBridge.exposeInMainWorld('paletteAPI', {
   formatWithAI: (params) => ipcRenderer.invoke('format-with-ai', params),
   semanticSearch: (params) => ipcRenderer.invoke('semantic-search', params),
 
+  getNote: (id) => ipcRenderer.invoke('get-note', id),
+  writeClipboard: (text) => ipcRenderer.invoke('write-clipboard', text),
+  notify: (params) => ipcRenderer.invoke('notify', params),
+  relaunch: () => ipcRenderer.invoke('relaunch'),
+  quit: () => ipcRenderer.invoke('quit'),
+
   // Cross-window navigation
   locateNoteInMain: (id) => ipcRenderer.send('locate-note', id),
 

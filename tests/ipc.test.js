@@ -21,9 +21,11 @@ Module.default._cache[electronResolved] = { exports: electronStub, id: electronR
 const mockAddNote = vi.fn().mockReturnValue(1)
 const mockSearchNotes = vi.fn().mockReturnValue([{ id: 1, title: 'test' }])
 
+const mockGetNoteById = vi.fn().mockReturnValue({ id: 1, title: 'test', content: 'x' })
 const searchStub = {
   addNote: (...args) => mockAddNote(...args),
-  searchNotes: (...args) => mockSearchNotes(...args)
+  searchNotes: (...args) => mockSearchNotes(...args),
+  getNoteById: (...args) => mockGetNoteById(...args)
 }
 const searchResolved = req.resolve('../main/db/search.js')
 Module.default._cache[searchResolved] = { exports: searchStub, id: searchResolved, loaded: true, children: [], paths: [] }
@@ -63,5 +65,28 @@ describe('ipc', () => {
     const result = await mockHandlers['search-notes'](null, { search: 'hello' })
     expect(mockSearchNotes).toHaveBeenCalled()
     expect(result).toEqual([{ id: 1, title: 'test' }])
+  })
+
+  it('registers get-note handler', () => {
+    expect(mockHandlers['get-note']).toBeDefined()
+  })
+
+  it('get-note handler calls getNoteById', async () => {
+    const result = await mockHandlers['get-note'](null, 1)
+    expect(mockGetNoteById).toHaveBeenCalled()
+    expect(result).toEqual({ id: 1, title: 'test', content: 'x' })
+  })
+
+  it('registers write-clipboard handler', () => {
+    expect(mockHandlers['write-clipboard']).toBeDefined()
+  })
+
+  it('registers notify handler', () => {
+    expect(mockHandlers['notify']).toBeDefined()
+  })
+
+  it('registers relaunch and quit handlers', () => {
+    expect(mockHandlers['relaunch']).toBeDefined()
+    expect(mockHandlers['quit']).toBeDefined()
   })
 })

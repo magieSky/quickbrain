@@ -2036,7 +2036,7 @@ git commit -m "feat(palette): add HTML structure and styles"
 - Create: `renderer/palette/commands/parser.js`
 - Create: `tests/renderer/palette/parser.test.js`
 
-- [ ] **Step 1: 写失败的测试**
+- [x] **Step 1: 写失败的测试**
 
 创建 `E:\note\quickbrain\tests\renderer\palette\parser.test.js`：
 
@@ -2084,7 +2084,7 @@ describe('palette parser', () => {
 })
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 ```bash
 cd E:\note\quickbrain
@@ -2093,7 +2093,7 @@ npm test -- tests/renderer/palette/parser.test.js
 
 期望：Cannot find module parser.js —— 测试失败。
 
-- [ ] **Step 3: 实现 parser.js**
+- [x] **Step 3: 实现 parser.js**
 
 创建 `E:\note\quickbrain\renderer\palette\commands\parser.js`：
 
@@ -2149,7 +2149,7 @@ function parseInput(input) {
 module.exports = { parseInput, COMMAND_NAMES, STYLE_MAP }
 ```
 
-- [ ] **Step 4: 跑测试验证通过**
+- [x] **Step 4: 跑测试验证通过**
 
 ```bash
 cd E:\note\quickbrain
@@ -2158,7 +2158,7 @@ npm test -- tests/renderer/palette/parser.test.js
 
 期望：6 个 parser 测试通过。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 cd E:\note\quickbrain
@@ -2167,6 +2167,52 @@ git commit -m "feat(palette): add input parser for commands/AI/new-content"
 ```
 
 ---
+
+
+### Task 15 Code & Spec Review Observations
+
+> Verdict: Yes (both Spec Pasteur and Code Halley). Implementation is **byte-level aligned with plan**, 11 tests pass (plan expected 6, +5 robustness).
+
+#### I-1: spec "21 条" vs plan "19 条" 数字口径 (plan-level)
+
+Spec §2.1 / §10 / §11.1 标题级数字 "21 条内置命令"，但 plan Task 15 模板 COMMAND_NAMES 只列 19 条（把 `?` 和 `ai` 当作 trigger 而非独立命令）。
+
+**当前决策**：保持 19 条（与 plan Task 15 模板一致）。spec "21 条" 是 plan-level 口径不一致。
+
+**Reconciler 建议**（未来 task）：
+- 选择 A：扩 COMMAND_NAMES 加 2 个 trigger entry（`?` 和 `ai`），保持 spec 数字
+- 选择 B：保留 19 条，修改 spec 文档 "21" → "19"
+- 选择 C（当前）：保留 19 条，标记为待 reconciler 决议
+
+不影响 Task 16-17 实施，因为 registry.js 复用 COMMAND_NAMES 数组。
+
+#### M-deviation: 11 vs 6 tests (positive coverage)
+
+Implementer 自加 5 个鲁棒性测试：
+- whitespace-only input → empty
+- 全角 `？` → ai-search
+- 大写 `AI ` → ai-format
+- meta: exports 19 command names
+- meta: exports STYLE_MAP with 4 styles
+
+两位 reviewer 都建议**保留**全部 11 个测试（不是 plan deviation，是正向覆盖）。
+
+#### Architecture Notes for Task 16/17
+
+- **Task 16 registry.js**: `const { COMMAND_NAMES } = require("./parser")` 复用常量，避免硬编码副本。
+- **Task 17 palette.js**: 基于 `parseInput` 输出 schema 调度：
+  - empty → 不调度（显示空状态）
+  - ai-search → IPC `semantic-search`
+  - ai-format → 先 `searchNotes` 选第一条，再 `runAIFormat(note, style)`
+  - command → `findCommand(name).execute(ctx, keyword)`
+  - new-content → IPC `addNote(content)` + 后台 AI 调度
+- 命令前缀匹配安全：COMMAND_NAMES 中没有 `打开` 这种被 `打开主窗口`/`打开设置` 覆盖的项，step 4 顺序遍历无风险。
+
+#### Minor Issues (non-blocking, future)
+
+- 全角空格 (U+3000) 不作为 `ai` 前缀分隔符（中文输入法场景，未来增强）。
+- `?`/`？` 单字输入产生空 query（parser 不报错，上层处理）。
+- `null`/`undefined` 输入兜底返回 empty（当前够用，未来可加严格类型校验）。
 
 ### Task 16: 命令注册表
 

@@ -2,6 +2,15 @@
 const { parseInput } = require('./commands/parser.js')
 const { findCommand } = require('./commands/registry.js')
 
+const log = (tag, msg, data) => {
+  const line = '[' + tag + '] ' + msg + (data ? ' ' + JSON.stringify(data) : '')
+  console.log(line)
+  if (window.paletteAPI && window.paletteAPI.log) {
+    window.paletteAPI.log('log', ['[palette]', line])
+  }
+}
+
+
 let selectedIndex = 0
 let currentResults = [] // [{type, group, ...}]
 

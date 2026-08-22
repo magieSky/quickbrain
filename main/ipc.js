@@ -9,6 +9,11 @@ function setAIService(service) {
 }
 
 function registerIpcHandlers() {
+  ipcMain.on('debug-log', (event, { level, args }) => {
+    const line = '[' + new Date().toISOString() + '] [renderer] [' + level + '] ' +
+      (args || []).map(a => typeof a === 'string' ? a : JSON.stringify(a)).join(' ') + '\n';
+    try { require('fs').appendFileSync(require('path').join(require('os').homedir(), 'quickbrain-debug.log'), line); } catch (e) {}
+  })
   ipcMain.handle('search-notes', async (event, filters = {}) => {
     const db = getDB()
     const q = filters.search || ''

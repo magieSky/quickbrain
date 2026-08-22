@@ -12,6 +12,9 @@ contextBridge.exposeInMainWorld('quickbrain', {
   formatWithAI: (params) => ipcRenderer.invoke('format-with-ai', params),
   categorizeWithAI: (params) => ipcRenderer.invoke('categorize-with-ai', params),
 
+  // Forward renderer logs to main process log file
+  log: (level, args) => ipcRenderer.send('debug-log', { level, args }),
+
   // Window controls
   hideWindow: () => ipcRenderer.send('hide-window'),
   showWindow: () => ipcRenderer.send('show-window'),

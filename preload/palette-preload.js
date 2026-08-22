@@ -20,6 +20,9 @@ contextBridge.exposeInMainWorld('paletteAPI', {
   // Cross-window navigation
   locateNoteInMain: (id) => ipcRenderer.send('locate-note', id),
 
+  // Forward renderer logs to main process log file
+  log: (level, args) => ipcRenderer.send('debug-log', { level, args }),
+
   // Listen for palette reset event
   onPaletteReset: (callback) => {
     ipcRenderer.on('palette-reset', () => callback())

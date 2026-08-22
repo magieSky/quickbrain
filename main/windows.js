@@ -38,6 +38,10 @@ function createPaletteWindow(preloadPath) {
     }
   })
 
+  console.log('[windows] createPaletteWindow: loading index.html')
+  paletteWindow.webContents.on('did-finish-load', () => console.log('[windows] palette did-finish-load'))
+  paletteWindow.webContents.on('preload-error', (e, p, err) => console.log('[windows] palette preload-error:', p, err.message))
+  paletteWindow.webContents.on('console-message', (e, level, msg) => console.log('[windows] palette console:', level, msg))
   paletteWindow.loadFile(path.join(__dirname, '..', 'renderer', 'palette', 'index.html'))
   paletteWindow.webContents.openDevTools({ mode: 'detach' })
   paletteWindow.on('blur', () => {
@@ -109,7 +113,11 @@ function hidePalette() {
 }
 
 function togglePalette() {
-  if (paletteWindow && paletteWindow.isVisible()) hidePalette()
+  if (!paletteWindow || paletteWindow.isDestroyed()) {
+    showPalette()
+    return
+  }
+  if (paletteWindow.isVisible()) hidePalette()
   else showPalette()
 }
 

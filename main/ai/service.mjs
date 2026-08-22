@@ -46,7 +46,9 @@ export class AIService {
           { role: 'user', content: userPrompt }
         ],
         temperature: 0.7,
-        max_tokens: 2000
+        max_tokens: 2000,
+        // formatting task: no thinking needed, save tokens + latency
+        thinking: { type: 'disabled' }
       })
       return { success: true, formattedContent: response.choices[0].message.content.trim() }
     } catch (error) {
@@ -63,7 +65,9 @@ export class AIService {
           { role: 'user', content: (content || '').substring(0, 1000) }
         ],
         response_format: { type: 'json_object' },
-        temperature: 0.3
+        temperature: 0.3,
+        // short classification task: no thinking needed, save tokens + latency
+        thinking: { type: 'disabled' }
       })
       const parsed = extractJSON(response.choices[0].message.content)
       if (!parsed) throw new Error('LLM response is not valid JSON')
@@ -87,10 +91,14 @@ export class AIService {
           { role: 'user', content: userPrompt }
         ],
         response_format: { type: 'json_object' },
-        temperature: 0.3
+        temperature: 0.3,
+        // MiniMax-M3 reasoning model: route thinking into reasoning_details, keep content clean
+        reasoning_split: true
       })
-      const raw = response.choices[0].message.content
-      console.log('[ai semanticSearch] raw response len=' + raw.length + ' hasThink=' + (/<think>/i.test(raw)))
+      const msg = response.choices[0].message || {}
+      const raw = msg.content || ''
+      const reasoning = msg.reasoning_content || msg.reasoning_details || ''
+      console.log('[ai semanticSearch] raw len=' + raw.length + ' reasoningLen=' + (typeof reasoning === 'string' ? reasoning.length : JSON.stringify(reasoning).length) + ' hasThinkTag=' + (/<think>/i.test(raw)))
       const parsed = extractJSON(raw)
       if (!parsed) throw new Error('LLM response is not valid JSON: ' + raw.substring(0, 120))
       console.log('[ai semanticSearch] parsed matchedIds=' + JSON.stringify(parsed.matchedIds))

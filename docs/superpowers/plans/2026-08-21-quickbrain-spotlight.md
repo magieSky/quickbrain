@@ -1498,7 +1498,7 @@ package.json:47 references `assets/icon.png` for packaging, but directory is emp
 **Files:**
 - Create: `main/windows.js`
 
-- [ ] **Step 1: 实现 windows.js**
+- [x] **Step 1: 实现 windows.js**
 
 创建 `E:\note\quickbrain\main\windows.js`：
 
@@ -1631,13 +1631,34 @@ module.exports = {
 }
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 cd E:\note\quickbrain
 git add main/windows.js
 git commit -m "feat(main): add window management for palette and main window"
 ```
+
+
+### Task 11 Code Review Observations
+
+> Verdict: Yes (Tesla). Implementation is **byte-level identical** to plan template (126 lines, 0 diff). All Minor issues are non-blocking.
+
+#### Minor Issues (non-blocking)
+
+- **M1**: `togglePalette()` (line 84) lacks `isDestroyed()` guard, inconsistent with `toggleMainWindow()`. Best to fix in Task 19 polish (1 line change).
+- **M2**: `sandbox: true` not set in `webPreferences`. Recommended Electron hardening; can be added in Task 19 if integration tests pass.
+- **M3**: macOS `alwaysOnTop: true` could be upgraded to `alwaysOnTop: "floating"` for better UX (Spotlight-style). Windows behavior unchanged.
+- **M5**: `locateNoteInMain()` relies on Electron queuing `webContents.send` messages before `did-finish-load`; safe but fragile. No ack/retry in plan.
+
+#### Architecture Notes for Task 19
+
+- Lifecycle: Task 19 must decide when to create palette (lazily on app ready) and when to destroy (app quit).
+- Integration contract:
+  - `createPaletteWindow(preloadPath)` / `createMainWindow(preloadPath)` — main.js must pass `path.join(__dirname, "..", "preload")` (a directory).
+  - `webContents.send("palette-reset")` — pairs with Task 13 palette-preload.
+  - `webContents.send("locate-note", id)` — pairs with Task 12 main-preload.
+- Security baseline: spec 11 satisfied (nodeIntegration: false + contextIsolation: true + webSecurity: true). preload white-list via contextBridge in Task 12-13.
 
 ---
 

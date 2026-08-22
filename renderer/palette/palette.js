@@ -1,8 +1,8 @@
 ﻿const api = window.paletteAPI
 // 依赖 parser.js / registry.js 已作为 <script> 在 index.html 预先加载
 // 其顶层声明的 function parseInput / findCommand 暴露为 window 全局
-const parseInput = window.parseInput
-const findCommand = window.findCommand
+const _parseInput = window.parseInput
+const _findCommand = window.findCommand
 
 const log = (tag, msg, data) => {
   const line = '[' + tag + '] ' + msg + (data ? ' ' + JSON.stringify(data) : '')
@@ -66,7 +66,7 @@ function moveSelection(delta) {
 
 async function doSearch(input) {
   log('doSearch:start', JSON.stringify(input))
-  const parsed = parseInput(input)
+  const parsed = _parseInput(input)
   log('doSearch:parsed', parsed.type, parsed)
   if (parsed.type === 'empty') {
     currentResults = []
@@ -94,7 +94,7 @@ async function doSearch(input) {
   }
 
   if (parsed.type === 'command') {
-    const cmd = findCommand(parsed.command)
+    const cmd = _findCommand(parsed.command)
     log('doSearch:command', parsed.command, cmd ? cmd.name : 'NOT_FOUND')
     currentResults = cmd ? [{ type: 'command', cmd, keyword: parsed.keyword }] : []
     setStatus(currentResults.length ? '命令' : '就绪')
@@ -187,7 +187,7 @@ async function triggerAction(mode) {
   }
   if (item.type === 'new-content') {
     // 触发"添加笔记"命令
-    const addCmd = findCommand('添加笔记')
+    const addCmd = _findCommand('添加笔记')
     await addCmd.execute(ctx, item.content)
     return
   }

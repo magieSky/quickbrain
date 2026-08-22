@@ -21,8 +21,6 @@ console.warn = function(...args) { logToFile('warn', args); _log('WARN:', ...arg
 console.log('[main] log file: ' + LOG_FILE);
 
 const { app, dialog } = require('electron')
-const path = require('path')
-const fs = require('fs')
 const { initDatabase, closeDatabase, getDB } = require('./main/db-init')
 const { registerIpcHandlers, setAIService } = require('./main/ipc')
 const { registerShortcuts, unregisterAll } = require('./main/shortcuts')

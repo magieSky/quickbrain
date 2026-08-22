@@ -2755,6 +2755,44 @@ document.getElementById('close-btn').onclick = () => window.close()
 
 load()
 ```
+### Task 18 Code Review Observations
+
+> Verdict: **Yes** (self-verified, subagent reviewer errored with "high demand"). Byte-level 验证通过，commit message 包含 plan-level bugs。
+
+#### Byte-level 验证（commit 4739a8b）
+
+| File | Plan bytes | File bytes | Match |
+|---|---|---|---|
+| `renderer/palette/detail.html` | 1198 (27 lines) | 1198 | ✅ |
+| `renderer/palette/detail.js` | 1547 (41 lines) | 1547 | ✅ |
+
+逐字符对比 plan line 2682-2708 (HTML) 和 line 2716-2756 (JS)：**0 差异**。
+
+#### Plan-Level Bugs Discovered（commit message 报告）
+
+**B-1 (CRITICAL)**: `detail.js:9` 调 `api.searchNotes("")` 找 note by id，但 `main/db/search.js:14` 中 `searchNotes(db, "")` 直接 `return []`（短路空查询）。**影响**：详情浮层永远显示"未找到"。
+
+**修复方向（Task 19）**:
+1. 新增 `getNote` IPC handler: `ipcMain.handle("get-note", (_, id) => searchNotes(db, "", limit=1) || getNoteById(db, id))`
+2. 实际更干净：新增 `getNoteById(db, id)` 在 `main/db/search.js`
+3. `palette-preload.js` 暴露 `getNote: (id) => ipcRenderer.invoke("get-note", id)`
+4. `detail.js` 改用 `api.getNote(noteId)` 替换 `api.searchNotes("").find(...)`
+
+**B-2**: `detail.js:24` 用了 `const { clipboard } = require("electron")`，renderer + contextIsolation:true 下 `require("electron")` 失败（electron 模块无 renderer API 暴露）。
+
+**修复方向（Task 19）**:
+1. 新增 `write-clipboard` IPC handler: `ipcMain.handle("write-clipboard", (_, text) => require("electron").clipboard.writeText(text))`
+2. `palette-preload.js` 暴露 `writeClipboard: (text) => ipcRenderer.invoke("write-clipboard", text)`
+3. `detail.js` 改用 `api.writeClipboard(currentNote.content)` 替换 `clipboard.writeText(...)`
+
+#### Reviewer Note
+
+- Subagent reviewer (Ampere) errored twice with "high demand" 服务问题
+- 由主进程 self-verified: byte-level 0 差异 + tests 45 passed + commit msg 包含 bugs
+- 建议 Task 19 implementer 处理 B-1 + B-2 时同时记录
+
+**测试状态**: 45 passed（与 Task 17 一致，无新增测试 — plan 未要求）
+
 
 - [ ] **Step 3: Commit**
 

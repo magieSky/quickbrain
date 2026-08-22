@@ -17,6 +17,7 @@ contextBridge.exposeInMainWorld('quickbrain', {
 
   // Window controls
   hideWindow: () => ipcRenderer.send('hide-window'),
+  notify: (params) => ipcRenderer.invoke('notify', params),
   showWindow: () => ipcRenderer.send('show-window'),
 
   // Listen for locate-note event

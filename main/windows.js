@@ -4,7 +4,7 @@ const path = require('path')
 let paletteWindow = null
 let mainWindow = null
 let preloadPathCache = null
-let suppressBlurHide = false  // showPalette 期间临时屏蔽 blur 触发的 hide
+let suppressBlurHide = false  // showPalette 期间临时屏蔽 blur 触发�?hide
 
 function getPalettePosition() {
   const display = screen.getPrimaryDisplay()
@@ -63,7 +63,6 @@ function createPaletteWindow(preloadPath) {
     paletteWindow = null
   })
   paletteWindow.loadFile(path.join(__dirname, '..', 'renderer', 'palette', 'index.html'))
-  paletteWindow.webContents.openDevTools({ mode: 'detach' })
   attachBlurHandler()
 
   return paletteWindow
@@ -105,7 +104,6 @@ function createMainWindow(preloadPath) {
   })
 
   mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'main', 'index.html'))
-  mainWindow.webContents.openDevTools({ mode: 'detach' })
   mainWindow.on('closed', () => { mainWindow = null })
 
   return mainWindow

@@ -39,6 +39,7 @@ function createPaletteWindow(preloadPath) {
   })
 
   paletteWindow.loadFile(path.join(__dirname, '..', 'renderer', 'palette', 'index.html'))
+  paletteWindow.webContents.openDevTools({ mode: 'detach' })
   paletteWindow.on('blur', () => {
     if (paletteWindow && paletteWindow.isVisible()) {
       paletteWindow.hide()
@@ -84,6 +85,7 @@ function createMainWindow(preloadPath) {
   })
 
   mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'main', 'index.html'))
+  mainWindow.webContents.openDevTools({ mode: 'detach' })
   mainWindow.on('closed', () => { mainWindow = null })
 
   return mainWindow

@@ -1,3 +1,25 @@
+﻿const fs = require('fs');
+const os = require('os');
+const path = require('path');
+
+// 日志文件
+const LOG_FILE = path.join(os.homedir(), 'quickbrain-debug.log');
+try { fs.writeFileSync(LOG_FILE, '=== QuickBrain Debug Log ' + new Date().toISOString() + ' ===\n'); } catch (e) {}
+
+// 重写 console.log/error 写入文件
+const _log = console.log.bind(console);
+const _err = console.error.bind(console);
+function logToFile(level, args) {
+  const line = '[' + new Date().toISOString() + '] [' + level + '] ' +
+    args.map(a => typeof a === 'string' ? a : JSON.stringify(a)).join(' ') + '\n';
+  try { fs.appendFileSync(LOG_FILE, line); } catch (e) {}
+}
+console.log = function(...args) { logToFile('log', args); _log(...args); };
+console.error = function(...args) { logToFile('error', args); _err(...args); };
+console.warn = function(...args) { logToFile('warn', args); _log('WARN:', ...args); };
+
+console.log('[main] log file: ' + LOG_FILE);
+
 const { app, dialog } = require('electron')
 const path = require('path')
 const fs = require('fs')

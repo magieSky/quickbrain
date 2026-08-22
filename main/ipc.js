@@ -11,7 +11,12 @@ function setAIService(service) {
 function registerIpcHandlers() {
   ipcMain.handle('search-notes', async (event, filters = {}) => {
     const db = getDB()
-    return searchNotes(db, filters.search || '', 20)
+    const q = filters.search || ''
+    console.log('[ipc search-notes] query=' + JSON.stringify(q) + ' db=' + (db ? 'OK' : 'NULL'))
+    const start = Date.now()
+    const r = searchNotes(db, q, 20)
+    console.log('[ipc search-notes] result.length=' + r.length + ' cost=' + (Date.now() - start) + 'ms')
+    return r
   })
 
   ipcMain.handle('add-note', async (event, noteData) => {

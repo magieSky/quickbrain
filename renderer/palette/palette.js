@@ -1,4 +1,4 @@
-const api = window.paletteAPI
+﻿const api = window.paletteAPI
 const { parseInput } = require('./commands/parser.js')
 const { findCommand } = require('./commands/registry.js')
 
@@ -14,6 +14,7 @@ const els = {
 let debounceTimer = null
 
 els.input.addEventListener('input', () => {
+  log('input', 'value=' + JSON.stringify(els.input.value))
   clearTimeout(debounceTimer)
   debounceTimer = setTimeout(() => doSearch(els.input.value), 100)
 })
@@ -30,6 +31,7 @@ if (api.onPaletteReset) api.onPaletteReset(() => {
 })
 
 function handleKeydown(e) {
+  log('keydown', e.key + (e.ctrlKey ? '+ctrl' : '') + (e.shiftKey ? '+shift' : ''))
   if (e.key === 'ArrowDown') { e.preventDefault(); moveSelection(1) }
   else if (e.key === 'ArrowUp') { e.preventDefault(); moveSelection(-1) }
   else if (e.key === 'Enter') {
@@ -52,7 +54,9 @@ function moveSelection(delta) {
 }
 
 async function doSearch(input) {
+  log('doSearch:start', JSON.stringify(input))
   const parsed = parseInput(input)
+  log('doSearch:parsed', parsed.type, parsed)
   if (parsed.type === 'empty') {
     currentResults = []
     setStatus('就绪')
@@ -65,7 +69,9 @@ async function doSearch(input) {
     setStatus('AI 召回中…')
     render()
     const summaryList = await fetchTopSummaries(20)
+    log('doSearch:ai:summaryList', summaryList.length)
     const result = await api.semanticSearch({ query: parsed.query, candidateSummaries: summaryList })
+    log('doSearch:ai:result', result)
     if (result && result.matchedIds) {
       currentResults = await fetchNotesByIds(result.matchedIds)
       setStatus(`AI 召回 ${currentResults.length} 条`)
@@ -78,6 +84,7 @@ async function doSearch(input) {
 
   if (parsed.type === 'command') {
     const cmd = findCommand(parsed.command)
+    log('doSearch:command', parsed.command, cmd ? cmd.name : 'NOT_FOUND')
     currentResults = cmd ? [{ type: 'command', cmd, keyword: parsed.keyword }] : []
     setStatus(currentResults.length ? '命令' : '就绪')
     render()
@@ -86,6 +93,7 @@ async function doSearch(input) {
 
   if (parsed.type === 'ai-format') {
     const results = await api.searchNotes(parsed.keyword || '')
+    log('doSearch:ai-format:results', results.length)
     if (results.length === 0) { setStatus('未找到匹配'); render(); return }
     currentResults = [{ type: 'note', note: results[0] }]
     setStatus(`按 Enter AI ${parsed.style}`)
@@ -95,7 +103,9 @@ async function doSearch(input) {
 
   // new-content — 默认搜索现有笔记, 附带"添加"建议
   try {
+    log('doSearch:new-content:searching', parsed.content)
     const results = await api.searchNotes(parsed.content)
+    log('doSearch:new-content:results', results.length, results.slice(0, 2).map(r => r.id))
     currentResults = results.map(n => ({ type: 'note', note: n }))
     currentResults.push({ type: 'new-content', content: parsed.content })
     setStatus(results.length > 0
@@ -119,9 +129,13 @@ async function fetchNotesByIds(ids) {
   return ids.map(id => map.get(id)).filter(Boolean).map(n => ({ type: 'note', note: n }))
 }
 
-function setStatus(text) { els.status.textContent = text }
+function setStatus(text) {
+  log('setStatus', text)
+  els.status.textContent = text
+}
 
 function render() {
+  log('render:start', 'results.length=' + currentResults.length)
   els.results.innerHTML = ''
   if (currentResults.length === 0) {
     els.results.innerHTML = '<div class="empty">输入关键词开始搜索</div>'
@@ -151,8 +165,9 @@ function escapeHTML(s) {
 }
 
 async function triggerAction(mode) {
+  log('triggerAction', mode, 'selectedIndex=' + selectedIndex)
   const item = currentResults[selectedIndex]
-  if (!item) return
+  if (!item) { log('triggerAction:no-item'); return }
 
   const ctx = buildContext()
   if (item.type === 'command') {

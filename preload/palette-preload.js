@@ -1,8 +1,9 @@
-﻿const { contextBridge, ipcRenderer } = require('electron')
+const { contextBridge, ipcRenderer } = require('electron')
 
 contextBridge.exposeInMainWorld('paletteAPI', {
   // Search and notes
-  searchNotes: (query) => ipcRenderer.invoke('search-notes', { search: query }),
+  searchNotes: (query, limit) => ipcRenderer.invoke('search-notes', { search: query, limit }),
+  getRecentNotes: (limit) => ipcRenderer.invoke('get-recent-notes', { limit }),
   addNote: (noteData) => ipcRenderer.invoke('add-note', noteData),
   deleteNote: (id) => ipcRenderer.invoke('delete-note', id),
   updateNote: (data) => ipcRenderer.invoke('update-note', data),

@@ -95,4 +95,24 @@ function safeParseJSON(str, fallback) {
   try { return JSON.parse(str) } catch { return fallback }
 }
 
-module.exports = { searchNotes, addNote }
+function getRecentNotes(db, limit = 20) {
+  if (!db) return []
+  const safeLimit = Math.max(1, Math.min(parseInt(limit, 10) || 20, 200))
+  const rows = db.prepare(`
+    SELECT id, title, content, category, tags, created_at
+    FROM notes
+    ORDER BY datetime(created_at) DESC, id DESC
+    LIMIT ?
+  `).all(safeLimit)
+  return rows.map(row => ({
+    id: row.id,
+    title: row.title,
+    content: row.content,
+    category: row.category,
+    tags: safeParseJSON(row.tags, []),
+    created_at: row.created_at,
+    score: 0
+  }))
+}
+
+module.exports = { searchNotes, addNote, getNoteById, getRecentNotes }

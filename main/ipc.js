@@ -1,9 +1,9 @@
-﻿const { ipcMain, BrowserWindow, app } = require('electron')
+const { ipcMain, BrowserWindow, app } = require('electron')
 const fs = require('fs')
 const path = require('path')
 const { PROVIDERS } = require('./ai/providers.js')
 const { getDB } = require('./db-init')
-const { addNote, searchNotes, getNoteById } = require('./db/search')
+const { addNote, searchNotes, getNoteById, getRecentNotes } = require('./db/search')
 
 let aiService = null
 
@@ -45,10 +45,21 @@ function registerIpcHandlers() {
   ipcMain.handle('search-notes', async (event, filters = {}) => {
     const db = getDB()
     const q = filters.search || ''
-    console.log('[ipc search-notes] query=' + JSON.stringify(q) + ' db=' + (db ? 'OK' : 'NULL'))
+    const requestedLimit = parseInt(filters.limit, 10)
+    const limit = Number.isFinite(requestedLimit) && requestedLimit > 0 ? Math.min(requestedLimit, 200) : 20
+    console.log('[ipc search-notes] query=' + JSON.stringify(q) + ' limit=' + limit + ' db=' + (db ? 'OK' : 'NULL'))
     const start = Date.now()
-    const r = searchNotes(db, q, 20)
+    const r = searchNotes(db, q, limit)
     console.log('[ipc search-notes] result.length=' + r.length + ' cost=' + (Date.now() - start) + 'ms')
+    return r
+  })
+
+  ipcMain.handle('get-recent-notes', async (event, params = {}) => {
+    const db = getDB()
+    const limit = Math.max(1, Math.min(parseInt(params.limit, 10) || 20, 200))
+    const start = Date.now()
+    const r = getRecentNotes(db, limit)
+    console.log('[ipc get-recent-notes] limit=' + limit + ' result.length=' + r.length + ' cost=' + (Date.now() - start) + 'ms')
     return r
   })
 

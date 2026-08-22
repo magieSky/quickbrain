@@ -1,4 +1,4 @@
-﻿const api = window.paletteAPI
+const api = window.paletteAPI
 // 依赖 parser.js / registry.js 已作为 <script> 在 index.html 预先加载
 // 其顶层声明的 function parseInput / findCommand 暴露为 window 全局
 const _parseInput = window.parseInput
@@ -79,7 +79,7 @@ async function doSearch(input) {
     currentResults = []
     setStatus('AI 召回中…')
     render()
-    const summaryList = await fetchTopSummaries(20)
+    const summaryList = await fetchTopSummaries(50, parsed.query)
     log('doSearch:ai:summaryList', summaryList.length)
     const result = await api.semanticSearch({ query: parsed.query, candidateSummaries: summaryList })
     log('doSearch:ai:result', result)
@@ -129,9 +129,23 @@ async function doSearch(input) {
   render()
 }
 
-async function fetchTopSummaries(limit) {
-  const results = await api.searchNotes('')
-  return results.slice(0, limit).map(r => `${r.id}: ${r.title} - ${(r.content || '').substring(0, 100)}`)
+async function fetchTopSummaries(limit, query) {
+  const ftsLimit = Math.max(limit, 50)
+  const recentLimit = Math.max(limit, 50)
+  const [ftsResults, recentResults] = await Promise.all([
+    api.searchNotes(query || '', ftsLimit).catch(() => []),
+    api.getRecentNotes(recentLimit).catch(() => [])
+  ])
+  log('fetchTopSummaries', 'query=' + JSON.stringify(query) + ' fts=' + ftsResults.length + ' recent=' + recentResults.length)
+  const merged = []
+  const seen = new Set()
+  for (const r of ftsResults) {
+    if (!seen.has(r.id)) { merged.push(r); seen.add(r.id) }
+  }
+  for (const r of recentResults) {
+    if (!seen.has(r.id)) { merged.push(r); seen.add(r.id) }
+  }
+  return merged.slice(0, limit).map(r => `${r.id}: ${r.title || '(无标题)'} - ${(r.content || '').substring(0, 100)}`)
 }
 
 async function fetchNotesByIds(ids) {

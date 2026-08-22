@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src '"'"'self'"'"'; style-src '"'"'self'"'"' '"'"'unsafe-inline'"'"'">
+  <title>QuickBrain</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 24px;
+      background: #1e1e2e;
+      color: #e0e0e0;
+      font-family: -apple-system, "Segoe UI", sans-serif;
+      font-size: 14px;
+      height: 100vh;
+      box-sizing: border-box;
+    }
+    h1 { margin: 0 0 16px 0; font-size: 18px; font-weight: 500; }
+    .toolbar { display: flex; gap: 8px; margin-bottom: 16px; }
+    button {
+      background: rgba(80, 130, 255, 0.3);
+      border: none;
+      color: #fff;
+      padding: 8px 14px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    button:hover { background: rgba(80, 130, 255, 0.5); }
+    .search { width: 100%; padding: 8px 12px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; color: #e0e0e0; font-size: 13px; box-sizing: border-box; margin-bottom: 12px; }
+    .note-list { display: flex; flex-direction: column; gap: 8px; overflow-y: auto; height: calc(100vh - 180px); }
+    .note-card { padding: 12px; background: rgba(0,0,0,0.2); border-radius: 6px; cursor: pointer; }
+    .note-card:hover { background: rgba(80, 130, 255, 0.15); }
+    .note-title { font-weight: 500; margin-bottom: 4px; }
+    .note-meta { font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 4px; }
+    .note-content { font-size: 12px; color: rgba(255,255,255,0.7); white-space: pre-wrap; max-height: 60px; overflow: hidden; }
+    .empty { text-align: center; padding: 40px; color: rgba(255,255,255,0.4); }
+    .status { font-size: 11px; color: rgba(255,255,255,0.4); margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <h1>⚡ QuickBrain</h1>
+  <div class="toolbar">
+    <button id="add-btn">+ 添加笔记</button>
+    <button id="ai-btn">✨ AI 格式化</button>
+    <button id="settings-btn">⚙️ 设置</button>
+  </div>
+  <input type="text" class="search" id="search-input" placeholder="搜索... (Ctrl+K 唤起命令面板)">
+  <div class="note-list" id="note-list"></div>
+  <div class="status" id="status">加载中...</div>
+  <script src="main.js"></script>
+</body>
+</html>

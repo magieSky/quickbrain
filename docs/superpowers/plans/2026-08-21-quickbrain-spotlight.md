@@ -1394,7 +1394,7 @@ git commit -m "feat(main): add global shortcuts registration"
 **Files:**
 - Create: `main/tray.js`
 
-- [ ] **Step 1: 实现 tray.js**
+- [x] **Step 1: 实现 tray.js**
 
 创建 `E:\note\quickbrain\main\tray.js`：
 
@@ -1429,13 +1429,67 @@ function notify(title, body) {
 module.exports = { createTray, notify }
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 cd E:\note\quickbrain
 git add main/tray.js
 git commit -m "feat(main): add system tray with context menu"
 ```
+
+
+### Task 10 Code Review Observations
+
+> Verdict: Yes (Ramanujan). Implementer deviation (icon fallback) justified. Critical findings flagged for Task 19.
+
+#### Implementer deviation (justified)
+
+- **icon fallback**: plan used `new Tray(iconPath)` but `assets/icon.png` is missing (empty `assets/` dir), would crash Windows app. Implementer added try/catch + `nativeImage.createEmpty()`. Reasonable; simplify later when real icon asset is added.
+
+#### ⚠️ Task 19 must address (Architecture Notes)
+
+**A. main.js legacy code conflict**
+
+`main.js:87-100` has a **legacy `createTray()` function** with `new tray(iconPath)` (lowercase bug):
+
+```js
+function createTray() {
+  const iconPath = path.join(__dirname, "assets", "icon.png");
+  trayIcon = new tray(iconPath); // bug: lowercase tray
+  ...
+}
+```
+
+Conflicts with Task 10 new module. Task 19 must delete this legacy function.
+
+**B. will-quit handler missing tray.destroy()**
+
+Plan line 2589-2592 will-quit cleanup should be:
+
+```js
+app.on("will-quit", () => {
+  if (tray) tray.destroy()
+  unregisterAll()
+  closeDatabase()
+})
+```
+
+**C. onQuit callback contract**
+
+`createTray({ ..., onQuit })` onQuit should be `() => app.quit()` in Task 19 integration.
+
+#### Icon asset strategy (future task)
+
+package.json:47 references `assets/icon.png` for packaging, but directory is empty. Future task should add real icon asset; tray.js fallback can be simplified.
+
+#### Minor Issues (not blocking)
+
+- M1: Fallback may throw on macOS; embedded base64 PNG more robust
+- M2: Error log missing stack trace
+- M3: notify() lacks error handling + Notification.isSupported() check
+- M4: Windows tooltip `
+` does not render (Electron limit)
+- M5: Tray click missing Linux platform branch
 
 ---
 

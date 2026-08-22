@@ -21,14 +21,6 @@ els.input.addEventListener('input', () => {
 els.input.addEventListener('keydown', handleKeydown)
 
 window.api = api
-window.addEventListener('palette-reset', () => {
-  els.input.value = ''
-  currentResults = []
-  selectedIndex = 0
-  render()
-  els.input.focus()
-})
-
 if (api.onPaletteReset) api.onPaletteReset(() => {
   els.input.value = ''
   currentResults = []
@@ -88,6 +80,15 @@ async function doSearch(input) {
     const cmd = findCommand(parsed.command)
     currentResults = cmd ? [{ type: 'command', cmd, keyword: parsed.keyword }] : []
     setStatus(currentResults.length ? '命令' : '就绪')
+    render()
+    return
+  }
+
+  if (parsed.type === 'ai-format') {
+    const results = await api.searchNotes(parsed.keyword || '')
+    if (results.length === 0) { setStatus('未找到匹配'); render(); return }
+    currentResults = [{ type: 'note', note: results[0] }]
+    setStatus(`按 Enter AI ${parsed.style}`)
     render()
     return
   }
@@ -177,7 +178,6 @@ function buildContext() {
     api,
     notify: (title, body) => {
       // 通过 IPC 发通知（由主进程处理）
-      api.searchNotes('').catch(() => {}) // 占位
       const { Notification } = require('electron')
       new Notification(title, { body }).show()
     },

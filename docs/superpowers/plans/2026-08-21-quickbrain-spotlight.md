@@ -1320,7 +1320,7 @@ git commit -m "feat(main): add IPC handlers for notes/search/AI"
 **Files:**
 - Create: `main/shortcuts.js`
 
-- [ ] **Step 1: 实现 shortcuts.js（无独立测试，集成测试覆盖）**
+- [x] **Step 1: 实现 shortcuts.js（无独立测试，集成测试覆盖）**
 
 创建 `E:\note\quickbrain\main\shortcuts.js`：
 
@@ -1349,11 +1349,41 @@ function unregisterAll() {
 module.exports = { registerShortcuts, unregisterAll }
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 cd E:\note\quickbrain
 git add main/shortcuts.js
+
+
+### Task 9 Code Review Observations
+
+> 由 Task 9 code quality reviewer (McClintock) 记录。**Verdict: Yes**（实现与 plan 模板字节级一致，可合并）。以下为 plan-level 观察，不阻塞后续 task。
+
+#### Plan-Level 风险（需在 Task 19 集成或用户验收前重新评估）
+
+1. **`CommandOrControl+A` 全局冲突**：此为系统级"全选"快捷键。注册为全局后，用户在任意应用输入框（浏览器、聊天、编辑器）按 Cmd/Ctrl+A 都会触发 addNote callback，**不再执行"全选"**。包括 QuickBrain 自家 palette 输入框、main window 编辑区，严重干扰基本文本编辑。
+   - **建议方案**：在 palette 输入框聚焦时临时 unregister，失焦后再 register（实现成本中等）
+   - **或换快捷键**：`CommandOrControl+Shift+A` / `CommandOrControl+N`（API 改动最小）
+
+2. **`CommandOrControl+Q` 在 macOS 上是系统退出快捷键**：注册后用户按 Cmd+Q 退出其他 Mac 应用会被 QuickBrain 截获而不退出目标应用，是 Electron 官方文档明确警告的反模式。
+   - **建议方案**：在 macOS 上不注册该快捷键，仅注册 Alt+K + 其他快捷键
+
+3. **`Alt+K` 在 Linux 桌面环境（GNOME/KDE）可能冲突**：register 静默失败时用户按 Alt+K 无反应，体验不佳。当前未提供快捷键配置 UI，需告知用户去设置里改键（未来任务）。
+
+4. **`registerShortcuts` 返回的 `unregister` 数组未被消费**：Task 19 main.js 调用时未捕获返回值，统一走 `unregisterAll()` 全清。当前为"forward-compatible dead return"，不阻塞。如未来需要"禁用单个快捷键但保留其他"，该数组可用。
+
+#### 集成契约（与 Task 19）
+
+- 调用时机：main.js 在 `app.whenReady()` 回调内调用 `globalShortcut.register`
+- 三个 callback 语义：`onPalette: togglePalette` / `onMainWindow: toggleMainWindow` / `onAddNote: () => showPalette()`
+- 清理时机：`app.on('will-quit', () => { unregisterAll(); closeDatabase() })`
+
+#### Code Reviewer 的具体建议
+
+1. Task 19 集成 PR 中明确选择 `registerShortcuts` 返回值处理策略（方案 A：捕获 unregister；方案 B：不接返回值）
+2. `config.example.json` 预留 `shortcuts` 配置块入口
+3. 重新审视 `CommandOrControl+A` 和 `CommandOrControl+Q` 的全局注册决策
 git commit -m "feat(main): add global shortcuts registration"
 ```
 

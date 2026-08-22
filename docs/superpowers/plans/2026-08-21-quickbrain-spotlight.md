@@ -1730,7 +1730,7 @@ git commit -m "feat(preload): add main window context bridge"
 **Files:**
 - Create: `preload/palette-preload.js`
 
-- [ ] **Step 1: 实现 palette-preload.js**
+- [x] **Step 1: 实现 palette-preload.js**
 
 创建 `E:\note\quickbrain\preload\palette-preload.js`：
 
@@ -1758,14 +1758,14 @@ contextBridge.exposeInMainWorld('paletteAPI', {
 })
 ```
 
-- [ ] **Step 2: 删除旧 preload.js**
+- [x] **Step 2: 删除旧 preload.js**
 
 ```bash
 cd E:\note\quickbrain
 git rm preload.js
 ```
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 cd E:\note\quickbrain
@@ -1773,6 +1773,42 @@ git add preload/palette-preload.js
 git commit -m "feat(preload): add palette context bridge and remove old preload"
 ```
 
+
+
+### Task 13 Code Review Observations
+
+> Verdict: No (initially) → Yes (after fix). Implementation byte-level identical to plan, BUT plan missed a critical step.
+
+#### ⚠️ Critical Issue Found & Fixed
+
+**C-1: `preload.js` 删除导致 `main.js` preload 引用断路**
+
+Reviewer (Goodall) 发现：`main.js:80` 仍引用 `path.join(__dirname, "preload.js")`（已删除），但 `package.json` `"main": "main.js"` 让 Electron 启动时找不到 preload → IPC bridge 失效。
+
+**根因**：plan Task 13 Step 2 只包含 `git rm preload.js`，**没有 step 修改 `main.js` 的 preload 引用路径**。这是一个 plan-level gap。
+
+**修复**（commit `791e4c7 fix(main): update preload path to new main-preload.js location`）：1 行 hotfix。
+```js
+// main.js
+- preload: path.join(__dirname, "preload.js")
++ preload: path.join(__dirname, "preload", "main-preload.js")
+```
+
+**后续建议**：
+- Task 19 重写 main.js 时统一处理 security hardening（nodeIntegration: false, contextIsolation: true）
+- 加 smoke test：验证 `main.js` 中所有 `path.join` 引用都指向现存文件（避免类似断路）
+
+#### Plan Deviation 评估
+
+- **实现无 deviation**：byte-level 与 plan 一致 ✓
+- **plan 自身有 gap**：plan Task 13 Step 2 应同时包含 "修改 main.js preload 引用" 子步骤
+- 后续 Task 应在删除关键文件前，先确认所有引用都已迁移
+
+#### Architecture Notes
+
+- preload 桥：`paletteAPI` 命名空间（区别于 main 的 `quickbrain`），两个 webContents 各自独立注册 contextBridge，互不干扰
+- IPC 契约：6 invoke + 1 send + 1 on，与 Task 8 ipc handlers / Task 11 windows.js 严格对齐
+- 跨窗口事件链：palette `locateNoteInMain` → ipcMain.on → windows.js webContents.send → main-preload onLocateNote ✓
 ---
 
 ## Phase 7: 命令面板 UI

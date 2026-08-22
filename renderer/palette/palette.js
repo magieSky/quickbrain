@@ -80,9 +80,10 @@ async function doSearch(input) {
     setStatus('AI 召回中…')
     render()
     const summaryList = await fetchTopSummaries(50, parsed.query)
-    log('doSearch:ai:summaryList', summaryList.length)
+    log('doSearch:ai:summaryList', summaryList.length + ' items:')
+    for (const s of summaryList) log('doSearch:ai:summary', s)
     const result = await api.semanticSearch({ query: parsed.query, candidateSummaries: summaryList })
-    log('doSearch:ai:result', result)
+    log('doSearch:ai:result', JSON.stringify(result))
     if (result && result.matchedIds) {
       currentResults = await fetchNotesByIds(result.matchedIds)
       setStatus(`AI 召回 ${currentResults.length} 条`)
@@ -149,9 +150,13 @@ async function fetchTopSummaries(limit, query) {
 }
 
 async function fetchNotesByIds(ids) {
-  const all = await api.searchNotes('')
+  log('fetchNotesByIds:requested', JSON.stringify(ids))
+  const all = await api.getRecentNotes(200)
+  log('fetchNotesByIds:pool', 'size=' + all.length + ' ids=' + JSON.stringify(all.map(n => n.id)))
   const map = new Map(all.map(n => [n.id, n]))
-  return ids.map(id => map.get(id)).filter(Boolean).map(n => ({ type: 'note', note: n }))
+  const found = ids.map(id => map.get(id)).filter(Boolean)
+  log('fetchNotesByIds:found', 'size=' + found.length)
+  return found.map(n => ({ type: 'note', note: n }))
 }
 
 function setStatus(text) {

@@ -67,6 +67,7 @@ export class AIService {
   }
 
   async semanticSearch(query, candidateSummaries) {
+    console.log('[ai semanticSearch] provider=' + this.providerId + ' model=' + this.defaultModel + ' query=' + JSON.stringify(query) + ' candidates=' + (candidateSummaries || []).length)
     const userPrompt = buildSemanticSearchPrompt(query, candidateSummaries)
     try {
       const response = await this.client.chat.completions.create({
@@ -78,12 +79,16 @@ export class AIService {
         response_format: { type: 'json_object' },
         temperature: 0.3
       })
-      const result = JSON.parse(response.choices[0].message.content)
+      const raw = response.choices[0].message.content
+      console.log('[ai semanticSearch] raw response len=' + raw.length + ' preview=' + raw.substring(0, 200))
+      const result = JSON.parse(raw)
+      console.log('[ai semanticSearch] parsed matchedIds=' + JSON.stringify(result.matchedIds))
       return {
         matchedIds: result.matchedIds || [],
         reasoning: result.reasoning || ''
       }
     } catch (error) {
+      console.log('[ai semanticSearch] error: ' + error.message)
       return { matchedIds: [], reasoning: '', error: error.message }
     }
   }

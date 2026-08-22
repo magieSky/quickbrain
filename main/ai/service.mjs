@@ -2,6 +2,15 @@ import OpenAI from 'openai'
 import { SYSTEM_PROMPT, CATEGORIZE_PROMPT, buildFormatPrompt, buildSemanticSearchPrompt } from './prompts.mjs'
 import { getProvider } from './providers.js'
 
+function extractJSON(raw) {
+  if (!raw) return null
+  let s = String(raw).replace(/<think>[\s\S]*?<\/think>/gi, '').trim()
+  try { return JSON.parse(s) } catch (_) {}
+  const m = s.match(/\{[\s\S]*\}/)
+  if (m) { try { return JSON.parse(m[0]) } catch (_) {} }
+  return null
+}
+
 export class AIService {
   constructor(config = {}) {
     const provider = getProvider(config.provider) || getProvider('deepseek')
@@ -56,10 +65,11 @@ export class AIService {
         response_format: { type: 'json_object' },
         temperature: 0.3
       })
-      const result = JSON.parse(response.choices[0].message.content)
+      const parsed = extractJSON(response.choices[0].message.content)
+      if (!parsed) throw new Error('LLM response is not valid JSON')
       return {
-        category: result.category || '\u5176\u4ED6',
-        tags: (result.tags || '').split(',').map(t => t.trim()).filter(t => t)
+        category: parsed.category || '\u5176\u4ED6',
+        tags: (parsed.tags || '').split(',').map(t => t.trim()).filter(t => t)
       }
     } catch (error) {
       return { category: '\u5176\u4ED6', tags: [], error: error.message }
@@ -80,12 +90,13 @@ export class AIService {
         temperature: 0.3
       })
       const raw = response.choices[0].message.content
-      console.log('[ai semanticSearch] raw response len=' + raw.length + ' preview=' + raw.substring(0, 200))
-      const result = JSON.parse(raw)
-      console.log('[ai semanticSearch] parsed matchedIds=' + JSON.stringify(result.matchedIds))
+      console.log('[ai semanticSearch] raw response len=' + raw.length + ' hasThink=' + (/<think>/i.test(raw)))
+      const parsed = extractJSON(raw)
+      if (!parsed) throw new Error('LLM response is not valid JSON: ' + raw.substring(0, 120))
+      console.log('[ai semanticSearch] parsed matchedIds=' + JSON.stringify(parsed.matchedIds))
       return {
-        matchedIds: result.matchedIds || [],
-        reasoning: result.reasoning || ''
+        matchedIds: parsed.matchedIds || [],
+        reasoning: parsed.reasoning || ''
       }
     } catch (error) {
       console.log('[ai semanticSearch] error: ' + error.message)

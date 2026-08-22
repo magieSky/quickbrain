@@ -105,4 +105,6 @@ function findCommand(name) {
   return registry.find(c => c.name === name)
 }
 
-module.exports = { registry, findCommand }
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { registry, findCommand }
+}

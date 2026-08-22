@@ -1,6 +1,8 @@
 ﻿const api = window.paletteAPI
-const { parseInput } = require('./commands/parser.js')
-const { findCommand } = require('./commands/registry.js')
+// 依赖 parser.js / registry.js 已作为 <script> 在 index.html 预先加载
+// 其顶层声明的 function parseInput / findCommand 暴露为 window 全局
+const parseInput = window.parseInput
+const findCommand = window.findCommand
 
 const log = (tag, msg, data) => {
   const line = '[' + tag + '] ' + msg + (data ? ' ' + JSON.stringify(data) : '')

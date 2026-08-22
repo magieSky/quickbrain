@@ -71,4 +71,6 @@ function parseInput(input) {
   return { type: 'new-content', content: trimmed }
 }
 
-module.exports = { parseInput, COMMAND_NAMES, STYLE_MAP }
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { parseInput, COMMAND_NAMES, STYLE_MAP }
+}

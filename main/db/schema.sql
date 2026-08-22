@@ -7,6 +7,8 @@ CREATE TABLE IF NOT EXISTS notes (
   tags TEXT DEFAULT '[]',
   is_formatted INTEGER DEFAULT 0,
   original_content TEXT DEFAULT '',
+  source_path TEXT DEFAULT '',
+  source_type TEXT DEFAULT '',
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );

@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer } = require('electron')
+const { contextBridge, ipcRenderer, webUtils } = require('electron')
 
 contextBridge.exposeInMainWorld('quickbrain', {
   // Notes operations
@@ -7,6 +7,11 @@ contextBridge.exposeInMainWorld('quickbrain', {
   addNote: (noteData) => ipcRenderer.invoke('add-note', noteData),
   updateNote: (data) => ipcRenderer.invoke('update-note', data),
   deleteNote: (id) => ipcRenderer.invoke('delete-note', id),
+
+  // Document import
+  importDocument: (filePath) => ipcRenderer.invoke('import-document', filePath),
+  revealInFolder: (filePath) => ipcRenderer.invoke('reveal-in-folder', filePath),
+  getPathForFile: (file) => webUtils.getPathForFile(file),
 
   // AI operations
   formatWithAI: (params) => ipcRenderer.invoke('format-with-ai', params),

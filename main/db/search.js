@@ -3,12 +3,12 @@ const { generatePinyinForNote } = require('./pinyin')
 function addNote(db, note) {
   return db.transaction(() => {
     const { title = '', content, tags = [], category = 'uncategorized',
-            original_content = '' } = note
+            original_content = '', source_path = '', source_type = '' } = note
     const stmt = db.prepare(`
-      INSERT INTO notes (content, title, category, tags, original_content)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO notes (content, title, category, tags, original_content, source_path, source_type)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `)
-    const result = stmt.run(content, title, category, JSON.stringify(tags), original_content)
+    const result = stmt.run(content, title, category, JSON.stringify(tags), original_content, source_path, source_type)
     const id = result.lastInsertRowid
     const py = generatePinyinForNote(title, content)
     db.prepare(`INSERT INTO notes_pinyin (id, pinyin_title, pinyin_content) VALUES (?, ?, ?)`)
@@ -29,7 +29,7 @@ function searchNotes(db, query, limit = 20) {
 
   // 1. FTS5 精确匹配（按 title 命中优先，再按 bm25 相关性）
   const ftsRows = db.prepare(`
-    SELECT n.id, n.title, n.content, n.category, n.tags, n.created_at,
+    SELECT n.id, n.title, n.content, n.category, n.tags, n.created_at, n.source_path, n.source_type,
            bm25(notes_fts) AS score,
            CASE
              WHEN n.title LIKE @prefix ESCAPE '\\' THEN 5
@@ -72,6 +72,8 @@ function searchNotes(db, query, limit = 20) {
     category: row.category,
     tags: safeParseJSON(row.tags, []),
     created_at: row.created_at,
+    source_path: row.source_path || '',
+    source_type: row.source_type || '',
     score: row.score
   }))
 }
@@ -87,7 +89,9 @@ function getNoteById(db, id) {
     content: row.content,
     category: row.category,
     tags: safeParseJSON(row.tags, []),
-    created_at: row.created_at
+    created_at: row.created_at,
+    source_path: row.source_path || '',
+    source_type: row.source_type || ''
   }
 }
 
@@ -99,7 +103,7 @@ function getRecentNotes(db, limit = 20) {
   if (!db) return []
   const safeLimit = Math.max(1, Math.min(parseInt(limit, 10) || 20, 200))
   const rows = db.prepare(`
-    SELECT id, title, content, category, tags, created_at
+    SELECT id, title, content, category, tags, created_at, source_path, source_type
     FROM notes
     ORDER BY datetime(created_at) DESC, id DESC
     LIMIT ?
@@ -111,6 +115,8 @@ function getRecentNotes(db, limit = 20) {
     category: row.category,
     tags: safeParseJSON(row.tags, []),
     created_at: row.created_at,
+    source_path: row.source_path || '',
+    source_type: row.source_type || '',
     score: 0
   }))
 }

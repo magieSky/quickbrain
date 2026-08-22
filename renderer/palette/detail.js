@@ -13,6 +13,15 @@ async function load() {
   document.getElementById('title').textContent = currentNote.title || '(无标题)'
   document.getElementById('meta').textContent = `分类: ${currentNote.category || '其他'} · ${currentNote.created_at || ''}`
   document.getElementById('content').textContent = currentNote.content
+  if (currentNote.source_path) {
+    const info = document.getElementById('source-info')
+    document.getElementById('source-path').textContent = currentNote.source_path
+    info.style.display = 'block'
+    document.getElementById('reveal-btn').onclick = async () => {
+      const r = await api.revealInFolder(currentNote.source_path)
+      if (!r.success) alert('打开失败: ' + (r.error || ''))
+    }
+  }
 }
 
 document.getElementById('copy-btn').onclick = async () => {

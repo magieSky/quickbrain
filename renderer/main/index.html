@@ -197,6 +197,15 @@
     .ai-status.error { background: rgba(255,80,80,0.15); color: #ff9a9a; }
     .ai-current { font-size: 11px; color: rgba(255,255,255,0.4); margin-bottom: 12px; padding: 8px 12px; background: rgba(255,255,255,0.03); border-radius: 6px; }
 
+    /* === 拖拽导入 overlay === */
+    .drop-overlay { position: fixed; inset: 0; background: rgba(20,30,60,0.85); display: none; align-items: center; justify-content: center; z-index: 9999; pointer-events: none; }
+    .drop-overlay.active { display: flex; }
+    .drop-message { font-size: 20px; color: #fff; text-align: center; line-height: 1.6; }
+    .drop-message span { font-size: 12px; color: rgba(255,255,255,0.6); }
+    /* === 笔记卡片源文件徽标 === */
+    .note-source { font-size: 10px; color: rgba(120,180,255,0.85); margin-right: 6px; cursor: pointer; }
+    .note-source:hover { text-decoration: underline; }
+    .note-source::before { content: "📁 "; }
   </style>
 </head>
 <body>
@@ -222,7 +231,11 @@
   <div class="toolbar">
     <button class="btn primary" id="add-btn">+ 添加笔记</button>
     <button class="btn" id="ai-btn">✨ AI 格式化</button>
+    <button class="btn" id="import-btn">📄 导入文件</button>
+    <input type="file" id="import-file" style="display:none" accept=".pdf,.docx,.pptx,.xlsx,.csv,.txt,.html,.htm,.md,.epub,.png,.jpg,.jpeg,.gif,.bmp,.mp3,.wav,.mp4,.avi,.xls">
   </div>
+
+  <div class="drop-overlay" id="drop-overlay"><div class="drop-message">📂 松开鼠标导入文件<br><span>支持 PDF / Word / Excel / PPT / 图片 / 文本</span></div></div>
 
   <div class="note-list" id="note-list">
     <div class="empty" id="empty-state">

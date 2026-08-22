@@ -28,7 +28,10 @@ const els = {
   modalContent: document.getElementById('modal-content'),
   modalCategory: document.getElementById('modal-category'),
   modalSave: document.getElementById('modal-save'),
-  modalCancel: document.getElementById('modal-cancel')
+  modalCancel: document.getElementById('modal-cancel'),
+  importBtn: document.getElementById('import-btn'),
+  importFile: document.getElementById('import-file'),
+  dropOverlay: document.getElementById('drop-overlay')
 }
 
 let allNotes = []
@@ -93,6 +96,9 @@ function render() {
     const cat = n.category || '其他'
     const tags = (n.tags || []).slice(0, 3)
     const date = formatDate(n.created_at)
+    const sourceBadge = n.source_path
+      ? '<span class="note-source" data-path="' + escapeHtml(n.source_path) + '" title="' + escapeHtml(n.source_path) + '">来源文件</span>'
+      : ''
     return (
       '<div class="note-card" data-id="' + n.id + '">' +
         '<div class="note-title">' + escapeHtml(title) + '</div>' +
@@ -100,6 +106,7 @@ function render() {
         '<div class="note-meta">' +
           '<span class="badge">' + escapeHtml(cat) + '</span>' +
           (tags.length ? tags.map(t => '<span class="badge">#' + escapeHtml(t) + '</span>').join('') : '') +
+          sourceBadge +
           '<span style="margin-left:auto">' + date + '</span>' +
         '</div>' +
       '</div>'
@@ -111,6 +118,13 @@ function render() {
       const id = parseInt(card.dataset.id, 10)
       const note = allNotes.find(n => n.id === id)
       if (note) editNote(note)
+    }
+  })
+  els.list.querySelectorAll('.note-source').forEach(el => {
+    el.onclick = (e) => {
+      e.stopPropagation()
+      const p = el.dataset.path
+      if (p) api.revealInFolder(p).then(r => { if (!r.success) setStatus('打开失败: ' + r.error) })
     }
   })
 }
@@ -176,6 +190,58 @@ els.addBtn.onclick = showAddModal
 els.modalCancel.onclick = hideAddModal
 els.modalSave.onclick = saveModal
 els.modal.onclick = (e) => { if (e.target === els.modal) hideAddModal() }
+
+// ===== 导入文件 =====
+async function importFile(filePath) {
+  if (!filePath) return
+  const name = filePath.split(/[\\\/]/).pop()
+  setStatus('正在导入: ' + name + ' ...')
+  try {
+    const result = await api.importDocument(filePath)
+    if (result.success) {
+      setStatus('导入成功 #' + result.id + ' · ' + result.title)
+      await loadNotes()
+    } else {
+      setStatus('导入失败: ' + result.error)
+    }
+  } catch (e) {
+    setStatus('导入失败: ' + e.message)
+  }
+}
+
+els.importBtn.onclick = () => { els.importFile.value = ''; els.importFile.click() }
+els.importFile.onchange = async (e) => {
+  const files = Array.from(e.target.files || [])
+  for (const f of files) {
+    const filePath = api.getPathForFile(f)
+    if (filePath) await importFile(filePath)
+  }
+}
+
+// 拖拽导入（整个主窗口为接收区）
+let dragCounter = 0
+window.addEventListener('dragenter', (e) => {
+  e.preventDefault()
+  if (!e.dataTransfer.types.includes('Files')) return
+  dragCounter++
+  els.dropOverlay.classList.add('active')
+})
+window.addEventListener('dragover', (e) => { e.preventDefault() })
+window.addEventListener('dragleave', (e) => {
+  e.preventDefault()
+  dragCounter--
+  if (dragCounter <= 0) { dragCounter = 0; els.dropOverlay.classList.remove('active') }
+})
+window.addEventListener('drop', async (e) => {
+  e.preventDefault()
+  dragCounter = 0
+  els.dropOverlay.classList.remove('active')
+  const files = Array.from(e.dataTransfer.files || [])
+  for (const f of files) {
+    const filePath = api.getPathForFile(f)
+    if (filePath) await importFile(filePath)
+  }
+})
 
 // 弹窗内键盘: Esc 关闭, Ctrl+Enter 保存
 els.modal.addEventListener('keydown', (e) => {

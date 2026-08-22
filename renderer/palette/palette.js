@@ -178,8 +178,20 @@ function render() {
       div.innerHTML = `<span class="item-icon">${item.cmd.icon}</span><span class="item-text">${item.cmd.name}${item.keyword ? ' ' + item.keyword : ''}</span>`
       div.onclick = () => { selectedIndex = idx; triggerAction('enter') }
     } else if (item.type === 'note') {
-      div.innerHTML = `<span class="item-icon">📝</span><span class="item-text">${escapeHTML(item.note.title || '(无标题)')}</span><span class="item-meta">${item.note.category || ''}</span>`
+      const sourceBtn = item.note.source_path
+        ? `<span class="item-reveal" data-path="${escapeHTML(item.note.source_path)}" title="在文件管理器中显示">📁</span>`
+        : ''
+      div.innerHTML = `<span class="item-icon">📝</span><span class="item-text">${escapeHTML(item.note.title || '(无标题)')}</span><span class="item-meta">${item.note.category || ''}</span>${sourceBtn}`
       div.onclick = () => { selectedIndex = idx; triggerAction('enter') }
+      const reveal = div.querySelector('.item-reveal')
+      if (reveal) {
+        reveal.onclick = (e) => {
+          e.stopPropagation()
+          api.revealInFolder(reveal.dataset.path).then(r => {
+            if (!r.success) setStatus('打开失败: ' + (r.error || ''))
+          })
+        }
+      }
     } else if (item.type === 'new-content') {
       div.innerHTML = `<span class="item-icon">✚</span><span class="item-text">添加: ${escapeHTML(item.content.substring(0, 60))}</span>`
       div.onclick = () => { selectedIndex = idx; triggerAction('enter') }

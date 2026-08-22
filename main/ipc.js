@@ -1,9 +1,10 @@
-const { ipcMain, BrowserWindow, app } = require('electron')
+const { ipcMain, BrowserWindow, app, shell } = require('electron')
 const fs = require('fs')
 const path = require('path')
 const { PROVIDERS } = require('./ai/providers.js')
 const { getDB } = require('./db-init')
 const { addNote, searchNotes, getNoteById, getRecentNotes } = require('./db/search')
+const { importDocument } = require('./import/store')
 
 let aiService = null
 
@@ -67,6 +68,35 @@ function registerIpcHandlers() {
     const db = getDB()
     const id = addNote(db, noteData)
     return { id, ...noteData }
+  })
+
+  ipcMain.handle('import-document', async (event, filePath) => {
+    if (!filePath || typeof filePath !== 'string') {
+      return { success: false, error: '缺少文件路径' }
+    }
+    console.log('[ipc import-document] filePath=' + filePath)
+    const start = Date.now()
+    try {
+      const db = getDB()
+      const result = await importDocument(db, filePath)
+      console.log('[ipc import-document] OK id=' + result.id + ' title=' + JSON.stringify(result.title) + ' cost=' + (Date.now() - start) + 'ms')
+      return { success: true, ...result }
+    } catch (error) {
+      console.log('[ipc import-document] error: ' + error.message)
+      return { success: false, error: error.message }
+    }
+  })
+
+  ipcMain.handle('reveal-in-folder', async (event, filePath) => {
+    if (!filePath || typeof filePath !== 'string') {
+      return { success: false, error: '缺少文件路径' }
+    }
+    if (!fs.existsSync(filePath)) {
+      return { success: false, error: '文件不存在: ' + filePath }
+    }
+    console.log('[ipc reveal-in-folder] filePath=' + filePath)
+    shell.showItemInFolder(filePath)
+    return { success: true }
   })
 
   ipcMain.handle('update-note', async (event, { id, ...updates }) => {

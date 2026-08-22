@@ -3025,6 +3025,57 @@ git commit -m "chore: end-to-end verification"
 
 ## Phase 9: 打包
 
+### Task 20 Code Review Observations
+
+> Verdict: **Partial** (headless 无法手动 GUI 测试, 但 `npm start` 启动成功无错)。
+
+#### 验证结果
+
+- ✅ `npm start` 启动成功（8s 内无崩溃）
+- ✅ 进程保持运行（`app.whenReady()` 之后到 `will-quit` 之间）
+- ✅ 仅有 warning: `[tray] icon not found at assets/icon.png - using empty icon as fallback` (graceful fallback 已生效)
+- ✅ 无 JS 错误、无 unhandled promise rejection
+- ⚠️ better-sqlite3 native module ABI 不匹配（见下方）
+
+#### better-sqlite3 ABI 问题（plan-level 缺失 + 解决方案）
+
+**问题**:
+- 宿主 Node v24.18.0 (ABI 137) vs Electron 28 Node 18.18.2 (ABI 119)
+- better-sqlite3 v11.10.0 没有 Node 24 prebuild，必须从源码编译 (10+ 分钟)
+- 单个 `better_sqlite3.node` 文件只能匹配一个 ABI
+- 默认 `npm install` 后跑 `npm test` 报 `NODE_MODULE_VERSION 137 vs 119` 错误
+
+**解决方案** (commit 12f4e31):
+- `rebuild:node`: `npm rebuild better-sqlite3` (重新编译为宿主 Node ABI)
+- `rebuild:electron`: `npx @electron/rebuild -f -w better-sqlite3` (重新编译为 Electron ABI)
+- `test:all`: `npm run rebuild:node && npm test` (一键测试)
+- `start:fresh`: `npm run rebuild:electron && electron .` (一键启动)
+
+**用户文档**: `npm test` 需先 `npm run rebuild:node`; `npm start` 需先 `npm run rebuild:electron`
+
+#### 手动 GUI 验证清单 (待用户在桌面执行)
+
+- [ ] `Alt+K` 唤起命令面板（应在屏幕顶部居中）
+- [ ] 输入"测试" → 显示结果（如果有匹配的笔记）
+- [ ] `Enter` 复制当前选中（应该复制到剪贴板）
+- [ ] `Esc` 关闭面板
+- [ ] `Ctrl+Q` 唤起主窗口
+- [ ] `Ctrl+A` 唤起面板（添加笔记快捷键）
+- [ ] `? test` 触发 AI 搜索（需配置 API key）
+- [ ] 输入新内容 + `Enter` 触发快速添加
+- [ ] 详情浮层: 在面板选中笔记按 `Shift+Enter` 打开 detail.html
+- [ ] 主窗口: 关闭/重开命令面板后, 主窗口笔记列表应保留
+
+#### 已发现 plan-level 缺失（额外 commit 修复）
+
+- commit 1748c4b: 缺少 `renderer/main/index.html` + `renderer/main/main.js` + `assets/icon.png`
+  - `main/windows.js:72` 引用 `renderer/main/index.html` 但 plan 没创建该文件
+  - 创建了完整的主窗口 UI (search/list/buttons) + main.js 使用新 IPC API
+  - icon.png 创建占位符 (16x16 PNG)
+
+**测试状态**: 50 passed (Node ABI 137)
+**启动状态**: clean start (Electron ABI 119)
+
 ### Task 21: 构建 NSIS 安装包
 
 **Files:**

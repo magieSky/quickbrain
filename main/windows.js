@@ -3,6 +3,8 @@ const path = require('path')
 
 let paletteWindow = null
 let mainWindow = null
+let preloadPathCache = null
+let suppressBlurHide = false  // showPalette 期间临时屏蔽 blur 触发的 hide
 
 function getPalettePosition() {
   const display = screen.getPrimaryDisplay()
@@ -17,7 +19,20 @@ function getPalettePosition() {
   }
 }
 
+function attachBlurHandler() {
+  if (!paletteWindow || paletteWindow.isDestroyed()) return
+  paletteWindow.on('blur', () => {
+    console.log('[palette blur] event, suppress=' + suppressBlurHide + ' visible=' + (paletteWindow && !paletteWindow.isDestroyed() ? paletteWindow.isVisible() : 'N/A'))
+    if (suppressBlurHide) return
+    if (paletteWindow && paletteWindow.isVisible()) {
+      paletteWindow.hide()
+      console.log('[palette blur] hidden')
+    }
+  })
+}
+
 function createPaletteWindow(preloadPath) {
+  if (preloadPath) preloadPathCache = preloadPath
   if (paletteWindow && !paletteWindow.isDestroyed()) return paletteWindow
 
   const pos = getPalettePosition()
@@ -31,24 +46,25 @@ function createPaletteWindow(preloadPath) {
     show: false,
     backgroundColor: '#00000000',
     webPreferences: {
-      preload: path.join(preloadPath, 'palette-preload.js'),
+      preload: path.join(preloadPathCache, 'palette-preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
       webSecurity: true
     }
   })
 
-  console.log('[windows] createPaletteWindow: loading index.html')
+  console.log('[windows] createPaletteWindow: loading index.html, id=' + paletteWindow.id)
   paletteWindow.webContents.on('did-finish-load', () => console.log('[windows] palette did-finish-load'))
   paletteWindow.webContents.on('preload-error', (e, p, err) => console.log('[windows] palette preload-error:', p, err.message))
   paletteWindow.webContents.on('console-message', (e, level, msg) => console.log('[windows] palette console:', level, msg))
+  paletteWindow.webContents.on('render-process-gone', (e, d) => console.log('[windows] palette render-process-gone:', JSON.stringify(d)))
+  paletteWindow.on('closed', () => {
+    console.log('[windows] palette closed')
+    paletteWindow = null
+  })
   paletteWindow.loadFile(path.join(__dirname, '..', 'renderer', 'palette', 'index.html'))
   paletteWindow.webContents.openDevTools({ mode: 'detach' })
-  paletteWindow.on('blur', () => {
-    if (paletteWindow && paletteWindow.isVisible()) {
-      paletteWindow.hide()
-    }
-  })
+  attachBlurHandler()
 
   return paletteWindow
 }
@@ -96,29 +112,72 @@ function createMainWindow(preloadPath) {
 }
 
 function showPalette() {
-  if (!paletteWindow || paletteWindow.isDestroyed()) return
-  if (!paletteWindow.isVisible()) {
-    const pos = getPalettePosition()
-    paletteWindow.setBounds(pos)
+  console.log('[showPalette] called, t=' + Date.now())
+  if (!paletteWindow || paletteWindow.isDestroyed()) {
+    console.log('[showPalette] window missing, recreating')
+    if (!preloadPathCache) {
+      console.log('[showPalette] ABORT: no preload path cached')
+      return
+    }
+    createPaletteWindow(preloadPathCache)
   }
-  paletteWindow.show()
-  paletteWindow.focus()
-  paletteWindow.webContents.send('palette-reset')
+
+  suppressBlurHide = true
+  console.log('[showPalette] suppressBlurHide=true')
+
+  try {
+    if (!paletteWindow.isVisible()) {
+      const pos = getPalettePosition()
+      console.log('[showPalette] setBounds to', JSON.stringify(pos))
+      paletteWindow.setBounds(pos)
+    } else {
+      console.log('[showPalette] already visible, skipping setBounds')
+    }
+    paletteWindow.show()
+    console.log('[showPalette] show() called, isVisible=' + paletteWindow.isVisible())
+    paletteWindow.focus()
+    console.log('[showPalette] focus() called, isFocused=' + paletteWindow.isFocused())
+    paletteWindow.webContents.send('palette-reset')
+    console.log('[showPalette] sent palette-reset')
+  } catch (e) {
+    console.log('[showPalette] ERROR:', e && e.message)
+  }
+
+  setTimeout(() => {
+    suppressBlurHide = false
+    console.log('[showPalette] suppressBlurHide=false (released)')
+  }, 400)
 }
 
 function hidePalette() {
+  console.log('[hidePalette] called, t=' + Date.now() + ' visible=' + (paletteWindow && !paletteWindow.isDestroyed() ? paletteWindow.isVisible() : 'N/A'))
   if (paletteWindow && !paletteWindow.isDestroyed() && paletteWindow.isVisible()) {
     paletteWindow.hide()
+    console.log('[hidePalette] hidden')
+  } else {
+    console.log('[hidePalette] noop')
   }
 }
 
 function togglePalette() {
+  console.log('[togglePalette] start, t=' + Date.now() + ' exists=' + !!paletteWindow + ' destroyed=' + (paletteWindow && paletteWindow.isDestroyed()) + ' visible=' + (paletteWindow && !paletteWindow.isDestroyed() ? paletteWindow.isVisible() : 'N/A'))
   if (!paletteWindow || paletteWindow.isDestroyed()) {
+    console.log('[togglePalette] (re)creating window')
+    if (!preloadPathCache) {
+      console.log('[togglePalette] ABORT: no preload path')
+      return
+    }
+    createPaletteWindow(preloadPathCache)
     showPalette()
     return
   }
-  if (paletteWindow.isVisible()) hidePalette()
-  else showPalette()
+  if (paletteWindow.isVisible()) {
+    console.log('[togglePalette] hiding')
+    hidePalette()
+  } else {
+    console.log('[togglePalette] showing')
+    showPalette()
+  }
 }
 
 function toggleMainWindow() {

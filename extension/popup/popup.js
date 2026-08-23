@@ -1,0 +1,33 @@
+const HOST = 'com.quickbrain.app'
+const $ = (s) => document.querySelector(s)
+const setStatus = (m) => { $('#status').textContent = m }
+
+async function activeTab() {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+  return tab
+}
+
+$('#save-selection').addEventListener('click', async () => {
+  try {
+    const tab = await activeTab()
+    const [{ result: text }] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: () => window.getSelection().toString() })
+    if (!text) { setStatus('没有选中文本'); return }
+    setStatus('保存中...')
+    const r = await chrome.runtime.sendNativeMessage(HOST, { type: 'save-selection', payload: { text, title: tab.title, url: tab.url, tabTitle: tab.title } })
+    setStatus(r.success ? '已保存 #' + r.id + ' ✓' : '失败: ' + r.error)
+  } catch (e) {
+    setStatus('失败: ' + e.message)
+  }
+})
+
+$('#save-page').addEventListener('click', async () => {
+  try {
+    const tab = await activeTab()
+    const [{ result: body }] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: () => document.title + '\n---\n' + document.body.innerText })
+    setStatus('保存中...')
+    const r = await chrome.runtime.sendNativeMessage(HOST, { type: 'save-page', payload: { markdown: body, title: tab.title, url: tab.url, tabTitle: tab.title } })
+    setStatus(r.success ? '已保存 #' + r.id + ' ✓' : '失败: ' + r.error)
+  } catch (e) {
+    setStatus('失败: ' + e.message)
+  }
+})

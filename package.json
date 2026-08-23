@@ -58,6 +58,16 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true
-    }
+    },
+    "extraResources": [
+      {
+        "from": "extension",
+        "to": "browser-extension"
+      },
+      {
+        "from": "resources/native-host.json",
+        "to": "native-host.json"
+      }
+    ]
   }
 }

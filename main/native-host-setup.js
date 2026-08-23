@@ -43,4 +43,51 @@ async function register() {
   })
 }
 
-module.exports = { register, manifestPath, HOST_NAME }
+function rewriteManifestPath() {
+  const mp = manifestPath()
+  if (!fs.existsSync(mp)) return false
+  try {
+    const json = JSON.parse(fs.readFileSync(mp, 'utf8'))
+    const target = app.isPackaged
+      ? process.execPath
+      : path.join(__dirname, '..', 'dist', 'win-unpacked', 'QuickBrain.exe')
+    if (json.path !== target) {
+      json.path = target
+      fs.writeFileSync(mp, JSON.stringify(json, null, 2) + '\n', 'utf8')
+      console.log('[native-host-setup] rewrote manifest path ->', target)
+    }
+    return true
+  } catch (e) {
+    console.error('[native-host-setup] rewrite failed:', e.message)
+    return false
+  }
+}
+
+function firstRunMarkerPath() {
+  return path.join(app.getPath('userData'), 'native-host-installed.json')
+}
+
+function isFirstRunComplete() {
+  const f = firstRunMarkerPath()
+  try {
+    if (!fs.existsSync(f)) return false
+    const json = JSON.parse(fs.readFileSync(f, 'utf8'))
+    return json && json.installed === true
+  } catch (e) {
+    return false
+  }
+}
+
+function markFirstRunComplete() {
+  try {
+    const f = firstRunMarkerPath()
+    fs.writeFileSync(f, JSON.stringify({ installed: true, ts: Date.now() }, null, 2) + '\n', 'utf8')
+    console.log('[native-host-setup] first-run marker written:', f)
+    return true
+  } catch (e) {
+    console.error('[native-host-setup] markFirstRunComplete failed:', e.message)
+    return false
+  }
+}
+
+module.exports = { register, manifestPath, HOST_NAME, rewriteManifestPath, isFirstRunComplete, markFirstRunComplete }

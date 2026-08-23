@@ -88,7 +88,16 @@ app.whenReady().then(async () => {
   if (aiService) setAIService(aiService)
 
   const nativeHostSetup = require('./main/native-host-setup')
+  try { nativeHostSetup.rewriteManifestPath() } catch (e) { console.error('[main] native-host rewrite failed:', e.message) }
   try { await nativeHostSetup.register() } catch (e) { console.error('[main] native host register failed:', e.message) }
+  if (!nativeHostSetup.isFirstRunComplete()) {
+    const { shell } = require('electron')
+    notify('QuickBrain 浏览器扩展', '点击开启 Chrome / Edge 扩展加载页')
+    setTimeout(() => {
+      try { shell.openExternal('chrome://extensions') } catch (e) { console.error('[main] openExternal failed:', e.message) }
+    }, 1500)
+    try { nativeHostSetup.markFirstRunComplete() } catch (e) {}
+  }
 
   registerIpcHandlers()
 

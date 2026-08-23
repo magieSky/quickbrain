@@ -21,6 +21,7 @@ contextBridge.exposeInMainWorld('paletteAPI', {
   // Cross-window navigation
   locateNoteInMain: (id) => ipcRenderer.send('locate-note', id),
   revealInFolder: (filePath) => ipcRenderer.invoke('reveal-in-folder', filePath),
+  openExternal: (url) => ipcRenderer.invoke('open-external', url),
 
   // Forward renderer logs to main process log file
   log: (level, args) => ipcRenderer.send('debug-log', { level, args }),

@@ -28,5 +28,7 @@ contextBridge.exposeInMainWorld('paletteAPI', {
   // Listen for palette reset event
   onPaletteReset: (callback) => {
     ipcRenderer.on('palette-reset', () => callback())
-  }
+  },
+  extractSource: (id, force) => ipcRenderer.invoke('extract-source', { id, force }),
+  extractSearch: (keyword, force) => ipcRenderer.invoke('extract-search', { keyword, force }),
 })

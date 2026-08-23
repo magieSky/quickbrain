@@ -201,7 +201,7 @@ function showMainWindow() {
 function locateNoteInMain(id) {
   if (!mainWindow || mainWindow.isDestroyed()) return
   showMainWindow()
-  mainWindow.webContents.send('locate-note', id)
+  mainWindow.webContents.send('locate-note', { id, range: null })
 }
 
 function getMainWindow() { return mainWindow }

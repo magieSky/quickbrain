@@ -125,6 +125,29 @@ function smartSearch(keyword, limit = 20) {
   return filtered.slice(0, limit).map(toResult)
 }
 
+
+ipcMain.on('reveal-source', (event, { id, range }) => {
+  const win = BrowserWindow.fromWebContents(event.sender)
+  if (win) win.webContents.send('locate-note', { id, range: range || null })
+})
+
+ipcMain.handle('extract-source', async (event, { id, force = false } = {}) => {
+  const { extractAtomsForSource } = require('./notes-extractor')
+  return extractAtomsForSource(id, { force })
+})
+
+ipcMain.handle('extract-search', async (event, { keyword, force = false } = {}) => {
+  const { getSourceNotes } = require('./db/search')
+  const sources = getSourceNotes(getDB(), { keyword: keyword || null, onlyUnExtracted: !force })
+  const { extractAtomsForSource } = require('./notes-extractor')
+  let count = 0
+  for (const s of sources) {
+    const r = await extractAtomsForSource(s.id, { force })
+    if (r.ok && !r.skipped) count++
+  }
+  return { ok: true, processed: sources.length, extracted: count }
+})
+
 function registerIpcHandlers() {
   ipcMain.on('debug-log', (event, { level, args }) => {
     const line = '[' + new Date().toISOString() + '] [renderer] [' + level + '] ' +

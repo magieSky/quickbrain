@@ -38,11 +38,14 @@ const els = {
 let allNotes = []
 let currentSearch = ''
 let currentCategory = 'all'
+let currentType = 'all' // 'all' | 'source' | 'atom'
+let aiReady = false
 
 async function loadNotes() {
   setStatus('加载中...')
   try {
     allNotes = await api.getAllNotes()
+    try { const cfg = await api.getAIConfig(); aiReady = !!(cfg && cfg.provider && cfg.hasApiKey) } catch (_) {}
     setStatus('就绪')
   } catch (e) {
     setStatus('加载失败: ' + e.message)
@@ -51,8 +54,16 @@ async function loadNotes() {
   render()
 }
 
+
+function parentTitleOf(n) {
+  if (!n.parent_id) return '(unknown)'
+  const p = allNotes.find(x => x.id === n.parent_id)
+  return (p && p.title) || '(unknown)'
+}
 function getFiltered() {
   let r = allNotes
+  if (currentType === 'source') r = r.filter(n => !n.is_atom)
+  else if (currentType === 'atom') r = r.filter(n => n.is_atom)
   if (currentCategory !== 'all') {
     r = r.filter(n => (n.category || '其他') === currentCategory)
   }
@@ -69,7 +80,7 @@ function getFiltered() {
 
 function render() {
   const filtered = getFiltered()
-  els.stats.textContent = filtered.length + ' / ' + allNotes.length + ' 条'
+  const sources = allNotes.filter(n => !n.is_atom).length; const atoms = allNotes.filter(n => n.is_atom).length; els.stats.textContent = sources + ' 源 / ' + atoms + ' 原子'
 
   if (allNotes.length === 0) {
     els.list.innerHTML =
@@ -127,6 +138,22 @@ function render() {
       e.stopPropagation()
       const p = el.dataset.path
       if (p) api.revealInFolder(p).then(r => { if (!r.success) setStatus('打开失败: ' + r.error) })
+    }
+  })
+  els.list.querySelectorAll('.source-status').forEach(el => {
+    el.onclick = async (e) => {
+      e.stopPropagation()
+      const id = parseInt(el.dataset.id, 10)
+      if (!id) return
+      try { await api.extractSource(id, true); await loadNotes(); setStatus('重新抽取完成') }
+      catch (err) { setStatus('抽取失败: ' + err.message) }
+    }
+  })
+  els.list.querySelectorAll('.source-link').forEach(el => {
+    el.onclick = (e) => {
+      e.stopPropagation()
+      const id = parseInt(el.dataset.id, 10)
+      if (id) api.revealSource(id)
     }
   })
   els.list.querySelectorAll('.note-card-del').forEach(btn => {
@@ -211,6 +238,17 @@ async function saveModal() {
     els.modalSave.textContent = '保存'
   }
 }
+
+
+els.filters.querySelectorAll('.filter-chip').forEach(c => {
+  if (c.dataset.type) {
+    c.onclick = () => {
+      currentType = c.dataset.type
+      els.filters.querySelectorAll('.filter-chip').forEach(x => x.classList.toggle('active', x === c))
+      render()
+    }
+  }
+})
 
 els.addBtn.onclick = showAddModal
 els.modalCancel.onclick = hideAddModal
@@ -475,14 +513,23 @@ if (api.onNotesUpdated) {
 }
 
 if (api.onLocateNote) {
-  api.onLocateNote((id) => {
+  api.onLocateNote(({ id, range }) => {
     const note = allNotes.find(n => n.id === id)
-    if (note) {
-      currentSearch = note.title || note.content.substring(0, 20)
-      els.search.value = currentSearch
-      currentCategory = 'all'
-      els.filters.querySelectorAll('.filter-chip').forEach(c => c.classList.toggle('active', c.dataset.cat === 'all'))
-      render()
+    if (!note) return
+    currentSearch = note.title || note.content.substring(0, 20)
+    els.search.value = currentSearch
+    currentCategory = 'all'
+    currentType = note.is_atom ? 'atom' : 'source'
+    els.filters.querySelectorAll('.filter-chip').forEach(c => {
+      const isActive = (c.dataset.type && c.dataset.type === currentType) ||
+                        (!c.dataset.type && c.dataset.cat === 'all')
+      c.classList.toggle('active', isActive)
+    })
+    render()
+    if (range && range.start != null) {
+      const snippet = note.content.slice(range.start, range.end)
+      window.alert('源笔记 #' + note.id + '\n\n[' + range.start + '-' + range.end + ']:\n' + snippet)
+    } else {
       setStatus('定位到笔记 #' + id)
     }
   })

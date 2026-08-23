@@ -12,6 +12,7 @@ let aiService = null
 
 function setAIService(service) {
   aiService = service
+  try { require('./notes-extractor').setExtractorAIService(service) } catch (e) {}
 }
 
 function getConfigPath() {

@@ -84,11 +84,22 @@ async function doSearch(input) {
     for (const s of summaryList) log('doSearch:ai:summary', s)
     const result = await api.semanticSearch({ query: parsed.query, candidateSummaries: summaryList })
     log('doSearch:ai:result', JSON.stringify(result))
-    if (result && result.matchedIds) {
+    if (result && result.matchedIds && result.matchedIds.length) {
       currentResults = await fetchNotesByIds(result.matchedIds)
       setStatus(`AI 召回 ${currentResults.length} 条`)
     } else {
-      setStatus('AI 召回失败')
+      // AI 没匹配上 → 回退到关键词搜索 + 提供"添加"入口
+      log('doSearch:ai:fallback-keyword', parsed.query)
+      const kwResults = await api.searchNotes(parsed.query).catch(() => [])
+      log('doSearch:ai:fallback-keyword:results', kwResults.length)
+      if (kwResults.length) {
+        currentResults = kwResults.map(n => ({ type: 'note', note: n }))
+        currentResults.push({ type: 'new-content', content: parsed.query })
+        setStatus(`AI 未匹配 · 关键词找到 ${kwResults.length} 条 · 按 Enter 添加`)
+      } else {
+        currentResults = [{ type: 'new-content', content: parsed.query }]
+        setStatus('AI 未匹配 · 按 Enter 添加为新笔记')
+      }
     }
     render()
     return

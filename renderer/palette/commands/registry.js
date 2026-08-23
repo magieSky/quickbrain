@@ -98,7 +98,33 @@ const registry = [
   // 系统类
   { name: '重启应用', icon: '↻', execute: (ctx) => { ctx.relaunch(); } },
   { name: '退出', icon: '✕', execute: (ctx) => { ctx.quit(); } },
-  { name: '关于', icon: 'ⓘ', execute: (ctx) => { ctx.showAbout(); } }
+  { name: '关于', icon: 'ⓘ', execute: (ctx) => { ctx.showAbout(); } },
+
+  {
+    name: '抽取', icon: '🧠', requiresKeyword: true,
+    execute: async (ctx, keyword) => {
+      const r = await ctx.api.extractSearch(keyword, false)
+      ctx.notify(r.extracted > 0 ? '已抽取 ' + r.extracted + ' 个源' : '没有可抽取的源')
+      ctx.hidePalette()
+    }
+  },
+  {
+    name: '重抽', icon: '🔁', requiresKeyword: true, dangerous: true,
+    execute: async (ctx, keyword) => {
+      if (!confirm('重抽会删除已有的原子，确定 "' + keyword + '" 吗？')) return
+      const r = await ctx.api.extractSearch(keyword, true)
+      ctx.notify('已重抽 ' + r.extracted + ' 个源')
+      ctx.hidePalette()
+    }
+  },
+  {
+    name: '抽取全部', icon: '🧠',
+    execute: async (ctx) => {
+      const r = await ctx.api.extractSearch('', false)
+      ctx.notify('已抽取 ' + r.extracted + ' 个源')
+      ctx.hidePalette()
+    }
+  },
 ]
 
 function findCommand(name) {

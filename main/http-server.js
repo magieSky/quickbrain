@@ -94,13 +94,17 @@ function start({ getDB, onNotesUpdated }) {
 
       if (route === 'POST /notes') {
         const body = await readJson(req)
+        console.log('[http-server] POST /notes type=' + body.type)
         const result = handleNoteMessage(body, getDB)
         if (result.success && onNotesUpdated) {
           onNotesUpdated({ type: body.type, id: result.id })
           try {
             const { extractAtomsForSource } = require('./notes-extractor')
+            console.log('[http-server] scheduling extraction for', result.id)
             setImmediate(() => {
-              extractAtomsForSource(result.id).catch(err =>
+              extractAtomsForSource(result.id).then(r =>
+                console.log('[http-server] extract result for', result.id, JSON.stringify(r))
+              ).catch(err =>
                 console.error('[http-server] extract failed:', err.message))
             })
           } catch (e) { console.error('[http-server] extract setup failed:', e.message) }

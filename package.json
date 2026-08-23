@@ -5,6 +5,7 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
+    "postinstall:register": "electron . --register-native-host",
     "dev": "electron . --dev",
     "build": "electron-builder",
     "build:win": "electron-builder --win",

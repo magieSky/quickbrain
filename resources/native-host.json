@@ -1,0 +1,7 @@
+{
+  "name": "com.quickbrain.app",
+  "description": "QuickBrain Native Messaging Host",
+  "path": "C:\\note\\quickbrain\\dist\\win-unpacked\\QuickBrain.exe",
+  "type": "stdio",
+  "allowed_origins": ["chrome-extension://abcdefghijklmnopqrstuvwxyzabcdef/"]
+}

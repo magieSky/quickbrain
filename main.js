@@ -87,6 +87,9 @@ app.whenReady().then(async () => {
   const aiService = loadAIConfig(AIService)
   if (aiService) setAIService(aiService)
 
+  const nativeHostSetup = require('./main/native-host-setup')
+  try { await nativeHostSetup.register() } catch (e) { console.error('[main] native host register failed:', e.message) }
+
   registerIpcHandlers()
 
   createPaletteWindow(path.join(__dirname, 'preload'))

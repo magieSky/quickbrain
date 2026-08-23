@@ -1,0 +1,12 @@
+{
+  "name": "@quickbrain/shared",
+  "version": "1.0.0",
+  "main": "index.js",
+  "exports": {
+    "./types/note": "./types/note.js",
+    "./types/providers": "./types/providers.js",
+    "./schema/sqlite/migrations": "./schema/sqlite/migrations.js",
+    "./schema/pg/migrations": "./schema/pg/migrations.js",
+    "./sync/protocol": "./sync/protocol.js"
+  }
+}

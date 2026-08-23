@@ -1,0 +1,17 @@
+{
+  "name": "@quickbrain/server",
+  "version": "1.0.0",
+  "main": "src/index.js",
+  "dependencies": {
+    "@quickbrain/shared": "*",
+    "fastify": "^4.28.0",
+    "@fastify/cors": "^9.0.0",
+    "kysely": "^0.27.0",
+    "pg": "^8.11.0",
+    "ioredis": "^5.4.0",
+    "bullmq": "^5.0.0"
+  },
+  "devDependencies": {
+    "vitest": "^1.6.1"
+  }
+}

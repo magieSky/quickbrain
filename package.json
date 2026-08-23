@@ -30,11 +30,7 @@
     "vitest": "^1.6.1"
   },
   "dependencies": {
-    "@node-rs/jieba": "^0.4.0",
     "auto-launch": "^5.0.6",
-    "better-sqlite3": "^11.10.0",
-    "openai": "^4.20.0",
-    "pinyin-pro": "^3.29.3",
     "sql.js": "^1.10.3"
   },
   "build": {
@@ -69,5 +65,10 @@
         "to": "native-host.json"
       }
     ]
-  }
+  },
+  "workspaces": [
+    "client",
+    "server",
+    "shared"
+  ]
 }

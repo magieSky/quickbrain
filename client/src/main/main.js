@@ -140,7 +140,7 @@ app.whenReady().then(async () => {
       if (!c.enabled) return
       try {
         const cur = c.deviceId ? (meta.get(getDB(), c.deviceId) || { last_pull_cursor: 0 }).last_pull_cursor : 0
-        const r = await syncClient.pull({ serverUrl: c.serverUrl, bearer: cfg.buildBearer(), since: cur, limit: 200 })
+        const r = await syncClient.pull({ serverUrl: c.serverUrl, bearer: cfg.buildBearer(), deviceId: c.deviceId, since: cur, limit: 200 })
         const rows = (r.changes || []).map(row => ({
           client_id: row.client_id, content: row.content || '', title: row.title || '',
           category: row.category || 'uncategorized', tags: row.tags || [], source_path: row.source_path || '',
@@ -163,7 +163,7 @@ app.whenReady().then(async () => {
         const ops = rows.map(r => r.op === 'upsert'
           ? { op: 'upsert', note: { ...r.payload, client_id: r.payload.client_id || ((c.deviceId || 'unknown') + ':' + (r.noteId || '')) } }
           : { op: 'delete', client_id: r.payload.client_id, updated_at: r.payload.updated_at })
-        const r = await syncClient.push({ serverUrl: c.serverUrl, bearer: cfg.buildBearer(), ops })
+        const r = await syncClient.push({ serverUrl: c.serverUrl, bearer: cfg.buildBearer(), deviceId: c.deviceId, ops })
         const conflictIds = new Set((r.conflicts || []).map(cf => cf.client_id))
         for (const row of rows) {
           if (conflictIds.has(row.payload.client_id)) outbox.setLastError(getDB(), row.seq, 'server-conflict')

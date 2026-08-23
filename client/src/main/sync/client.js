@@ -1,11 +1,13 @@
-async function req({ serverUrl, path, method = 'GET', bearer, body }) {
+﻿async function req({ serverUrl, path, method = 'GET', bearer, deviceId, body }) {
   const url = serverUrl.replace(/\/$/, '') + path
+  const headers = {
+    authorization: 'Bearer ' + bearer,
+    'content-type': 'application/json'
+  }
+  if (deviceId) headers['x-qb-device'] = deviceId
   const res = await fetch(url, {
     method,
-    headers: {
-      authorization: 'Bearer ' + bearer,
-      'content-type': 'application/json'
-    },
+    headers,
     body: body ? JSON.stringify(body) : undefined
   })
   if (!res.ok) {
@@ -15,16 +17,16 @@ async function req({ serverUrl, path, method = 'GET', bearer, body }) {
   return res.json()
 }
 
-async function pull({ serverUrl, bearer, since, limit }) {
-  return req({ serverUrl, path: '/v1/sync/pull?since=' + (since || 0) + '&limit=' + (limit || 500), bearer })
+async function pull({ serverUrl, bearer, deviceId, since, limit }) {
+  return req({ serverUrl, path: '/v1/sync/pull?since=' + (since || 0) + '&limit=' + (limit || 500), bearer, deviceId })
 }
 
-async function push({ serverUrl, bearer, ops }) {
-  return req({ serverUrl, path: '/v1/sync/push', method: 'POST', bearer, body: { ops } })
+async function push({ serverUrl, bearer, deviceId, ops }) {
+  return req({ serverUrl, path: '/v1/sync/push', method: 'POST', bearer, deviceId, body: { ops } })
 }
 
-async function health({ serverUrl, bearer }) {
-  return req({ serverUrl, path: '/v1/sync/health', bearer })
+async function health({ serverUrl, bearer, deviceId }) {
+  return req({ serverUrl, path: '/v1/sync/health', bearer, deviceId })
 }
 
 module.exports = { pull, push, health, req }

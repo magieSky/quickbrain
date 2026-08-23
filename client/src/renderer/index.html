@@ -11,6 +11,7 @@
     <!-- Title Bar -->
     <div class="title-bar">
       <div class="title-bar-text">⚡ QuickBrain</div>
+      <button class="sync-btn" onclick="openSyncDialog()" title="Sync">sync</button>
       <button class="settings-btn" onclick="openSettings()" title="设置">⚙️</button>
       <div class="title-bar-controls">
         <button aria-label="Minimize" onclick="minimizeWindow()"></button>
@@ -136,6 +137,42 @@
     </div>
   </div>
   
+  <!-- Sync Settings Dialog -->
+  <div class="dialog-overlay" id="syncDialog" style="display:none">
+    <div class="dialog">
+      <div class="dialog-header">
+        <h3>Sync Settings</h3>
+        <button class="close-btn" onclick="closeSyncDialog()">x</button>
+      </div>
+      <div class="dialog-body">
+        <div class="form-group">
+          <label>Server URL</label>
+          <input id="syncServerUrl" type="text" placeholder="http://localhost:7422">
+        </div>
+        <div class="form-group">
+          <label>Device Token (HMAC shared secret)</label>
+          <input id="syncToken" type="password" placeholder="leave blank to keep current">
+        </div>
+        <div class="form-group">
+          <label>Device Name</label>
+          <input id="syncDeviceName" type="text" placeholder="My PC">
+        </div>
+        <div class="form-group">
+          <label>Status</label>
+          <div id="syncStatus" class="info">Loading...</div>
+        </div>
+      </div>
+      <div class="dialog-footer">
+        <button class="cancel-btn" onclick="closeSyncDialog()">Close</button>
+        <button class="sync-btn" onclick="pullNow()">Pull Now</button>
+        <button class="sync-btn" onclick="pushLocal()">Push Outbox</button>
+        <button class="sync-btn" onclick="pushAll()">Push All</button>
+        <button class="sync-btn" id="syncSaveBtn" onclick="saveSyncConfig()">Save &amp; Enable</button>
+        <button class="danger" onclick="disableSync()">Disable</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Notification -->
   <div class="toast" id="toast"></div>
   

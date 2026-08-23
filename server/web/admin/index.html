@@ -1,0 +1,65 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>QuickBrain Admin</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <header>
+    <h1>QuickBrain Admin</h1>
+    <div class="status-bar">
+      <span id="status-text">Not connected</span>
+      <button id="refresh-btn">Refresh</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="login-section" class="card">
+      <h2>Connect</h2>
+      <label>Owner Token <input id="owner-token" type="password" placeholder="OWNER_TOKEN"></label>
+      <label>Server URL <input id="server-url" type="text" placeholder="http://localhost:7422" value="http://localhost:7422"></label>
+      <button id="connect-btn">Connect</button>
+      <div id="login-error" class="error"></div>
+    </section>
+
+    <section id="status-section" class="card hidden">
+      <h2>Status</h2>
+      <pre id="status-json"></pre>
+    </section>
+
+    <section id="ai-section" class="card hidden">
+      <h2>AI Config</h2>
+      <div id="ai-configured" class="info"></div>
+      <label>Provider
+        <select id="ai-provider">
+          <option value="openai">OpenAI</option>
+          <option value="anthropic">Anthropic</option>
+          <option value="google">Google Gemini</option>
+          <option value="openai-compatible">OpenAI-compatible (custom baseURL)</option>
+          <option value="ollama">Ollama (local)</option>
+        </select>
+      </label>
+      <label>API Key <input id="ai-api-key" type="password" placeholder="leave blank to keep current"></label>
+      <label>Model <input id="ai-model" type="text" placeholder="gpt-4o-mini"></label>
+      <label>Base URL <input id="ai-base-url" type="text" placeholder="https://api.openai.com/v1"></label>
+      <div class="row">
+        <button id="ai-save-btn">Save</button>
+        <button id="ai-clear-btn" class="danger">Clear</button>
+        <span id="ai-save-status" class="info"></span>
+      </div>
+    </section>
+
+    <section id="devices-section" class="card hidden">
+      <h2>Devices</h2>
+      <table id="devices-table">
+        <thead><tr><th>ID</th><th>Name</th><th>Platform</th><th>Last seen</th><th>Status</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+  </main>
+
+  <script src="./app.js"></script>
+</body>
+</html>

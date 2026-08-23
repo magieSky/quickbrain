@@ -319,6 +319,59 @@ function openSettings() {
   require('electron').remote.getCurrentWindow().webContents.send('open-settings');
 }
 
+
+// Sync dialog
+async function openSyncDialog() {
+  document.getElementById("syncDialog").style.display = "flex";
+  try {
+    const c = await window.quickbrain.getSyncConfig();
+    document.getElementById("syncServerUrl").value = c.serverUrl || "";
+  } catch (e) { console.error(e) }
+  await refreshSyncStatus();
+}
+function closeSyncDialog() { document.getElementById("syncDialog").style.display = "none"; }
+async function refreshSyncStatus() {
+  const el = document.getElementById("syncStatus");
+  el.textContent = "Loading...";
+  try {
+    const s = await window.quickbrain.syncStatus();
+    el.textContent = (s.enabled ? "ENABLED" : "DISABLED") + ", pending=" + (s.pending || 0) + ", cursor=" + (s.lastPullCursor || 0);
+  } catch (e) { el.textContent = "Error: " + e.message; }
+}
+async function saveSyncConfig() {
+  const serverUrl = document.getElementById("syncServerUrl").value.trim();
+  const token = document.getElementById("syncToken").value;
+  const deviceName = document.getElementById("syncDeviceName").value.trim();
+  if (!serverUrl) { showToast("Server URL required", "error"); return; }
+  const payload = { enabled: true, serverUrl };
+  if (token) payload.token = token;
+  if (deviceName) payload.deviceName = deviceName;
+  try {
+    await window.quickbrain.setSyncConfig(payload);
+    showToast("Sync enabled", "success");
+    document.getElementById("syncToken").value = "";
+    await refreshSyncStatus();
+  } catch (e) { showToast("Save failed: " + e.message, "error"); }
+}
+async function disableSync() {
+  if (!confirm("Disable sync? Local notes will not be pushed.")) return;
+  try { await window.quickbrain.setSyncConfig({ enabled: false }); showToast("Sync disabled", "success"); await refreshSyncStatus(); }
+  catch (e) { showToast("Disable failed: " + e.message, "error"); }
+}
+async function pullNow() {
+  try { const r = await window.quickbrain.pullNow(); showToast(r.ok ? "Pull done" : ("Pull failed: " + r.error), r.ok ? "success" : "error"); await refreshSyncStatus(); }
+  catch (e) { showToast("Pull error: " + e.message, "error"); }
+}
+async function pushLocal() {
+  try { const r = await window.quickbrain.pushLocal(); showToast(r.ok ? ("Pushed " + r.accepted + " ops") : ("Push failed: " + r.error), r.ok ? "success" : "error"); await refreshSyncStatus(); }
+  catch (e) { showToast("Push error: " + e.message, "error"); }
+}
+async function pushAll() {
+  if (!confirm("Push ALL local notes to server? Existing remote notes will get LWW-merged.")) return;
+  try { const r = await window.quickbrain.pushAll(); showToast(r.ok ? ("Pushed " + r.accepted + " notes (" + r.conflicts + " conflicts)") : ("Failed: " + r.error), r.ok ? "success" : "error"); await refreshSyncStatus(); }
+  catch (e) { showToast("Push error: " + e.message, "error"); }
+}
+
 // Toast notification
 function showToast(message, type = 'success') {
   const toast = document.getElementById('toast');

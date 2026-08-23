@@ -32,6 +32,14 @@ contextBridge.exposeInMainWorld('quickbrain', {
   // Forward renderer logs to main process log file
   log: (level, args) => ipcRenderer.send('debug-log', { level, args }),
 
+  // Sync operations
+  getSyncConfig: () => ipcRenderer.invoke('get-sync-config'),
+  setSyncConfig: (payload) => ipcRenderer.invoke('set-sync-config', payload),
+  syncStatus: () => ipcRenderer.invoke('sync-status'),
+  pushLocal: () => ipcRenderer.invoke('push-local'),
+  pushAll: () => ipcRenderer.invoke('push-all'),
+  pullNow: () => ipcRenderer.invoke('pull-now'),
+
   // Window controls
   hideWindow: () => ipcRenderer.send('hide-window'),
   notify: (params) => ipcRenderer.invoke('notify', params),

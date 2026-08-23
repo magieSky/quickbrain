@@ -1,4 +1,5 @@
-﻿const Fastify = require('fastify')
+const Fastify = require('fastify')
+const path = require('path')
 const { loadConfig } = require('./config')
 const healthRoutes = require('./routes/health')
 const devicesRoutes = require('./routes/devices')
@@ -10,6 +11,13 @@ function build({ db = null } = {}) {
   const cfg = loadConfig()
   const app = Fastify({ logger: { level: 'info' } })
   app.register(healthRoutes)
+  try {
+    app.register(require('@fastify/static'), {
+      root: path.join(__dirname, '..', 'web', 'admin'),
+      prefix: '/admin/'
+    })
+    app.get('/admin', async (_req, reply) => reply.redirect('/admin/'))
+  } catch (e) { console.warn('[server] admin static not available:', e.message) }
   if (db) {
     app.register(devicesRoutes, { db })
     app.register(syncRoutes, { db })

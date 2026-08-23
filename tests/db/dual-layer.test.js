@@ -76,4 +76,14 @@ describe('dual-layer notes', () => {
     expect(mapped.parent_id).toBe(src)
     expect(mapped.source_range).toBe('{"start":1,"end":5}')
   })
+
+  it('deleting source cascades to atoms via FK', () => {
+    const src = addNote(db, { title: 'Parent', content: 'p' })
+    addAtomNote(db, { parentId: src, title: 'A1', content: 'a', sourceRange: {} })
+    addAtomNote(db, { parentId: src, title: 'A2', content: 'b', sourceRange: {} })
+    db.prepare('DELETE FROM notes WHERE id = ?').run(src)
+    const remaining = db.prepare('SELECT count(*) c FROM notes WHERE is_atom = 1').get().c
+    expect(remaining).toBe(0)
+  })
+
 })

@@ -76,3 +76,53 @@ node main/native-host-fixture.js "E:\note\quickbrain\dist\win-unpacked\QuickBrai
                                           │  → addNote                │
                                           └──────────────────────────┘
 ```
+## Dual-Layer Notes (Source + Atoms)
+
+Each saved content becomes one source note plus AI-extracted atom notes.
+
+- **Source note**: full content, includes extraction status (`extracted_at`):
+  - `NULL` = not extracted
+  - `-1` = failed
+  - timestamp = succeeded
+- **Atom note**: `is_atom=1`, `parent_id` points to source, `source_range` JSON points into source character range
+
+Search returns atoms first; one click jumps back to source context.
+
+### Source card status icons
+
+| Icon | Meaning |
+|---|---|
+| `OK` | extracted successfully |
+| `...` | extraction in flight (AI configured) |
+| `!` | failed - click to retry |
+| `AI` | AI not configured |
+
+### Smart search pipeline
+
+1. FTS5 recall (50 candidates)
+2. Hard keyword filter (substring in title or content)
+3. AI semantic re-rank + snippet extraction (if AI configured)
+
+Empty hard-filter result falls back to the original FTS set (handles Chinese / pinyin).
+
+### Commands
+
+Palette:
+- `extract <keyword>` - trigger extraction for matching sources
+- `re-extract <keyword>` - delete existing atoms + re-extract
+- `extract-all` - extract every unprocessed source
+
+Browser extension HTTP bridge (port 7421, localhost only):
+- `POST /notes` - create note + fire background extraction
+- `GET /notes?q=&limit=` - smart search
+- `GET /health` - server status
+
+### Files
+
+- Schema: `main/db/schema.sql` (notes has `parent_id`, `source_range`, `is_atom`, `extracted_at`)
+- Migration: `main/db-init.js` (idempotent `migrate()`)
+- Extractor: `main/notes-extractor.js` (orchestrator)
+- AI: `main/ai/extract.js` (prompt + parser), `main/ai/service.mjs` (`extractAtoms`)
+- HTTP bridge: `main/http-server.js`
+- IPC: `main/ipc.js` (`smartSearch`, `extract-source`, `extract-search`, `reveal-source`)
+- UI: `renderer/main/main.js`, `renderer/palette/commands/registry.js`

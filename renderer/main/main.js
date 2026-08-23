@@ -120,17 +120,27 @@ function render() {
           (tags.length ? tags.map(t => '<span class="badge">#' + escapeHtml(t) + '</span>').join('') : '') +
           sourceBadge +
           '<span style="margin-left:auto">' + date + '</span>' +
+          '<button class="note-card-act note-card-edit" data-id="' + n.id + '" title="编辑">\u270F\uFE0F</button>' +
+          '<button class="note-card-act note-card-format" data-id="' + n.id + '" title="AI 格式化">\u2728</button>' +
           '<button class="note-card-del" data-id="' + n.id + '" title="删除">\u{1F5D1}</button>' +
         '</div>' +
       '</div>'
     )
   }).join('')
 
-  els.list.querySelectorAll('.note-card').forEach(card => {
-    card.onclick = () => {
-      const id = parseInt(card.dataset.id, 10)
+  els.list.querySelectorAll('.note-card-edit').forEach(btn => {
+    btn.onclick = (e) => {
+      e.stopPropagation()
+      const id = parseInt(btn.dataset.id, 10)
       const note = allNotes.find(n => n.id === id)
       if (note) editNote(note)
+    }
+  })
+  els.list.querySelectorAll('.note-card-format').forEach(btn => {
+    btn.onclick = async (e) => {
+      e.stopPropagation()
+      const id = parseInt(btn.dataset.id, 10)
+      await formatNoteInline(id)
     }
   })
   els.list.querySelectorAll('.note-source').forEach(el => {
@@ -490,6 +500,29 @@ els.aiCancel.onclick = () => {
 els.aiModal.addEventListener('click', (e) => {
   if (e.target === els.aiModal) els.aiModal.classList.remove('show')
 })
+
+async function formatNoteInline(id) {
+  const note = allNotes.find(n => n.id === id)
+  if (!note) return
+  const style = await promptModal(
+    '选择格式化方式（输入数字）:\n1-摘要整理\n2-结构化输出\n3-标签分类\n4-思维导图',
+    '1',
+    { multiline: false }
+  )
+  if (!style) return
+  const styleMap = { '1': 'summary', '2': 'structured', '3': 'tags', '4': 'mindmap' }
+  const selected = styleMap[style.trim()] || 'summary'
+  try {
+    setStatus('AI 格式化中...')
+    const result = await api.formatWithAI({ content: note.content, style: selected })
+    if (!result || !result.content) { setStatus('格式化失败：空结果'); return }
+    await api.updateNote({ id: note.id, content: result.content, title: result.title || note.title })
+    await loadNotes()
+    setStatus('已格式化')
+  } catch (e) {
+    setStatus('格式化失败: ' + e.message)
+  }
+}
 
 async function editNote(note) {
   const newContent = await promptModal('编辑内容:', note.content, { multiline: true })

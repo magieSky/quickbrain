@@ -36,7 +36,7 @@ vi.mock('better-sqlite3', () => {
 
 describe('db-init', () => {
   it('initDatabase returns a database instance', async () => {
-    const { initDatabase } = await import('../main/db-init.js')
+    const { initDatabase } = await import('../client/src/main/db-init.js')
     const db = await initDatabase()
     expect(db).toBeDefined()
   })

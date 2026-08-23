@@ -141,7 +141,7 @@ async function editNote(id) {
   const note = notes.find(n => n.id === id);
   if (!note) return;
   
-  const newContent = prompt('编辑内容:', note.content);
+  const newContent = await promptModal('编辑内容:', note.content, { multiline: true });
   if (newContent && newContent.trim() !== note.content) {
     try {
       await window.quickbrain.updateNote({ id, content: newContent.trim() });
@@ -181,7 +181,7 @@ async function formatNote(id) {
   if (!note) return;
   
   const styleMap = { '1': 'summary', '2': 'structured', '3': 'tags', '4': 'mindmap' };
-  const styleInput = prompt('选择格式化方式:\n1-摘要整理\n2-结构化输出\n3-标签分类\n4-思维导图\n请输入数字:', '1');
+  const styleInput = await promptModal('选择格式化方式:\n1-摘要整理\n2-结构化输出\n3-标签分类\n4-思维导图\n请输入数字:', '1', { multiline: false });
   
   if (!styleInput) return;
   

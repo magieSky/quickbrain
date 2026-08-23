@@ -492,8 +492,7 @@ els.aiModal.addEventListener('click', (e) => {
 })
 
 async function editNote(note) {
-  // 简化: 用 prompt (虽然 contextIsolation 下 disabled, 主进程可走 IPC 弹窗; 暂留 TODO)
-  const newContent = window.prompt('编辑内容:', note.content)
+  const newContent = await promptModal('编辑内容:', note.content, { multiline: true })
   if (newContent === null) return
   try {
     await api.updateNote({ id: note.id, content: newContent, title: newContent.split('\n')[0].trim().substring(0, 50) || '(无标题)' })

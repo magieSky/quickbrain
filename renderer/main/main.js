@@ -108,9 +108,15 @@ function render() {
     const cat = n.category || '其他'
     const tags = (n.tags || []).slice(0, 3)
     const date = formatDate(n.created_at)
-    const sourceBadge = n.source_path
-      ? '<span class="note-source" data-path="' + escapeHtml(n.source_path) + '" title="' + escapeHtml(n.source_path) + '">来源文件</span>'
-      : ''
+    const sourceBadge = (function () {
+      if (!n.source_path) return ''
+      const path = escapeHtml(n.source_path)
+      const isWeb = n.source_type === 'web' || /^https?:\/\//i.test(n.source_path)
+      const cls = isWeb ? 'note-source note-source-web' : 'note-source note-source-file'
+      const label = isWeb ? '🔗 打开网页' : '📁 定位文件'
+      const titleText = isWeb ? ('打开 ' + n.source_path) : ('定位 ' + n.source_path)
+      return '<span class="' + cls + '" data-path="' + path + '" data-web="' + (isWeb ? '1' : '0') + '" title="' + escapeHtml(titleText) + '">' + label + '</span>'
+    })()
     return (
       '<div class="note-card" data-id="' + n.id + '">' +
         '<div class="note-title">' + escapeHtml(title) + '</div>' +
@@ -147,7 +153,12 @@ function render() {
     el.onclick = (e) => {
       e.stopPropagation()
       const p = el.dataset.path
-      if (p) api.revealInFolder(p).then(r => { if (!r.success) setStatus('打开失败: ' + r.error) })
+      if (!p) return
+      const isWeb = el.dataset.web === '1'
+      const fn = isWeb ? api.openExternal(p) : api.revealInFolder(p)
+      fn.then(r => {
+        if (r && !r.success) setStatus('打开失败: ' + r.error)
+      }).catch(err => setStatus('打开失败: ' + err.message))
     }
   })
   els.list.querySelectorAll('.source-status').forEach(el => {
@@ -187,7 +198,10 @@ function render() {
     el.onclick = (e) => {
       e.stopPropagation()
       const p = el.dataset.path
-      if (p) api.revealInFolder(p).then(r => { if (!r.success) setStatus('打开失败: ' + r.error) })
+      if (!p) return
+      const isWeb = el.dataset.web === '1'
+      const fn = isWeb ? api.openExternal(p) : api.revealInFolder(p)
+      fn.then(r => { if (r && !r.success) setStatus('打开失败: ' + r.error) }).catch(err => setStatus('打开失败: ' + err.message))
     }
   })
 }

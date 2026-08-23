@@ -23,15 +23,15 @@ console.log('[main] log file: ' + LOG_FILE);
 
 
 const { app, dialog } = require('electron')
-const { initDatabase, closeDatabase, getDB } = require('./main/db-init')
-const { registerIpcHandlers, setAIService } = require('./main/ipc')
-const { registerShortcuts, unregisterAll } = require('./main/shortcuts')
-const { createTray, notify } = require('./main/tray')
+const { initDatabase, closeDatabase, getDB } = require('./db-init')
+const { registerIpcHandlers, setAIService } = require('./ipc')
+const { registerShortcuts, unregisterAll } = require('./shortcuts')
+const { createTray, notify } = require('./tray')
 const {
   createPaletteWindow, createMainWindow,
   showPalette, hidePalette, togglePalette,
   toggleMainWindow, showMainWindow, getMainWindow
-} = require('./main/windows')
+} = require('./windows')
 
 function loadAIConfig(AIService) {
   const configPath = path.join(app.getPath('userData'), 'config.json')
@@ -80,11 +80,11 @@ app.whenReady().then(async () => {
   await initDatabase()
 
   // AIService 是 ESM 模块（CJS 不能 require .mjs）
-  const { AIService } = await import('./main/ai/service.mjs')
+  const { AIService } = await import('./ai/service.mjs')
   const aiService = loadAIConfig(AIService)
   if (aiService) setAIService(aiService)
 
-  const httpServer = require('./main/http-server')
+  const httpServer = require('./http-server')
   httpServer.start({
     getDB,
     onNotesUpdated: (detail) => {
@@ -97,8 +97,8 @@ app.whenReady().then(async () => {
 
   registerIpcHandlers()
 
-  createPaletteWindow(path.join(__dirname, 'preload'))
-  createMainWindow(path.join(__dirname, 'preload'))
+  createPaletteWindow(path.join(__dirname, '..', 'preload'))
+  createMainWindow(path.join(__dirname, '..', 'preload'))
 
   createTray({
     onShowPalette: showPalette,
@@ -114,7 +114,7 @@ app.whenReady().then(async () => {
   })
 
   app.on('activate', () => {
-    if (!mainWindowExists()) createMainWindow(path.join(__dirname, 'preload'))
+    if (!mainWindowExists()) createMainWindow(path.join(__dirname, '..', 'preload'))
   })
 })
 

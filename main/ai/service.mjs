@@ -1,3 +1,4 @@
+import { buildExtractPrompt, parseAtomJson } from './extract.js'
 import OpenAI from 'openai'
 import { SYSTEM_PROMPT, CATEGORIZE_PROMPT, buildFormatPrompt, buildSemanticSearchPrompt } from './prompts.mjs'
 import { getProvider } from './providers.js'
@@ -109,6 +110,29 @@ export class AIService {
     } catch (error) {
       console.log('[ai semanticSearch] error: ' + error.message)
       return { matchedIds: [], reasoning: '', error: error.message }
+    }
+  }
+
+
+  async extractAtoms({ title, content }) {
+    if (!this.client) throw new Error('AI not configured')
+    const { system, user } = buildExtractPrompt(title, content)
+    try {
+      const response = await this.client.chat.completions.create({
+        model: this.defaultModel,
+        messages: [
+          { role: 'system', content: system },
+          { role: 'user', content: user }
+        ],
+        temperature: 0.3,
+        max_tokens: 2000,
+        thinking: { type: 'disabled' }
+      })
+      const raw = response.choices[0].message.content || ''
+      return parseAtomJson(raw)
+    } catch (error) {
+      console.error('[ai extractAtoms] error:', error.message)
+      throw error
     }
   }
 

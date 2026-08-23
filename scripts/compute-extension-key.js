@@ -1,9 +1,9 @@
 const crypto = require('crypto')
 const { publicKey } = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 })
-const jwk = publicKey.export({ format: 'jwk' })
-const n = jwk.n
-// Convert base64url to BigInt
-const b64 = n.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((n.length + 3) % 4)
-const hex = Buffer.from(b64, 'base64').toString('hex')
-const big = BigInt('0x' + hex)
-console.log(big.toString(10))
+const spki = publicKey.export({ format: 'der', type: 'spki' })
+const b64 = spki.toString('base64')
+const sha = crypto.createHash('sha256').update(spki).digest()
+let id = ''
+for (let i = 0; i < 32; i++) id += String.fromCharCode(97 + (sha[i] & 0x0f))
+console.log(b64)
+console.log(id)

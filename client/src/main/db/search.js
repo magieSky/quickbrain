@@ -5,12 +5,13 @@ function addNote(db, note) {
     const { title = '', content, tags = [], category = 'uncategorized',
             original_content = '', source_path = '', source_type = '',
             parent_id = null, source_range = '', is_atom = 0 } = note
+    const clientId = (typeof note.client_id === 'string' && note.client_id) || require('crypto').randomUUID()
     const stmt = db.prepare(`
-      INSERT INTO notes (content, title, category, tags, original_content, source_path, source_type,
+      INSERT INTO notes (client_id, content, title, category, tags, original_content, source_path, source_type,
                          parent_id, source_range, is_atom)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
-    const result = stmt.run(content, title, category, JSON.stringify(tags), original_content,
+    const result = stmt.run(clientId, content, title, category, JSON.stringify(tags), original_content,
       source_path, source_type, parent_id, source_range, is_atom)
     const id = result.lastInsertRowid
     const py = generatePinyinForNote(title, content)
@@ -44,7 +45,7 @@ function searchNotes(db, query, limit = 20) {
            END AS title_score
     FROM notes_fts
     JOIN notes n ON n.id = notes_fts.rowid
-    WHERE notes_fts MATCH @fts
+    WHERE notes_fts MATCH @fts AND n.deleted_at IS NULL
     ORDER BY title_score DESC, score
     LIMIT @limit
   `).all({ prefix, contains, fts: ftsQuery, limit })
@@ -59,7 +60,7 @@ function searchNotes(db, query, limit = 20) {
                0 AS score, 1 AS title_score
         FROM notes_pinyin p
         JOIN notes n ON n.id = p.id
-        WHERE p.pinyin_title LIKE @py ESCAPE '\\' OR p.pinyin_content LIKE @py ESCAPE '\\'
+        WHERE (p.pinyin_title LIKE @py ESCAPE '\\' OR p.pinyin_content LIKE @py ESCAPE '\\') AND n.deleted_at IS NULL
         LIMIT @limit
       `).all({ py: `%${pyEscaped}%`, limit })
       const seen = new Set(ftsRows.map(r => r.id))
@@ -109,6 +110,7 @@ function getRecentNotes(db, limit = 20) {
   const rows = db.prepare(`
     SELECT id, title, content, category, tags, created_at, source_path, source_type
     FROM notes
+    WHERE deleted_at IS NULL
     ORDER BY datetime(created_at) DESC, id DESC
     LIMIT ?
   `).all(safeLimit)
@@ -129,7 +131,7 @@ function addAtomNote(db, { parentId, title, content, sourceRange, tags = [], sou
 }
 
 function getSourceNotes(db, { onlyUnExtracted = false, keyword = null } = {}) {
-  let sql = 'SELECT * FROM notes WHERE is_atom = 0'
+  let sql = 'SELECT * FROM notes WHERE is_atom = 0 AND deleted_at IS NULL'
   const params = {}
   if (onlyUnExtracted) sql += ' AND extracted_at IS NULL'
   if (keyword) {

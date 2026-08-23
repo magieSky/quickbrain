@@ -126,6 +126,40 @@ function smartSearch(keyword, limit = 20) {
 }
 
 function registerIpcHandlers() {
+  function enqueueNoteOutbox(db, noteId, op, extra) {
+    try {
+      const cfg = require('./config')
+      const outbox = require('./sync/outbox')
+      const sync = cfg.read().sync || {}
+      if (!sync.deviceId) return
+      const row = db.prepare('SELECT client_id, content, title, category, tags, source_path, source_type, parent_id, source_range, is_atom, updated_at, rev, deleted_at FROM notes WHERE id = ?').get(noteId)
+      if (!row || !row.client_id) return
+      const payload = op === 'upsert' ? {
+        client_id: row.client_id,
+        content: row.content || '',
+        title: row.title || '',
+        category: row.category || 'uncategorized',
+        tags: row.tags ? JSON.parse(row.tags) : [],
+        source_path: row.source_path || '',
+        source_type: row.source_type || '',
+        parent_id: row.parent_id || null,
+        source_range: row.source_range || '',
+        is_atom: row.is_atom || 0,
+        updated_at: row.updated_at,
+        rev: row.rev || 1,
+        deleted_at: row.deleted_at || null
+      } : {
+        client_id: row.client_id,
+        updated_at: row.updated_at,
+        deleted_at: (extra && extra.deleted_at) || row.deleted_at || Date.now()
+      }
+      outbox.append(db, { op, noteId, payload })
+      try { require('./sync/runtime').triggerPush() } catch (_) {}
+    } catch (e) {
+      console.error('[sync] outbox enqueue failed:', e.message)
+    }
+  }
+
   ipcMain.on('reveal-source', (event, { id, range }) => {
     const win = BrowserWindow.fromWebContents(event.sender)
     if (win) win.webContents.send('locate-note', { id, range: range || null })
@@ -177,6 +211,7 @@ function registerIpcHandlers() {
   ipcMain.handle('add-note', async (event, noteData) => {
     const db = getDB()
     const id = addNote(db, noteData)
+    enqueueNoteOutbox(db, id, 'upsert')
     return { id, ...noteData }
   })
 
@@ -190,6 +225,7 @@ function registerIpcHandlers() {
       const db = getDB()
       const result = await importDocument(db, filePath)
       console.log('[ipc import-document] OK id=' + result.id + ' title=' + JSON.stringify(result.title) + ' cost=' + (Date.now() - start) + 'ms')
+      enqueueNoteOutbox(db, result.id, 'upsert')
             try {
         const { extractAtomsForSource } = require('./notes-extractor')
         setImmediate(() => {
@@ -223,11 +259,19 @@ return { success: true, ...result }
     const setClause = keys.map(k => `${k} = ?`).join(', ')
     db.prepare(`UPDATE notes SET ${setClause}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`)
       .run(...keys.map(k => typeof updates[k] === 'object' ? JSON.stringify(updates[k]) : updates[k]), id)
+    enqueueNoteOutbox(db, id, 'upsert')
   })
 
   ipcMain.handle('delete-note', async (event, id) => {
     const db = getDB()
-    db.prepare('DELETE FROM notes WHERE id = ?').run(id)
+    const row = db.prepare('SELECT client_id FROM notes WHERE id = ?').get(id)
+    if (row) {
+      const ts = Date.now()
+      db.prepare('UPDATE notes SET deleted_at = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(ts, id)
+      enqueueNoteOutbox(db, id, 'delete', { deleted_at: ts })
+    } else {
+      db.prepare('DELETE FROM notes WHERE id = ?').run(id)
+    }
     return true
   })
 

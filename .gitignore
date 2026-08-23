@@ -5,4 +5,5 @@ dist/
 *.db
 *.db-journal
 config.json
-docs/superpowers/plans/.drafts/
+docs/superpowers/plans/.drafts/extension/.key.txt
+extension/.key.txt

@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "QuickBrain Bridge",
+  "version": "0.1.0",
+  "description": "Save web pages and selections to QuickBrain",
+  "icons": {
+    "16": "icons/16.png",
+    "32": "icons/32.png",
+    "48": "icons/48.png",
+    "128": "icons/128.png"
+  },
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": "icons/32.png"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "permissions": ["contextMenus", "nativeMessaging", "storage", "activeTab", "scripting"],
+  "host_permissions": ["<all_urls>"],
+  "commands": {
+    "save-selection": { "suggested_key": { "default": "Alt+Shift+S" }, "description": "Save selection to QuickBrain" },
+    "save-page": { "suggested_key": { "default": "Alt+Shift+P" }, "description": "Save page to QuickBrain" }
+  },
+  "key": "26655498444978637033368413673446633210974190502830190165486989344469258081694416946619301332035489660177529413399067453567704753721048326477871176647690897692334862199304295245217518286207353040914688251858770515940309843652920216261693892859612960992286372912641524053842678891733383056445974366589243045440088732920668157540049713536149355344819759807005083946289230474405975526290709696508924749083569533745248590205324260068868233284659240738669453594779790489257206839856495453686423243129900066941320807850829974318982316468642396714435168743916121258501609714322536585628424912621144057863292120824461152988661"
+}

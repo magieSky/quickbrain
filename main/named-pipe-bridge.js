@@ -1,4 +1,4 @@
-﻿const net = require('net')
+const net = require('net')
 const PIPE = '\\\\.\\pipe\\quickbrain-native-bridge'
 
 function startServer(handler) {
@@ -6,6 +6,7 @@ function startServer(handler) {
     let buf = ''
     socket.on('data', (d) => {
       buf += d.toString('utf8')
+      if (buf.length > 1 << 20) { socket.destroy(); return }
       let nl = buf.indexOf('\n')
       while (nl >= 0) {
         const line = buf.slice(0, nl)
@@ -16,6 +17,7 @@ function startServer(handler) {
     })
     socket.on('error', () => {})
   }).listen(PIPE, () => {})
+    .on('error', (e) => console.error('[pipe] listen failed:', e.code || e.message))
 }
 
 module.exports = { startServer, PIPE }

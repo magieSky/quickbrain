@@ -18,8 +18,6 @@ CREATE TABLE IF NOT EXISTS notes (
 );
 
 CREATE INDEX IF NOT EXISTS idx_notes_category ON notes(category);
-CREATE INDEX IF NOT EXISTS idx_notes_parent_id ON notes(parent_id);
-CREATE INDEX IF NOT EXISTS idx_notes_is_atom ON notes(is_atom);
 
 -- FTS5 虚拟表
 CREATE VIRTUAL TABLE IF NOT EXISTS notes_fts USING fts5(

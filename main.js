@@ -20,6 +20,11 @@ console.warn = function(...args) { logToFile('warn', args); _log('WARN:', ...arg
 
 console.log('[main] log file: ' + LOG_FILE);
 
+if (process.argv.includes('--native-host')) {
+  require('./main/native-host')
+  return
+}
+
 const { app, dialog } = require('electron')
 const { initDatabase, closeDatabase, getDB } = require('./main/db-init')
 const { registerIpcHandlers, setAIService } = require('./main/ipc')

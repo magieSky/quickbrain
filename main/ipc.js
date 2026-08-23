@@ -6,6 +6,7 @@ const { getDB } = require('./db-init')
 const { addNote, searchNotes, getNoteById, getRecentNotes } = require('./db/search')
 const { importDocument } = require('./import/store')
 const autoLaunch = require('./auto-launch-service')
+const pipeBridge = require('./named-pipe-bridge')
 
 let aiService = null
 
@@ -38,6 +39,56 @@ async function buildService(cfg) {
 }
 
 
+
+function onPipeMessage(msg, socket) {
+  try {
+    const payload = (msg && msg.payload) || {}
+    if (msg && msg.type === 'save-selection') {
+      const text = payload.text
+      const title = payload.title
+      const url = payload.url
+      if (!text || !text.trim()) {
+        socket.write(JSON.stringify({ success: false, error: 'empty-text' }) + '\n')
+        return
+      }
+      const db = getDB()
+      const id = addNote(db, {
+        content: text,
+        title: title || (text.split('\n')[0] || '').slice(0, 80),
+        tags: ['web'],
+        source_path: url || '',
+        source_type: 'web'
+      })
+      socket.write(JSON.stringify({ success: true, id }) + '\n')
+      return
+    }
+    if (msg && msg.type === 'save-page') {
+      const markdown = payload.markdown
+      const title = payload.title
+      const url = payload.url
+      if (!markdown || !markdown.trim()) {
+        socket.write(JSON.stringify({ success: false, error: 'empty-markdown' }) + '\n')
+        return
+      }
+      const db = getDB()
+      const id = addNote(db, {
+        content: markdown,
+        title: title || (url || 'web page').slice(0, 80),
+        tags: ['web-page'],
+        source_path: url || '',
+        source_type: 'web'
+      })
+      socket.write(JSON.stringify({ success: true, id }) + '\n')
+      return
+    }
+    socket.write(JSON.stringify({ success: false, error: 'unsupported-type' }) + '\n')
+  } catch (e) {
+    console.error('[native-host] handler failed:', e.message)
+    try { socket.write(JSON.stringify({ success: false, error: e.message }) + '\n') } catch (_) {}
+  }
+}
+
+pipeBridge.startServer(onPipeMessage)
 function registerIpcHandlers() {
   ipcMain.on('debug-log', (event, { level, args }) => {
     const line = '[' + new Date().toISOString() + '] [renderer] [' + level + '] ' +
@@ -260,5 +311,5 @@ function safeParse(str, fallback) {
   try { return JSON.parse(str) } catch { return fallback }
 }
 
-module.exports = { registerIpcHandlers, setAIService, autoLaunch }
+module.exports = { registerIpcHandlers, setAIService, autoLaunch, onPipeMessage, nativeBridge: pipeBridge }
 

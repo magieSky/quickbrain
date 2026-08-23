@@ -92,6 +92,39 @@ function onPipeMessage(msg, socket) {
 }
 
 pipeBridge.startServer(onPipeMessage)
+
+function toResult(n) {
+  return {
+    noteId: n.id,
+    title: n.title,
+    content: n.content,
+    is_atom: n.is_atom || 0,
+    parent_id: n.parent_id || null,
+    source_range: n.source_range || '',
+    snippet: (n.content || '').slice(0, 200),
+    score: 1.0
+  }
+}
+
+function smartSearch(keyword, limit = 20) {
+  const db = getDB()
+  const candidates = searchNotes(db, keyword, 50)
+  if (!candidates.length) return []
+
+  const kw = keyword.toLowerCase()
+  let filtered = candidates.filter(n =>
+    (n.title || '').toLowerCase().includes(kw) ||
+    (n.content || '').toLowerCase().includes(kw))
+  if (!filtered.length) filtered = candidates
+
+  if (aiService) {
+    return Promise.resolve(aiService.semanticSearch(keyword, filtered.slice(0, 20), limit))
+      .then(r => (r && r.results) || filtered.slice(0, limit).map(toResult))
+      .catch(() => filtered.slice(0, limit).map(toResult))
+  }
+  return filtered.slice(0, limit).map(toResult)
+}
+
 function registerIpcHandlers() {
   ipcMain.on('debug-log', (event, { level, args }) => {
     const line = '[' + new Date().toISOString() + '] [renderer] [' + level + '] ' +
@@ -332,5 +365,5 @@ function broadcastNotesUpdated(detail) {
     console.error('[native-host] broadcast failed:', e.message)
   }
 }
-module.exports = { registerIpcHandlers, setAIService, autoLaunch, onPipeMessage, nativeBridge: pipeBridge, broadcastNotesUpdated }
+module.exports = { registerIpcHandlers, setAIService, autoLaunch, onPipeMessage, nativeBridge: pipeBridge, broadcastNotesUpdated, smartSearch, toResult }
 

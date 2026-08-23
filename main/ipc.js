@@ -60,6 +60,7 @@ function onPipeMessage(msg, socket) {
         source_type: 'web'
       })
       socket.write(JSON.stringify({ success: true, id }) + '\n')
+      broadcastNotesUpdated({ type: msg.type, id })
       return
     }
     if (msg && msg.type === 'save-page') {
@@ -79,6 +80,7 @@ function onPipeMessage(msg, socket) {
         source_type: 'web'
       })
       socket.write(JSON.stringify({ success: true, id }) + '\n')
+      broadcastNotesUpdated({ type: msg.type, id })
       return
     }
     socket.write(JSON.stringify({ success: false, error: 'unsupported-type' }) + '\n')
@@ -311,5 +313,16 @@ function safeParse(str, fallback) {
   try { return JSON.parse(str) } catch { return fallback }
 }
 
-module.exports = { registerIpcHandlers, setAIService, autoLaunch, onPipeMessage, nativeBridge: pipeBridge }
+
+function broadcastNotesUpdated(detail) {
+  try {
+    const { BrowserWindow } = require('electron')
+    for (const w of BrowserWindow.getAllWindows()) {
+      if (!w.isDestroyed()) w.webContents.send('notes-updated', detail)
+    }
+  } catch (e) {
+    console.error('[native-host] broadcast failed:', e.message)
+  }
+}
+module.exports = { registerIpcHandlers, setAIService, autoLaunch, onPipeMessage, nativeBridge: pipeBridge, broadcastNotesUpdated }
 

@@ -467,6 +467,13 @@ async function editNote(note) {
 }
 
 // ===== 主进程事件 =====
+
+if (api.onNotesUpdated) {
+  api.onNotesUpdated(() => {
+    loadNotes()
+  })
+}
+
 if (api.onLocateNote) {
   api.onLocateNote((id) => {
     const note = allNotes.find(n => n.id === id)

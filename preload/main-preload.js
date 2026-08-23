@@ -45,5 +45,10 @@ contextBridge.exposeInMainWorld('quickbrain', {
   // Listen for show-add-dialog event (triggered by Ctrl+A)
   onShowAddDialog: (callback) => {
     ipcRenderer.on('show-add-dialog', () => callback())
-  }
+  },
+
+  // Listen for notes-updated event (broadcast when notes change from anywhere)
+  onNotesUpdated: (callback) => {
+    ipcRenderer.on('notes-updated', (event, detail) => callback(detail))
+  },
 })

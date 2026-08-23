@@ -219,6 +219,24 @@
       transition: all 0.15s;
     }
     .note-card-del:hover { background: rgba(255, 80, 80, 0.25); color: #ff8888; }
+    .note-content h1 { font-size: 14px; font-weight: 600; margin: 4px 0 2px; color: #fff; }
+    .note-content h2 { font-size: 13px; font-weight: 600; margin: 4px 0 2px; color: #fff; }
+    .note-content h3 { font-size: 12px; font-weight: 600; margin: 4px 0 2px; color: #fff; }
+    .note-content p { margin: 2px 0; }
+    .note-content code {
+      background: rgba(255,255,255,0.1); padding: 1px 4px; border-radius: 3px;
+      font-family: 'Consolas', 'Courier New', monospace; font-size: 11px;
+    }
+    .note-content pre {
+      background: rgba(0,0,0,0.4); padding: 6px 8px; border-radius: 4px;
+      overflow-x: auto; font-size: 11px; margin: 4px 0;
+    }
+    .note-content pre code { background: none; padding: 0; }
+    .note-content ul, .note-content ol { margin: 4px 0 4px 18px; padding: 0; }
+    .note-content li { margin: 1px 0; }
+    .note-content a { color: #6cb6ff; text-decoration: underline; }
+    .note-content strong { color: #fff; }
+    .note-content em { color: rgba(255,255,255,0.9); }
     .note-card-act {
       background: transparent;
       border: none;
@@ -352,6 +370,7 @@
   </div>
 
     <script src="../prompt-helper.js"></script>
+    <script src="../markdown-helper.js"></script>
   <script src="main.js"></script>
 </body>
 </html>

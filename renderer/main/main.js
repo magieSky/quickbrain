@@ -114,7 +114,7 @@ function render() {
     return (
       '<div class="note-card" data-id="' + n.id + '">' +
         '<div class="note-title">' + escapeHtml(title) + '</div>' +
-        '<div class="note-content">' + escapeHtml(content) + '</div>' +
+        '<div class="note-content">' + renderMarkdown(content) + '</div>' +
         '<div class="note-meta">' +
           '<span class="badge">' + escapeHtml(cat) + '</span>' +
           (tags.length ? tags.map(t => '<span class="badge">#' + escapeHtml(t) + '</span>').join('') : '') +

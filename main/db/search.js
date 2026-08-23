@@ -3,12 +3,15 @@ const { generatePinyinForNote } = require('./pinyin')
 function addNote(db, note) {
   return db.transaction(() => {
     const { title = '', content, tags = [], category = 'uncategorized',
-            original_content = '', source_path = '', source_type = '' } = note
+            original_content = '', source_path = '', source_type = '',
+            parent_id = null, source_range = '', is_atom = 0 } = note
     const stmt = db.prepare(`
-      INSERT INTO notes (content, title, category, tags, original_content, source_path, source_type)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO notes (content, title, category, tags, original_content, source_path, source_type,
+                         parent_id, source_range, is_atom)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
-    const result = stmt.run(content, title, category, JSON.stringify(tags), original_content, source_path, source_type)
+    const result = stmt.run(content, title, category, JSON.stringify(tags), original_content,
+      source_path, source_type, parent_id, source_range, is_atom)
     const id = result.lastInsertRowid
     const py = generatePinyinForNote(title, content)
     db.prepare(`INSERT INTO notes_pinyin (id, pinyin_title, pinyin_content) VALUES (?, ?, ?)`)
@@ -30,6 +33,7 @@ function searchNotes(db, query, limit = 20) {
   // 1. FTS5 精确匹配（按 title 命中优先，再按 bm25 相关性）
   const ftsRows = db.prepare(`
     SELECT n.id, n.title, n.content, n.category, n.tags, n.created_at, n.source_path, n.source_type,
+           n.parent_id, n.source_range, n.is_atom, n.extracted_at,
            bm25(notes_fts) AS score,
            CASE
              WHEN n.title LIKE @prefix ESCAPE '\\' THEN 5
@@ -65,23 +69,19 @@ function searchNotes(db, query, limit = 20) {
     }
   }
 
-  return ftsRows.map(row => ({
-    id: row.id,
-    title: row.title,
-    content: row.content,
-    category: row.category,
-    tags: safeParseJSON(row.tags, []),
-    created_at: row.created_at,
-    source_path: row.source_path || '',
-    source_type: row.source_type || '',
-    score: row.score
-  }))
+  return ftsRows.map(row => ({ ...rowToNote(row), score: row.score }))
 }
 
 
 function getNoteById(db, id) {
   if (!id) return null
   const row = db.prepare('SELECT * FROM notes WHERE id = ?').get(id)
+  if (!row) return null
+  return rowToNote(row)
+}
+
+
+function rowToNote(row) {
   if (!row) return null
   return {
     id: row.id,
@@ -91,7 +91,11 @@ function getNoteById(db, id) {
     tags: safeParseJSON(row.tags, []),
     created_at: row.created_at,
     source_path: row.source_path || '',
-    source_type: row.source_type || ''
+    source_type: row.source_type || '',
+    parent_id: row.parent_id != null ? row.parent_id : null,
+    source_range: row.source_range || '',
+    is_atom: row.is_atom || 0,
+    extracted_at: row.extracted_at != null ? row.extracted_at : null
   }
 }
 
@@ -108,17 +112,33 @@ function getRecentNotes(db, limit = 20) {
     ORDER BY datetime(created_at) DESC, id DESC
     LIMIT ?
   `).all(safeLimit)
-  return rows.map(row => ({
-    id: row.id,
-    title: row.title,
-    content: row.content,
-    category: row.category,
-    tags: safeParseJSON(row.tags, []),
-    created_at: row.created_at,
-    source_path: row.source_path || '',
-    source_type: row.source_type || '',
-    score: 0
-  }))
+  return rows.map(row => ({ ...rowToNote(row), score: 0 }))
 }
 
-module.exports = { searchNotes, addNote, getNoteById, getRecentNotes }
+
+
+function addAtomNote(db, { parentId, title, content, sourceRange, tags = [], source_path = '', source_type = '' }) {
+  return addNote(db, {
+    title, content, tags,
+    parent_id: parentId,
+    source_range: JSON.stringify(sourceRange || {}),
+    is_atom: 1,
+    source_path,
+    source_type
+  })
+}
+
+function getSourceNotes(db, { onlyUnExtracted = false, keyword = null } = {}) {
+  let sql = 'SELECT * FROM notes WHERE is_atom = 0'
+  const params = {}
+  if (onlyUnExtracted) sql += ' AND extracted_at IS NULL'
+  if (keyword) {
+    sql += ' AND (title LIKE @kw OR content LIKE @kw)'
+    params.kw = '%' + keyword + '%'
+  }
+  sql += ' ORDER BY datetime(created_at) DESC, id DESC'
+  const rows = db.prepare(sql).all(params)
+  return rows.map(row => ({ ...rowToNote(row), score: 0 }))
+}
+
+module.exports = { searchNotes, addNote, addAtomNote, getNoteById, getRecentNotes, getSourceNotes, rowToNote }

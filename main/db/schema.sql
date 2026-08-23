@@ -9,12 +9,17 @@ CREATE TABLE IF NOT EXISTS notes (
   original_content TEXT DEFAULT '',
   source_path TEXT DEFAULT '',
   source_type TEXT DEFAULT '',
+  parent_id INTEGER REFERENCES notes(id) ON DELETE CASCADE,
+  source_range TEXT DEFAULT '',
+  is_atom INTEGER DEFAULT 0,
+  extracted_at INTEGER,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX IF NOT EXISTS idx_notes_category ON notes(category);
-CREATE INDEX IF NOT EXISTS idx_notes_created ON notes(created_at);
+CREATE INDEX IF NOT EXISTS idx_notes_parent_id ON notes(parent_id);
+CREATE INDEX IF NOT EXISTS idx_notes_is_atom ON notes(is_atom);
 
 -- FTS5 虚拟表
 CREATE VIRTUAL TABLE IF NOT EXISTS notes_fts USING fts5(

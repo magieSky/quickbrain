@@ -518,8 +518,7 @@ async function formatNoteInline(id) {
     if (!result || !result.success) { setStatus('格式化失败: ' + (result && result.error || '空结果')); return }
     const body = result.formattedContent || result.content || ''
     if (!body) { setStatus('格式化失败：空结果'); return }
-    await api.updateNote({ id: note.id, content: body, title: body.split('
-')[0].trim().substring(0, 50) || note.title })
+    await api.updateNote({ id: note.id, content: body, title: body.split('\n')[0].trim().substring(0, 50) || note.title })
     await loadNotes()
     setStatus('已格式化')
   } catch (e) {

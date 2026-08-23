@@ -7,6 +7,8 @@
     "./types/providers": "./types/providers.js",
     "./schema/sqlite/migrations": "./schema/sqlite/migrations.js",
     "./schema/pg/migrations": "./schema/pg/migrations.js",
-    "./sync/protocol": "./sync/protocol.js"
+    "./sync/protocol": "./sync/protocol.js",
+    "./sync/token": "./sync/token.js",
+    "./auth/crypto": "../server/src/auth/crypto.js"
   }
 }

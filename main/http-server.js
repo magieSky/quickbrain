@@ -84,7 +84,8 @@ function start({ getDB, onNotesUpdated }) {
         const q = url.searchParams.get('q') || ''
         const limit = Math.max(1, Math.min(parseInt(url.searchParams.get('limit'), 10) || 20, 200))
         const { smartSearch } = require('./ipc')
-        return send(res, 200, smartSearch(q, limit))
+        const result = await smartSearch(q, limit)
+        return send(res, 200, result)
       }
 
       if (route === 'GET /recent-notes') {

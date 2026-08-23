@@ -189,18 +189,24 @@ function render() {
       div.innerHTML = `<span class="item-icon">${item.cmd.icon}</span><span class="item-text">${item.cmd.name}${item.keyword ? ' ' + item.keyword : ''}</span>`
       div.onclick = () => { selectedIndex = idx; triggerAction('enter') }
     } else if (item.type === 'note') {
-      const sourceBtn = item.note.source_path
-        ? `<span class="item-reveal" data-path="${escapeHTML(item.note.source_path)}" title="在文件管理器中显示">📁</span>`
-        : ''
+      const sourceBtn = (function () {
+        if (!item.note.source_path) return ''
+        const isW = item.note.source_type === 'web' || /^https?:\/\\//i.test(item.note.source_path || '')
+        const label = isW ? '🔗' : '📁'
+        const title = isW ? ('打开 ' + item.note.source_path) : ('定位 ' + item.note.source_path)
+        return `<span class="item-reveal" data-path="${escapeHTML(item.note.source_path)}" data-web="${isW ? '1' : '0'}" title="${escapeHTML(title)}">${label}</span>`
+      })()
       div.innerHTML = `<span class="item-icon">📝</span><span class="item-text">${escapeHTML(item.note.title || '(无标题)')}</span><span class="item-meta">${item.note.category || ''}</span>${sourceBtn}`
       div.onclick = () => { selectedIndex = idx; triggerAction('enter') }
       const reveal = div.querySelector('.item-reveal')
       if (reveal) {
         reveal.onclick = (e) => {
           e.stopPropagation()
-          api.revealInFolder(reveal.dataset.path).then(r => {
-            if (!r.success) setStatus('打开失败: ' + (r.error || ''))
-          })
+          const isW = reveal.dataset.web === '1'
+          const fn = isW ? api.openExternal(reveal.dataset.path) : api.revealInFolder(reveal.dataset.path)
+          fn.then(r => {
+            if (r && !r.success) setStatus('打开失败: ' + (r.error || ''))
+          }).catch(err => setStatus('打开失败: ' + err.message))
         }
       }
     } else if (item.type === 'new-content') {

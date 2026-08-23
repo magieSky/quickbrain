@@ -135,7 +135,14 @@ function registerIpcHandlers() {
       const db = getDB()
       const result = await importDocument(db, filePath)
       console.log('[ipc import-document] OK id=' + result.id + ' title=' + JSON.stringify(result.title) + ' cost=' + (Date.now() - start) + 'ms')
-      return { success: true, ...result }
+            try {
+        const { extractAtomsForSource } = require('./notes-extractor')
+        setImmediate(() => {
+          extractAtomsForSource(result.id).catch(err =>
+            console.error('[import] extract failed:', err.message))
+        })
+      } catch (e) { console.error('[import] extract setup failed:', e.message) }
+return { success: true, ...result }
     } catch (error) {
       console.log('[ipc import-document] error: ' + error.message)
       return { success: false, error: error.message }

@@ -96,6 +96,13 @@ function start({ getDB, onNotesUpdated }) {
         const result = handleNoteMessage(body, getDB)
         if (result.success && onNotesUpdated) {
           onNotesUpdated({ type: body.type, id: result.id })
+          try {
+            const { extractAtomsForSource } = require('./notes-extractor')
+            setImmediate(() => {
+              extractAtomsForSource(result.id).catch(err =>
+                console.error('[http-server] extract failed:', err.message))
+            })
+          } catch (e) { console.error('[http-server] extract setup failed:', e.message) }
         }
         return send(res, 200, result)
       }

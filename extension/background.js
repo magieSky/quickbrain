@@ -1,5 +1,24 @@
-﻿const HOST = 'com.quickbrain.app'
-const send = (msg) => chrome.runtime.sendNativeMessage(HOST, msg)
+const BASE = 'http://127.0.0.1:7421'
+
+async function ping() {
+  try {
+    const r = await fetch(BASE + '/health', { method: 'GET' })
+    return r.ok
+  } catch (e) { return false }
+}
+
+async function api(method, path, body) {
+  const opts = {
+    method,
+    headers: { 'Content-Type': 'application/json' }
+  }
+  if (body !== undefined) opts.body = JSON.stringify(body)
+  const r = await fetch(BASE + path, opts)
+  if (!r.ok) throw new Error('http ' + r.status)
+  return await r.json()
+}
+
+const send = (msg) => api('POST', '/notes', msg)
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({ id: 'qb-save-selection', title: '保存选中到 QuickBrain', contexts: ['selection'] })
@@ -8,6 +27,7 @@ chrome.runtime.onInstalled.addListener(() => {
 
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   try {
+    if (!(await ping())) { console.error('[qb] QuickBrain 未运行 (http-server 不可达)'); return }
     if (info.menuItemId === 'qb-save-selection') {
       const r = await send({ type: 'save-selection', payload: { text: info.selectionText, title: tab.title, url: info.pageUrl, tabTitle: tab.title } })
       console.log('[qb] save-selection:', r)
@@ -23,6 +43,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 
 chrome.commands.onCommand.addListener(async (command) => {
   try {
+    if (!(await ping())) { console.error('[qb] QuickBrain 未运行 (http-server 不可达)'); return }
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
     if (!tab) return
     if (command === 'save-selection') {

@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "QuickBrain Bridge",
-  "version": "0.1.0",
-  "description": "Save web pages and selections to QuickBrain",
+  "version": "0.2.0",
+  "description": "Save web pages and selections to QuickBrain via local HTTP",
   "icons": {
     "16": "icons/16.png",
     "32": "icons/32.png",
@@ -17,11 +17,10 @@
     "service_worker": "background.js",
     "type": "module"
   },
-  "permissions": ["contextMenus", "nativeMessaging", "storage", "activeTab", "scripting"],
-  "host_permissions": ["<all_urls>"],
+  "permissions": ["contextMenus", "storage", "activeTab", "scripting"],
+  "host_permissions": ["<all_urls>", "http://127.0.0.1:7421/*"],
   "commands": {
     "save-selection": { "suggested_key": { "default": "Alt+Shift+S" }, "description": "Save selection to QuickBrain" },
     "save-page": { "suggested_key": { "default": "Alt+Shift+P" }, "description": "Save page to QuickBrain" }
-  },
-  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAywp1+qjMjZ5x3oJToPjz/dCbORTlsgPO2XmkPxidf+1O8ijE5RTDgajxUlhNh39yLOMw64p0uHCBIDwcGRW7yXs4PpDMn57VxSKF616iexyuYg7xmeTgES7mnT5oYL+F7MxTHFZQle3vbfOH274WlFLZf4aa+5bxj6oi+pMc5jXZ7g2T3uKZqGUcTWHmAhDEAzsIOW+MVovgGXb9KFt03wvnwKUJh/C7o/iwg8iWwayWOLVTwUIUi561NZo869giq429C9jFtCCLAur5N8YRjxEVqjTinPndZfPDRdfvNRefl/4cSzQyhlnqqcQG+A9b49uVABbwLzvteHA5wb9yqwIDAQAB"
+  }
 }

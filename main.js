@@ -20,10 +20,7 @@ console.warn = function(...args) { logToFile('warn', args); _log('WARN:', ...arg
 
 console.log('[main] log file: ' + LOG_FILE);
 
-if (process.argv.includes('--native-host')) {
-  require('./main/native-host')
-  return
-}
+
 
 const { app, dialog } = require('electron')
 const { initDatabase, closeDatabase, getDB } = require('./main/db-init')
@@ -87,17 +84,16 @@ app.whenReady().then(async () => {
   const aiService = loadAIConfig(AIService)
   if (aiService) setAIService(aiService)
 
-  const nativeHostSetup = require('./main/native-host-setup')
-  try { nativeHostSetup.rewriteManifestPath() } catch (e) { console.error('[main] native-host rewrite failed:', e.message) }
-  try { await nativeHostSetup.register() } catch (e) { console.error('[main] native host register failed:', e.message) }
-  if (!nativeHostSetup.isFirstRunComplete()) {
-    const { shell } = require('electron')
-    notify('QuickBrain 浏览器扩展', '点击开启 Chrome / Edge 扩展加载页')
-    setTimeout(() => {
-      try { shell.openExternal('chrome://extensions') } catch (e) { console.error('[main] openExternal failed:', e.message) }
-    }, 1500)
-    try { nativeHostSetup.markFirstRunComplete() } catch (e) {}
-  }
+  const httpServer = require('./main/http-server')
+  httpServer.start({
+    getDB,
+    onNotesUpdated: (detail) => {
+      const { BrowserWindow } = require('electron')
+      for (const w of BrowserWindow.getAllWindows()) {
+        if (!w.isDestroyed()) w.webContents.send('notes-updated', detail)
+      }
+    }
+  })
 
   registerIpcHandlers()
 

@@ -1,4 +1,5 @@
-const { contextBridge, ipcRenderer, webUtils } = require('electron')
+const { contextBridge, ipcRenderer } = require('electron')
+function getFilePath(file) { if (file && typeof file.path === 'string') return file.path; return '' }
 
 contextBridge.exposeInMainWorld('quickbrain', {
   // Notes operations
@@ -11,7 +12,11 @@ contextBridge.exposeInMainWorld('quickbrain', {
   // Document import
   importDocument: (filePath) => ipcRenderer.invoke('import-document', filePath),
   revealInFolder: (filePath) => ipcRenderer.invoke('reveal-in-folder', filePath),
-  getPathForFile: (file) => webUtils.getPathForFile(file),
+  getPathForFile: (file) => getFilePath(file),
+
+  // Auto-launch
+  getAutoLaunch: () => ipcRenderer.invoke('get-auto-launch'),
+  setAutoLaunch: (enabled) => ipcRenderer.invoke('set-auto-launch', !!enabled),
 
   // AI operations
   formatWithAI: (params) => ipcRenderer.invoke('format-with-ai', params),

@@ -30,6 +30,7 @@
   },
   "dependencies": {
     "@node-rs/jieba": "^0.4.0",
+    "auto-launch": "^5.0.6",
     "better-sqlite3": "^11.10.0",
     "openai": "^4.20.0",
     "pinyin-pro": "^3.29.3",
@@ -48,7 +49,8 @@
     ],
     "win": {
       "target": "nsis",
-      "signAndEditExecutable": false
+      "signAndEditExecutable": false,
+      "icon": "assets/icon.ico"
     },
     "nsis": {
       "oneClick": false,

@@ -5,6 +5,7 @@ const { PROVIDERS } = require('./ai/providers.js')
 const { getDB } = require('./db-init')
 const { addNote, searchNotes, getNoteById, getRecentNotes } = require('./db/search')
 const { importDocument } = require('./import/store')
+const autoLaunch = require('./auto-launch-service')
 
 let aiService = null
 
@@ -170,6 +171,16 @@ function registerIpcHandlers() {
     return true
   })
 
+  ipcMain.handle('get-auto-launch', async () => {
+    try { return await autoLaunch.isEnabled() }
+    catch (e) { console.error('[ipc get-auto-launch]', e.message); return false }
+  })
+
+  ipcMain.handle('set-auto-launch', async (event, enabled) => {
+    console.log('[ipc set-auto-launch] enabled=' + !!enabled)
+    return await autoLaunch.setEnabled(!!enabled)
+  })
+
   ipcMain.on('hide-window', (event) => {
     const win = BrowserWindow.fromWebContents(event.sender)
     if (win) win.hide()
@@ -249,5 +260,5 @@ function safeParse(str, fallback) {
   try { return JSON.parse(str) } catch { return fallback }
 }
 
-module.exports = { registerIpcHandlers, setAIService }
+module.exports = { registerIpcHandlers, setAIService, autoLaunch }
 

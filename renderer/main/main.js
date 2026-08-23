@@ -9,6 +9,7 @@ const els = {
   addBtn: document.getElementById('add-btn'),
   aiBtn: document.getElementById('ai-btn'),
   settingsBtn: document.getElementById('settings-btn'),
+  autoLaunchBtn: document.getElementById('auto-launch-btn'),
   modal: document.getElementById('add-modal'),
   aiModal: document.getElementById('ai-modal'),
   aiProviderList: document.getElementById('provider-list'),
@@ -108,6 +109,7 @@ function render() {
           (tags.length ? tags.map(t => '<span class="badge">#' + escapeHtml(t) + '</span>').join('') : '') +
           sourceBadge +
           '<span style="margin-left:auto">' + date + '</span>' +
+          '<button class="note-card-del" data-id="' + n.id + '" title="删除">\u{1F5D1}</button>' +
         '</div>' +
       '</div>'
     )
@@ -118,6 +120,30 @@ function render() {
       const id = parseInt(card.dataset.id, 10)
       const note = allNotes.find(n => n.id === id)
       if (note) editNote(note)
+    }
+  })
+  els.list.querySelectorAll('.note-source').forEach(el => {
+    el.onclick = (e) => {
+      e.stopPropagation()
+      const p = el.dataset.path
+      if (p) api.revealInFolder(p).then(r => { if (!r.success) setStatus('打开失败: ' + r.error) })
+    }
+  })
+  els.list.querySelectorAll('.note-card-del').forEach(btn => {
+    btn.onclick = async (e) => {
+      e.stopPropagation()
+      const id = parseInt(btn.dataset.id, 10)
+      const note = allNotes.find(n => n.id === id)
+      if (!note) return
+      const title = ((note.title || note.content || '').split('\n')[0] || '').substring(0, 30) || '(无标题)'
+      if (!window.confirm('删除笔记:\n\n' + title + '\n\n确定?')) return
+      try {
+        await api.deleteNote(id)
+        await loadNotes()
+        setStatus('已删除')
+      } catch (err) {
+        setStatus('删除失败: ' + err.message)
+      }
     }
   })
   els.list.querySelectorAll('.note-source').forEach(el => {
@@ -271,6 +297,33 @@ els.filters.addEventListener('click', (e) => {
 els.aiBtn.onclick = () => {
   api.notify({ title: 'AI 格式化', body: '请使用 Ctrl+K 唤起命令面板，输入 "ai 摘要 关键字" 使用' })
 }
+
+async function refreshAutoLaunch() {
+  try {
+    const on = await api.getAutoLaunch()
+    els.autoLaunchBtn.title = '开机自启: ' + (on ? '开' : '关')
+    els.autoLaunchBtn.classList.toggle('active', on)
+  } catch (e) { /* ignore */ }
+}
+
+els.autoLaunchBtn.onclick = async () => {
+  try {
+    const on = await api.getAutoLaunch()
+    const want = !on
+    if (!window.confirm('当前开机自启：' + (on ? '已开启' : '已关闭') + '\n\n点确定即' + (want ? '开启' : '关闭') + '。')) return
+    const r = await api.setAutoLaunch(want)
+    if (r.success) {
+      setStatus((want ? '✅ 已' : '❌ 已') + (want ? '开启' : '关闭') + '开机自启')
+      refreshAutoLaunch()
+    } else {
+      setStatus('设置失败: ' + (r.error || '未知错误'))
+    }
+  } catch (e) {
+    setStatus('操作失败: ' + e.message)
+  }
+}
+
+refreshAutoLaunch()
 
 els.settingsBtn.onclick = () => {
   openAISettings()

@@ -123,6 +123,7 @@
       border-radius: 3px;
     }
     .icon-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
+    .icon-btn.active { background: rgba(120, 200, 140, 0.25); color: #b8f0c4; }
     /* ====== 添加笔记弹窗 ====== */
     .modal-overlay {
       position: fixed;
@@ -206,6 +207,18 @@
     .note-source { font-size: 10px; color: rgba(120,180,255,0.85); margin-right: 6px; cursor: pointer; }
     .note-source:hover { text-decoration: underline; }
     .note-source::before { content: "📁 "; }
+    .note-card-del {
+      background: transparent;
+      border: none;
+      color: rgba(255, 140, 140, 0.55);
+      cursor: pointer;
+      font-size: 13px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin-left: 6px;
+      transition: all 0.15s;
+    }
+    .note-card-del:hover { background: rgba(255, 80, 80, 0.25); color: #ff8888; }
   </style>
 </head>
 <body>
@@ -248,7 +261,7 @@
   <div class="statusbar">
     <span id="status">就绪</span>
     <div class="actions">
-      <button class="icon-btn" id="settings-btn" title="设置">⚙️</button>
+      <button class="icon-btn" id="auto-launch-btn" title="开机自启">⚡</button><button class="icon-btn" id="settings-btn" title="设置">⚙️</button>
     </div>
   </div>
 

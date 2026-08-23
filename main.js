@@ -4,7 +4,7 @@ const path = require('path');
 
 // 日志文件
 const LOG_FILE = path.join(os.homedir(), 'quickbrain-debug.log');
-try { fs.writeFileSync(LOG_FILE, '=== QuickBrain Debug Log ' + new Date().toISOString() + ' ===\n'); } catch (e) {}
+try { fs.appendFileSync(LOG_FILE, '\n=== QuickBrain Debug Log ' + new Date().toISOString() + ' ===\n'); } catch (e) {}
 
 // 重写 console.log/error 写入文件
 const _log = console.log.bind(console);

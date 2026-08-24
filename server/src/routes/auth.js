@@ -1,7 +1,38 @@
-﻿const users = require('../services/users')
+﻿const crypto = require('crypto')
+const users = require('../services/users')
+const { assertNotAlreadyBootstrapped } = require('../db/bootstrap')
 
 module.exports = async function authRoutes(fastify, opts) {
   const db = opts.db
+  const adminBootstrapToken = opts.adminBootstrapToken || process.env.ADMIN_BOOTSTRAP_TOKEN || ''
+
+  // POST /v1/auth/register-admin { username, password }
+  // Header: X-QB-Bootstrap: <ADMIN_BOOTSTRAP_TOKEN>
+  // First-time-only: refuses (403 already-bootstrapped) once any user exists.
+  // Creates the owner user (is_owner=1).
+  fastify.post('/v1/auth/register-admin', async (req, reply) => {
+    const supplied = (req.headers['x-qb-bootstrap'] || req.headers['X-QB-Bootstrap'] || '').toString()
+    if (!adminBootstrapToken) return reply.code(503).send({ error: 'bootstrap-disabled' })
+    if (!supplied || supplied.length !== adminBootstrapToken.length ||
+        !crypto.timingSafeEqual(Buffer.from(supplied), Buffer.from(adminBootstrapToken))) {
+      return reply.code(401).send({ error: 'invalid-bootstrap-token' })
+    }
+    try {
+      await assertNotAlreadyBootstrapped(db)
+    } catch (e) {
+      if (e.code === 'ALREADY_BOOTSTRAPPED') return reply.code(403).send({ error: 'already-bootstrapped' })
+      throw e
+    }
+    const { username, password } = req.body || {}
+    const r = await users.register(db, { username, password }, { isOwner: true })
+    if (!r.ok) return reply.code(r.error === 'username-taken' ? 409 : 400).send({ error: r.error })
+    return reply.code(201).send({
+      ok: true,
+      user_id: r.user.id,
+      username: r.user.username,
+      secret: r.secret
+    })
+  })
 
   // POST /v1/auth/register { username, password }
   // Returns: { ok: true, username, user_id, secret }

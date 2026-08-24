@@ -38,7 +38,7 @@ async function getBySecret(db, secret) {
   return db.selectFrom('users').selectAll().where('secret', '=', secret).executeTakeFirst()
 }
 
-async function register(db, { username, password }) {
+async function register(db, { username, password }, opts = {}) {
   if (!validateUsername(username)) return { ok: false, error: 'invalid-username' }
   if (!validatePassword(password)) return { ok: false, error: 'invalid-password' }
   const dupe = await getByUsername(db, username)
@@ -52,7 +52,7 @@ async function register(db, { username, password }) {
         username,
         password_hash: passwordHash,
         secret,
-        is_owner: 0,
+        is_owner: opts.isOwner ? 1 : 0,
         created_at: now,
         updated_at: now
       })

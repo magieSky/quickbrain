@@ -36,7 +36,13 @@ describe('e2e: desktop AI via server proxy', () => {
     })
     const mod = await import(aiUrl + '?t=' + Date.now())
     const app = Fastify({ logger: false })
-    await app.register(mod.default || mod, { db: null })
+    await app.register(mod.default || mod, { db: {
+      selectFrom: () => ({
+        selectAll: () => ({ execute: async () => [
+          { id: 1, username: 'owner', secret: process.env.OWNER_TOKEN, is_owner: 1, password_hash: '', created_at: 0, updated_at: 0 }
+        ] })
+      })
+    } })
     await app.listen({ port: 0, host: '127.0.0.1' })
     const addr = app.server.address()
     const url = 'http://127.0.0.1:' + addr.port

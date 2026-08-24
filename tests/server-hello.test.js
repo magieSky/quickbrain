@@ -4,9 +4,8 @@ import path from 'node:path'
 let originalEnv
 beforeEach(() => {
   originalEnv = { ...process.env }
-  process.env.MODE = 'byos'
   process.env.MASTER_KEY = 'a'.repeat(64)
-  process.env.OWNER_TOKEN = 'b'.repeat(32)
+  process.env.ADMIN_BOOTSTRAP_TOKEN = 'b'.repeat(32)
   process.env.DB_URL = 'postgres://x:y@h/db'
 })
 afterEach(() => { for (const k of Object.keys(process.env)) if (!(k in originalEnv)) delete process.env[k]; for (const k of Object.keys(originalEnv)) process.env[k] = originalEnv[k] })

@@ -24,7 +24,46 @@ function restoreEnv() {
 }
 
 function makeServerDb() {
-  const tables = { notes: new Map(), devices: new Map() }
+  const tables = { notes: new Map(), devices: new Map(), users: new Map([
+    [1, { id: 1, username: 'owner', secret: process.env.OWNER_TOKEN, is_owner: 1, password_hash: '', created_at: 0, updated_at: 0 }]
+  ]) }
+  function buildQuery(t) {
+    const filters = []
+    function exec() {
+      const all = tables[t] ? Array.from(tables[t].values()) : []
+      const rows = all.filter(r => filters.every(f => {
+        if (f.op === '=') return r[f.col] === f.val
+        if (f.op === '>') return r[f.col] > f.val
+        if (f.op === '<') return r[f.col] < f.val
+        if (f.op === 'is' && f.val === null) return r[f.col] == null
+        return true
+      }))
+      return rows
+    }
+    const builder = {
+      where: (col, op, val) => { filters.push({ col, op, val }); return builder },
+      orderBy: (col2, dir) => ({
+        execute: async () => {
+          const arr = exec()
+          arr.sort((a, b) => (dir === 'asc' ? (a[col2] - b[col2]) : (b[col2] - a[col2])))
+          return arr
+        },
+        limit: (n) => ({
+          execute: async () => {
+            const arr = exec()
+            arr.sort((a, b) => (dir === 'asc' ? (a[col2] - b[col2]) : (b[col2] - a[col2])))
+            return arr.slice(0, n)
+          }
+        })
+      }),
+      limit: (n) => ({
+        execute: async () => exec().slice(0, n)
+      }),
+      execute: async () => exec(),
+      executeTakeFirst: async () => exec()[0] || null
+    }
+    return builder
+  }
   return {
     _tables: tables,
     fn: { count: (col) => ({ as: () => ({ _count: col }) }) },
@@ -57,44 +96,44 @@ function makeServerDb() {
       return { get: () => null, all: () => [], run: () => ({ changes: 0 }) }
     },
     selectFrom: (t) => ({
-      selectAll: () => ({
-        where: (col, op, val) => ({
-          executeTakeFirst: async () => {
-            const map = tables[t]; return (map && map.get(val)) || null
-          },
-          orderBy: (col, dir) => ({
-            limit: (n) => ({
-              execute: async () => {
-                const map = tables[t]; if (!map) return []
-                const arr = Array.from(map.values()).filter(r => (op === '>' ? r[col] > val : true))
-                arr.sort((a, b) => (dir === 'asc' ? a[col] - b[col] : b[col] - a[col]))
-                return arr.slice(0, n)
-              }
-            })
-          })
-        })
-      }),
+      selectAll: () => buildQuery(t),
       select: (sel) => ({
         executeTakeFirst: async () => {
-          const obj = {}; obj.c = tables[t] ? tables[t].size : 0; return obj
+          const obj = {}
+          obj.c = tables[t] ? tables[t].size : 0
+          return obj
         }
       })
     }),
     insertInto: (t) => ({
-      values: (v) => ({
-        onConflict: () => ({
-          doUpdateSet: () => ({ executeTakeFirst: async () => { tables[t].set(v.client_id, v); return { client_id: v.client_id } } }),
-          executeTakeFirst: async () => { tables[t].set(v.client_id, v); return { client_id: v.client_id } }
-        })
-      })
+      values: (v) => {
+        const result = {
+          executeTakeFirst: async () => { tables[t].set(v.client_id, v); return { client_id: v.client_id } },
+          onConflict: (cb) => {
+            const oc = {
+              column: (col) => ({
+                doUpdateSet: (set) => {
+                  result._conflictSet = set
+                  return { executeTakeFirst: async () => { tables[t].set(v.client_id, { ...v, ...set }); return { client_id: v.client_id } } }
+                },
+                doNothing: () => ({ executeTakeFirst: async () => { return { client_id: v.client_id } } })
+              })
+            }
+            cb(oc)
+            return result
+          }
+        }
+        return result
+      }
     }),
     updateTable: (t) => ({
       set: (set) => ({
-        where: (col, op, val) => ({
-          executeTakeFirst: async () => {
-            const r = tables[t] && tables[t].get(val); if (r) Object.assign(r, set); return { client_id: val }
+        where: (col, op, val) => {
+          if (col === 'client_id' && op === '=') {
+            if (tables[t] && tables[t].has(val)) Object.assign(tables[t].get(val), set)
           }
-        })
+          return { executeTakeFirst: async () => ({ client_id: val }) }
+        }
       })
     }),
     deleteFrom: (t) => ({ where: () => ({ executeTakeFirst: async () => ({ count: 0 }) }) })
@@ -145,8 +184,8 @@ describe('e2e sync round-trip', () => {
 
   it('server pull returns notes with cursor, client pull applies to local DB', async () => {
     const { app, db: srvDb } = await buildServer()
-    srvDb._tables.notes.set('a1', { client_id: 'a1', content: 'A1', title: 'A1', updated_at: 1000, deleted_at: null, rev: 1, category: 'uncategorized', tags: '[]', is_atom: 0, parent_id: null, source_path: '', source_type: '', source_range: '', extracted_at: null, is_formatted: 0, original_content: '', created_at: 1000 })
-    srvDb._tables.notes.set('a2', { client_id: 'a2', content: 'A2', title: 'A2', updated_at: 2000, deleted_at: null, rev: 1, category: 'uncategorized', tags: '[]', is_atom: 0, parent_id: null, source_path: '', source_type: '', source_range: '', extracted_at: null, is_formatted: 0, original_content: '', created_at: 2000 })
+    srvDb._tables.notes.set('a1', { user_id: 1, client_id: 'a1', content: 'A1', title: 'A1', updated_at: 1000, deleted_at: null, rev: 1, category: 'uncategorized', tags: '[]', is_atom: 0, parent_id: null, source_path: '', source_type: '', source_range: '', extracted_at: null, is_formatted: 0, original_content: '', created_at: 1000 })
+    srvDb._tables.notes.set('a2', { user_id: 1, client_id: 'a2', content: 'A2', title: 'A2', updated_at: 2000, deleted_at: null, rev: 1, category: 'uncategorized', tags: '[]', is_atom: 0, parent_id: null, source_path: '', source_type: '', source_range: '', extracted_at: null, is_formatted: 0, original_content: '', created_at: 2000 })
     const clientDb = await buildClientDb()
     const deviceId = crypto.randomUUID()
     const tokenMod = await import(tokenUrl + '?t=' + Date.now())
@@ -168,7 +207,7 @@ describe('e2e sync round-trip', () => {
 
   it('LWW: pushing an older version of a note conflicts', async () => {
     const { app, db: srvDb } = await buildServer()
-    srvDb._tables.notes.set('a1', { client_id: 'a1', content: 'NEWER', updated_at: 2000, deleted_at: null, rev: 2, category: 'uncategorized', tags: '[]', is_atom: 0, parent_id: null, source_path: '', source_type: '', source_range: '', extracted_at: null, is_formatted: 0, original_content: '', created_at: 1000 })
+    srvDb._tables.notes.set('a1', { user_id: 1, client_id: 'a1', content: 'NEWER', updated_at: 2000, deleted_at: null, rev: 2, category: 'uncategorized', tags: '[]', is_atom: 0, parent_id: null, source_path: '', source_type: '', source_range: '', extracted_at: null, is_formatted: 0, original_content: '', created_at: 1000 })
     const deviceId = crypto.randomUUID()
     const tokenMod = await import(tokenUrl + '?t=' + Date.now())
     const bearer = tokenMod.encode({ deviceId, token: process.env.OWNER_TOKEN })

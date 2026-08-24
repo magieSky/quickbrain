@@ -1,8 +1,8 @@
 {
   "name": "quickbrain",
   "version": "1.0.0",
-  "description": "个人知识管理工具 - 快速检索和整理散落的信息",
-  "main": "main.js",
+  "description": "Personal knowledge management - quickly search and organize scattered information",
+  "main": "client/src/main/electron-entry.js",
   "scripts": {
     "start": "electron .",
     "postinstall:register": "electron . --register-native-host",
@@ -40,14 +40,27 @@
       "output": "dist"
     },
     "files": [
-      "**/*",
-      "!**/*.ts",
-      "!**/node_modules/*"
+      "client/**/*",
+      "shared/**/*",
+      "server/**/*",
+      "assets/**/*",
+      "extension/**/*",
+      "resources/**/*",
+      "package.json",
+      "!node_modules/**/{.bin,*.md,*.markdown,*.map,test,test/**/*,tests,tests/**/*,__tests__,__tests__/**/*}",
+      "!client/**/test/**",
+      "!client/**/tests/**",
+      "!shared/**/test/**",
+      "!shared/**/tests/**",
+      "!server/**/test/**",
+      "!server/**/tests/**",
+      "!**/.DS_Store",
+      "!**/Thumbs.db"
     ],
     "win": {
       "target": "nsis",
       "signAndEditExecutable": false,
-      "icon": "assets/icon.ico"
+      "icon": "client/src/assets/icon.ico"
     },
     "nsis": {
       "oneClick": false,

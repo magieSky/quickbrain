@@ -315,112 +315,40 @@ function closeWindow() {
   require('electron').remote.getCurrentWindow().hide();
 }
 
-function openSettings() { document.getElementById('settingsDialog').style.display = 'flex'; loadSettingsDialog(); }
-function closeSettingsDialog() { document.getElementById('settingsDialog').style.display = 'none'; }
+function openSettings() {
+  require('electron').remote.getCurrentWindow().webContents.send('open-settings');
+}
 
-let _providersCache = [];
-let _currentProvider = null;
 
-async function loadSettingsDialog() {
+
+// AI Settings dialog
+async function openAISettingsDialog() {
+  document.getElementById("aiDialog").style.display = "flex";
   try {
-    const providers = await window.quickbrain.getProviders();
-    _providersCache = providers;
-    const sel = document.getElementById('setProvider');
-    sel.innerHTML = '';
-    for (const p of providers) {
-      const opt = document.createElement('option');
-      opt.value = p.id; opt.textContent = (p.icon || '') + ' ' + p.name;
-      sel.appendChild(opt);
+    const r = await window.quickbrain.getAIMode();
+    document.getElementById(r.mode === "server" ? "aiModeServer" : "aiModeDirect").checked = true;
+    document.getElementById("aiServerStatus").textContent = r.serverConfigured
+      ? "Server is configured (sync enabled). Server mode will route AI calls to /v1/ai/*."
+      : "Server NOT configured. Enable sync in Sync Settings first.";
+    try {
+      const cfg = await window.quickbrain.getAIConfig();
+      document.getElementById("aiDirectStatus").textContent = cfg && cfg.provider
+        ? ("Direct: provider=" + cfg.provider + ", model=" + (cfg.model || "default"))
+        : "Direct: no AI config. Set provider + apiKey via main-preload.getAIConfig/saveAIConfig.";
+    } catch (e) {
+      document.getElementById("aiDirectStatus").textContent = "Direct: " + e.message;
     }
-    const cfg = await window.quickbrain.getAIConfig();
-    if (cfg && cfg.provider) sel.value = cfg.provider;
-    onProviderChange();
-    if (cfg) {
-      document.getElementById('setBaseUrl').value = cfg.baseURL || '';
-      document.getElementById('setApiKey').value = '';
-      document.getElementById('setApiKey').placeholder = cfg.hasApiKey ? ('current: ' + (cfg.apiKeyPreview || '****')) : 'enter API Key';
-    }
-  } catch (e) { showToast('Load failed: ' + e.message, 'error') }
-  try {
-    const m = await window.quickbrain.getAIMode();
-    document.getElementById(m.mode === 'server' ? 'setAiModeServer' : 'setAiModeDirect').checked = true;
-    document.getElementById('setAiServerStatus').textContent = m.serverConfigured
-      ? 'Server configured. Server mode routes AI calls to /v1/ai/*.'
-      : 'Server NOT configured. Enable sync in Sync Settings first.';
-  } catch (e) {}
-  try {
-    const en = await window.quickbrain.getAutoLaunch();
-    document.getElementById('setAutoLaunch').checked = !!en;
-  } catch (e) {}
+  } catch (e) { showToast("Open failed: " + e.message, "error"); }
 }
-
-function onProviderChange() {
-  const sel = document.getElementById('setProvider');
-  const p = _providersCache.find(x => x.id === sel.value);
-  _currentProvider = p || null;
-  const modelSel = document.getElementById('setModel');
-  const modelCustom = document.getElementById('setModelCustom');
-  modelSel.innerHTML = '';
-  if (p && p.models && p.models.length) {
-    modelSel.style.display = '';
-    modelCustom.style.display = 'none';
-    for (const m of p.models) {
-      const opt = document.createElement('option');
-      opt.value = m; opt.textContent = m;
-      modelSel.appendChild(opt);
-    }
-    if (p.defaultModel) modelSel.value = p.defaultModel;
-  } else {
-    modelSel.style.display = 'none';
-    modelCustom.style.display = '';
-    modelCustom.value = p && p.defaultModel ? p.defaultModel : '';
-  }
-  const keyLabel = document.getElementById('setApiKeyLabel');
-  if (p && p.requiresApiKey) { keyLabel.textContent = 'API Key'; keyLabel.parentElement.style.display = ''; }
-  else { keyLabel.textContent = 'API Key (optional)'; }
-  const baseLabel = document.getElementById('setBaseUrl');
-  if (p && p.customBaseURL) { baseLabel.parentElement.style.display = ''; baseLabel.placeholder = p.baseURL || ''; }
-  else { baseLabel.parentElement.style.display = 'none'; }
+function closeAISettingsDialog() { document.getElementById("aiDialog").style.display = "none"; }
+async function saveAIMode() {
+  const mode = document.getElementById("aiModeServer").checked ? "server" : "direct";
+  try {
+    const r = await window.quickbrain.setAIMode(mode);
+    showToast("AI mode: " + r.mode, "success");
+    closeAISettingsDialog();
+  } catch (e) { showToast("Save failed: " + e.message, "error"); }
 }
-
-async function testProvider() {
-  const provider = document.getElementById('setProvider').value;
-  const model = document.getElementById('setModel').value || document.getElementById('setModelCustom').value || null;
-  const apiKey = document.getElementById('setApiKey').value;
-  const baseURL = document.getElementById('setBaseUrl').value || null;
-  const cfg = { provider, apiKey, model, baseURL };
-  const status = document.getElementById('setProviderStatus');
-  status.textContent = 'Testing...';
-  try {
-    const r = await window.quickbrain.testAIConnection(cfg);
-    status.textContent = r.success ? 'OK: ' + (r.info || 'connected') : 'Failed: ' + r.error;
-  } catch (e) { status.textContent = 'Error: ' + e.message; }
-}
-
-async function saveSettings() {
-  const provider = document.getElementById('setProvider').value;
-  const model = document.getElementById('setModel').value || document.getElementById('setModelCustom').value || null;
-  const apiKey = document.getElementById('setApiKey').value;
-  const baseURL = document.getElementById('setBaseUrl').value || null;
-  try {
-    const r = await window.quickbrain.saveAIConfig({ provider, apiKey, model, baseURL });
-    if (!r.success) { showToast('Provider save failed: ' + r.error, 'error'); return; }
-  } catch (e) { showToast('Provider save error: ' + e.message, 'error'); return; }
-  const mode = document.getElementById('setAiModeServer').checked ? 'server' : 'direct';
-  try {
-    const m = await window.quickbrain.setAIMode(mode);
-  } catch (e) { showToast('AI mode save failed: ' + e.message, 'error'); return; }
-  try {
-    const autoEn = document.getElementById('setAutoLaunch').checked;
-    await window.quickbrain.setAutoLaunch(autoEn);
-  } catch (e) {}
-  showToast('Settings saved', 'success');
-  closeSettingsDialog();
-}
-
-
-
-
 
 // Sync dialog
 async function openSyncDialog() {

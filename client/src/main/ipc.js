@@ -454,6 +454,13 @@ return { success: true, ...result }
       win.webContents.send('locate-note', id)
     }
   })
+
+  ipcMain.on('open-ai-settings', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (win) {
+      win.webContents.send('open-ai-settings')
+    }
+  })
 }
 
 function safeParse(str, fallback) {

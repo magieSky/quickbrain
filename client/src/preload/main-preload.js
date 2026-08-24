@@ -48,8 +48,12 @@ contextBridge.exposeInMainWorld('quickbrain', {
   showWindow: () => ipcRenderer.send('show-window'),
 
   // Listen for locate-note event
+  openAISettingsInMain: () => ipcRenderer.send('open-ai-settings'),
   onLocateNote: (callback) => {
     ipcRenderer.on('locate-note', (event, id) => callback(id))
+  },
+  onOpenAISettings: (callback) => {
+    ipcRenderer.on('open-ai-settings', () => callback())
   },
 
   // Listen for show-add-dialog event (triggered by Ctrl+A)

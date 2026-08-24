@@ -264,7 +264,7 @@ function buildContext() {
     showMainWindow: () => api.locateNoteInMain(null),
     openSettings: () => { api.locateNoteInMain(0); window.close() },
     openDataDir: () => { api.locateNoteInMain(0); window.close() },
-    openAISettings: () => { api.locateNoteInMain(0); window.close() },
+    openAISettings: () => { api.openAISettingsInMain(); window.close() },
     exportAll: () => { api.locateNoteInMain(0); window.close() },
     importAll: () => { api.locateNoteInMain(0); window.close() },
     backupDB: () => { api.locateNoteInMain(0); window.close() },

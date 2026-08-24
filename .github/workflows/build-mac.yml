@@ -52,7 +52,21 @@ jobs:
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
           USE_HARD_LINKS: "false"
-        run: npm run build:mac
+          DEBUG: "electron-builder,electron-builder:*"
+          NO_UPDATE_NOTIFIER: "1"
+        run: |
+          set -euxo pipefail
+          echo "--- electron-builder version ---"
+          npx electron-builder --version
+          echo "--- platforms available ---"
+          node -e "const p=require('./package.json');console.log('mac:',JSON.stringify(p.build.mac,null,2))" || true
+          echo "--- icon file check ---"
+          ls -la client/src/assets/ | head -n 20
+          file client/src/assets/icon@5x.png
+          echo "--- npm run build:mac with mac icon override ---"
+          npx electron-builder --mac --arm64 --config.mac.icon=client/src/assets/icon@5x.png 2>&1 | tee /tmp/eb.log
+          echo "--- post-build artifact ---"
+          ls -lh dist/ || true
 
       - name: List dist artifacts
         run: |

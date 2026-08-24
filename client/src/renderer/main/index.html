@@ -176,10 +176,171 @@
     .privacy-block { padding: 12px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; margin-bottom: 14px; }
     .privacy-block-title { font-size: 11px; color: rgba(255,255,255,0.55); margin-bottom: 8px; letter-spacing: 0.5px; }
     .privacy-chip.active { background: rgba(120,150,255,0.25); border-color: rgba(120,150,255,0.5); color: #fff; }
+    .batch-toggle.active { background: rgba(255,180,80,0.18); border-color: rgba(255,180,80,0.45); color: rgba(255,200,120,0.95); }
+    .note-select-box { margin-right: 10px; display: flex; align-items: center; }
+    .note-select-box input { transform: scale(1.15); accent-color: rgba(120,150,255,0.85); cursor: pointer; }
+    .note-card.in-selection { padding-left: 8px; }
+    .batch-bar { display: flex; align-items: center; gap: 8px; padding: 10px 16px; margin: 8px 16px; background: rgba(255,180,80,0.08); border: 1px solid rgba(255,180,80,0.25); border-radius: 8px; font-size: 12px; }
+    .batch-bar .batch-count { color: rgba(255,200,120,0.95); margin-right: 8px; }
+    .batch-bar .btn { padding: 4px 12px; font-size: 12px; }
+    .batch-bar .btn:disabled { opacity: 0.4; cursor: not-allowed; }
     .note-private-badge { font-size: 10px; padding: 1px 6px; border-radius: 8px; background: rgba(255,180,80,0.18); color: rgba(255,200,120,0.95); border: 1px solid rgba(255,180,80,0.25); margin-right: 6px; }
     .note-card.is-private { border-left: 2px solid rgba(255,180,80,0.55); }
     .note-card-act.note-card-private { color: rgba(255,200,120,0.85); }
-    /* ====== AI 设置弹窗 ====== */
+    /* ====== Redesigned main panel ====== */
+.main-toolbar {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  background: rgba(20,20,24,0.4);
+  position: relative; z-index: 5;
+}
+.main-toolbar .tb-search {
+  flex: 1; min-width: 0;
+  padding: 6px 12px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 6px;
+  color: #e8e8f0; font-size: 13px;
+  outline: none;
+}
+.main-toolbar .tb-search:focus { border-color: rgba(120,150,255,0.5); background: rgba(255,255,255,0.08); }
+.main-toolbar .tb-search::placeholder { color: rgba(255,255,255,0.35); }
+.main-toolbar .tb-btn {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 6px 12px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 6px;
+  color: rgba(255,255,255,0.85);
+  font-size: 12px; cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, opacity 0.12s;
+}
+.main-toolbar .tb-btn:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.18); }
+.main-toolbar .tb-btn.active { background: rgba(120,150,255,0.18); border-color: rgba(120,150,255,0.5); color: #fff; }
+.main-toolbar .tb-btn.primary { background: rgba(120,150,255,0.18); border-color: rgba(120,150,255,0.4); color: #cfd8ff; }
+.main-toolbar .tb-btn.primary:hover { background: rgba(120,150,255,0.28); }
+.main-toolbar .tb-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.main-toolbar .tb-btn .tb-badge {
+  display: inline-block; min-width: 16px; padding: 0 4px;
+  background: rgba(120,150,255,0.5); color: #fff;
+  border-radius: 8px; font-size: 10px; line-height: 14px; text-align: center;
+  margin-left: 2px;
+}
+
+/* Filter popover */
+.filter-popover {
+  position: absolute;
+  top: 100%; right: 0;
+  margin-top: 4px;
+  width: 280px;
+  padding: 12px;
+  background: rgba(30,30,34,0.96);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+  z-index: 100;
+  backdrop-filter: blur(16px);
+}
+.filter-popover.hidden { display: none; }
+.filter-popover-section { margin-bottom: 12px; }
+.filter-popover-section:last-of-type { margin-bottom: 0; }
+.filter-popover-label {
+  font-size: 11px; color: rgba(255,255,255,0.5); margin-bottom: 6px;
+  letter-spacing: 0.5px; text-transform: uppercase;
+}
+.filter-popover-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.filter-popover-chip {
+  display: inline-block; padding: 4px 10px;
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px; font-size: 11px;
+  color: rgba(255,255,255,0.7); cursor: pointer; user-select: none;
+}
+.filter-popover-chip:hover { background: rgba(255,255,255,0.08); }
+.filter-popover-chip.active { background: rgba(120,150,255,0.25); border-color: rgba(120,150,255,0.5); color: #fff; }
+.filter-popover-clear {
+  width: 100%; margin-top: 12px; padding: 6px;
+  background: transparent; border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 6px; color: rgba(255,255,255,0.6);
+  font-size: 11px; cursor: pointer;
+}
+.filter-popover-clear:hover { background: rgba(255,255,255,0.06); color: #fff; }
+
+/* Note card (redesigned) */
+.note-card { position: relative; transition: background 0.12s, border-color 0.12s; }
+.note-card:hover { background: rgba(255,255,255,0.04); }
+.note-card.is-private { border-left: 3px solid rgba(255,180,80,0.7); }
+.note-card-body { padding: 12px 16px; display: flex; flex-direction: column; gap: 4px; }
+.note-card-title-row { display: flex; align-items: center; gap: 8px; }
+.note-private-badge {
+  font-size: 10px; padding: 1px 6px; border-radius: 8px;
+  background: rgba(255,180,80,0.18); color: rgba(255,200,120,0.95);
+  border: 1px solid rgba(255,180,80,0.25); white-space: nowrap;
+}
+.note-card-title { font-weight: 500; color: #fff; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.note-card-content { color: rgba(255,255,255,0.6); font-size: 12px; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.note-card-meta { display: flex; align-items: center; gap: 6px; font-size: 11px; color: rgba(255,255,255,0.45); }
+.note-card-meta .badge { background: rgba(255,255,255,0.08); padding: 1px 6px; border-radius: 3px; }
+.note-card-meta .date { margin-left: auto; }
+
+/* Card actions: hidden by default, visible on hover */
+.note-card-actions {
+  position: absolute; top: 8px; right: 12px;
+  display: flex; gap: 2px;
+  opacity: 0; transition: opacity 0.12s;
+}
+.note-card:hover .note-card-actions, .note-card-actions.always-show { opacity: 1; }
+.note-card-act {
+  width: 26px; height: 26px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent; border: none; border-radius: 4px;
+  color: rgba(255,255,255,0.5); cursor: pointer; font-size: 13px;
+  transition: background 0.1s, color 0.1s;
+}
+.note-card-act:hover { background: rgba(255,255,255,0.1); color: #fff; }
+.note-card-act.danger:hover { background: rgba(220,80,80,0.2); color: #ff8b8b; }
+.note-card-act.priv-private { color: rgba(255,200,120,0.85); }
+.note-card-act.confirm-delete { background: rgba(220,80,80,0.4); color: #fff; }
+
+/* Card checkbox (selection mode) */
+.note-card-checkbox {
+  position: absolute; top: 14px; left: 12px; z-index: 2;
+  display: none;
+}
+.note-card.in-selection .note-card-checkbox { display: block; }
+.note-card.in-selection .note-card-body { padding-left: 32px; }
+.note-card-checkbox input { transform: scale(1.2); accent-color: rgba(120,150,255,0.85); cursor: pointer; }
+.note-card.selected { background: rgba(120,150,255,0.1); }
+
+/* Floating batch bar (replaces #batch-bar) */
+.float-batch {
+  position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+  display: none; align-items: center; gap: 8px;
+  padding: 8px 12px;
+  background: rgba(28,28,32,0.94);
+  border: 1px solid rgba(255,180,80,0.25);
+  border-radius: 10px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  z-index: 50;
+  backdrop-filter: blur(12px);
+  font-size: 12px;
+}
+.float-batch.show { display: flex; }
+.float-batch .fb-count { color: rgba(255,200,120,0.95); padding: 0 8px; font-weight: 500; }
+.float-batch .fb-sep { width: 1px; height: 18px; background: rgba(255,255,255,0.1); }
+.float-batch button {
+  padding: 4px 10px;
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 6px; color: rgba(255,255,255,0.85);
+  font-size: 12px; cursor: pointer;
+}
+.float-batch button:hover { background: rgba(255,255,255,0.12); }
+.float-batch button:disabled { opacity: 0.4; cursor: not-allowed; }
+.float-batch button.primary { background: rgba(120,150,255,0.18); border-color: rgba(120,150,255,0.4); color: #cfd8ff; }
+.float-batch button.danger { background: rgba(255,180,80,0.18); border-color: rgba(255,180,80,0.4); color: rgba(255,200,120,0.95); }
+
+
+/* ====== AI 设置弹窗 ====== */
     .ai-modal { max-width: 560px; }
     .sync-modal { max-width: 460px; }
     .sync-status { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; margin-bottom: 16px; font-size: 12px; }
@@ -298,33 +459,43 @@
     <span class="stats" id="stats">0 条笔记</span>
   </div>
 
-  <div class="search-wrap">
-    <input type="text" class="search" id="search-input" placeholder="搜索笔记内容...">
-  </div>
-
-  <div class="filters" id="filters">
-    <span class="filter-chip active" data-cat="all">全部</span>
-    <span class="filter-chip" data-cat="工作">工作</span>
-    <span class="filter-chip" data-cat="学习">学习</span>
-    <span class="filter-chip" data-cat="生活">生活</span>
-    <span class="filter-chip" data-cat="灵感">灵感</span>
-    <span class="filter-chip" data-cat="其他">其他</span>
-    <span class="filter-chip filter-type-sep"></span>
-    <span class="filter-chip" data-type="all">全部</span>
-    <span class="filter-chip" data-type="source">源笔记</span>
-    <span class="filter-chip" data-type="atom">原子笔记</span>
-    <span class="filter-chip privacy-chip" data-privacy="all">全部隐私</span>
-    <span class="filter-chip privacy-chip" data-privacy="private">🔒 仅本机</span>
-    <span class="filter-chip privacy-chip" data-privacy="public">☁︎ 已同步</span>
-  </div>
-
-  <div class="toolbar">
-    <button class="btn primary" id="add-btn">+ 添加笔记</button>
-    <button class="btn" id="ai-btn">✨ AI 格式化</button>
-    <button class="btn" id="import-btn">📄 导入文件</button>
+  <div class="main-toolbar">
+    <button class="tb-btn primary" id="add-btn" title="添加笔记">+ 添加笔记</button>
+    <input type="text" class="tb-search" id="search-input" placeholder="搜索笔记内容...">
+    <div style="position: relative;">
+      <button class="tb-btn" id="filter-btn" title="筛选">筛选 <span class="tb-badge" id="filter-badge" style="display:none;">0</span></button>
+      <div class="filter-popover hidden" id="filter-popover">
+        <div class="filter-popover-section">
+          <div class="filter-popover-label">分类</div>
+          <div class="filter-popover-chips" id="filter-cat-chips"></div>
+        </div>
+        <div class="filter-popover-section">
+          <div class="filter-popover-label">类型</div>
+          <div class="filter-popover-chips" id="filter-type-chips"></div>
+        </div>
+        <div class="filter-popover-section">
+          <div class="filter-popover-label">隐私</div>
+          <div class="filter-popover-chips" id="filter-privacy-chips"></div>
+        </div>
+        <button class="filter-popover-clear" id="filter-clear">清空筛选</button>
+      </div>
+    </div>
+    <button class="tb-btn" id="batch-toggle-btn" title="多选模式 (Ctrl/⌘+M)">☐ 多选</button>
+    <button class="tb-btn" id="ai-btn" title="AI 格式化">✨ AI</button>
+    <button class="tb-btn" id="import-btn" title="导入文件">📥 导入</button>
     <input type="file" id="import-file" style="display:none" accept=".pdf,.docx,.pptx,.xlsx,.csv,.txt,.html,.htm,.md,.epub,.png,.jpg,.jpeg,.gif,.bmp,.mp3,.wav,.mp4,.avi,.xls">
+    <button class="tb-btn" id="settings-btn-main" title="设置">⚙</button>
   </div>
 
+  <div class="float-batch" id="float-batch">
+    <span class="fb-count" id="fb-count">已选 0 条</span>
+    <button id="fb-select-all">全选可见</button>
+    <span class="fb-sep"></span>
+    <button class="primary" id="fb-set-public">☁︎ 公开同步</button>
+    <button class="danger" id="fb-set-private">🔒 设为仅本机</button>
+    <span class="fb-sep"></span>
+    <button id="fb-exit">× 取消多选</button>
+  </div>
   <div class="drop-overlay" id="drop-overlay"><div class="drop-message">📂 松开鼠标导入文件<br><span>支持 PDF / Word / Excel / PPT / 图片 / 文本</span></div></div>
 
   <div class="note-list" id="note-list">

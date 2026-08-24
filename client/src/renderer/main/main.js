@@ -5,7 +5,21 @@ const els = {
   list: document.getElementById('note-list'),
   stats: document.getElementById('stats'),
   status: document.getElementById('status'),
-  filters: document.getElementById('filters'),
+  filterBtn: document.getElementById('filter-btn'),
+  filterBadge: document.getElementById('filter-badge'),
+  filterPopover: document.getElementById('filter-popover'),
+  filterCatChips: document.getElementById('filter-cat-chips'),
+  filterTypeChips: document.getElementById('filter-type-chips'),
+  filterPrivacyChips: document.getElementById('filter-privacy-chips'),
+  filterClear: document.getElementById('filter-clear'),
+  batchToggleBtn: document.getElementById('batch-toggle-btn'),
+  settingsBtnMain: document.getElementById('settings-btn-main'),
+  floatBatch: document.getElementById('float-batch'),
+  fbCount: document.getElementById('fb-count'),
+  fbSelectAll: document.getElementById('fb-select-all'),
+  fbSetPublic: document.getElementById('fb-set-public'),
+  fbSetPrivate: document.getElementById('fb-set-private'),
+  fbExit: document.getElementById('fb-exit'),
   addBtn: document.getElementById('add-btn'),
   aiBtn: document.getElementById('ai-btn'),
   settingsBtn: document.getElementById('settings-btn'),
@@ -69,6 +83,8 @@ let currentType = 'all' // 'all' | 'source' | 'atom'
 let currentPrivacy = 'all' // 'all' | 'private' | 'public'
 let defaultPrivate = true
 let aiReady = false
+let selectionMode = false
+const selectedIds = new Set()
 
 async function loadNotes() {
   setStatus('加载中...')
@@ -148,21 +164,36 @@ function render() {
       const titleText = isWeb ? ('打开 ' + n.source_path) : ('定位 ' + n.source_path)
       return '<span class="' + cls + '" data-path="' + path + '" data-web="' + (isWeb ? '1' : '0') + '" title="' + escapeHtml(titleText) + '">' + label + '</span>'
     })()
-    const privClass = n.is_private ? ' note-card is-private' : ''
-    const privBadge = n.is_private ? '<span class="note-private-badge" title="仅本机保存">🔒 仅本机</span>' : ''
+    const checked = selectedIds.has(n.id) ? ' checked' : ''
+    const privBadge = n.is_private ? '<span class="note-private-badge">🔒 仅本机</span>' : ''
+    const privEmoji = n.is_private ? '🔒' : '\u2601\uFE0E'
+    const privTitle = n.is_private ? '已设为仅本机，点击设为同步到云端' : '已同步到云端，点击设为仅本机保存'
+    const classes = ['note-card']
+    if (n.is_private) classes.push('is-private')
+    if (selectionMode) classes.push('in-selection')
+    if (selectedIds.has(n.id)) classes.push('selected')
     return (
-      '<div class="note-card' + privClass + '" data-id="' + n.id + '">' +
-        '<div class="note-title">' + privBadge + escapeHtml(title) + '</div>' +
-        '<div class="note-content">' + renderMarkdown(content) + '</div>' +
-        '<div class="note-meta">' +
-          '<span class="badge">' + escapeHtml(cat) + '</span>' +
-          (tags.length ? tags.map(t => '<span class="badge">#' + escapeHtml(t) + '</span>').join('') : '') +
-          sourceBadge +
-          '<span style="margin-left:auto">' + date + '</span>' +
-          '<button class="note-card-act note-card-edit" data-id="' + n.id + '" title="编辑">\u270F\uFE0F</button>' +
-          '<button class="note-card-act note-card-format" data-id="' + n.id + '" title="AI 格式化">\u2728</button>' +
-          '<button class="note-card-del" data-id="' + n.id + '" title="删除">\u{1F5D1}</button>' +
+      '<div class="' + classes.join(' ') + '" data-id="' + n.id + '">' +
+        (selectionMode
+          ? '<div class="note-card-checkbox"><input type="checkbox" data-id="' + n.id + '"' + checked + '></div>'
+          : '') +
+        '<div class="note-card-body">' +
+          '<div class="note-card-title-row">' + privBadge + '<div class="note-card-title">' + escapeHtml(title) + '</div></div>' +
+          '<div class="note-card-content">' + renderMarkdown(content) + '</div>' +
+          '<div class="note-card-meta">' +
+            '<span class="badge">' + escapeHtml(cat) + '</span>' +
+            (tags.length ? tags.map(t => '<span class="badge">#' + escapeHtml(t) + '</span>').join('') : '') +
+            '<span class="date">' + date + '</span>' +
+          '</div>' +
         '</div>' +
+        (selectionMode
+          ? ''
+          : '<div class="note-card-actions">' +
+              '<button class="note-card-act note-card-priv' + (n.is_private ? ' priv-private' : '') + '" data-id="' + n.id + '" title="' + privTitle + '">' + privEmoji + '</button>' +
+              '<button class="note-card-act note-card-edit" data-id="' + n.id + '" title="编辑">\u270F\uFE0F</button>' +
+              '<button class="note-card-act note-card-format" data-id="' + n.id + '" title="AI 格式化">\u2728</button>' +
+              '<button class="note-card-act note-card-del danger" data-id="' + n.id + '" title="删除">\u{1F5D1}</button>' +
+            '</div>') +
       '</div>'
     )
   }).join('')
@@ -173,6 +204,40 @@ function render() {
       const id = parseInt(btn.dataset.id, 10)
       const note = allNotes.find(n => n.id === id)
       if (note) editNote(note)
+    }
+  })
+
+  // Per-note privacy toggle. data-private="1" means currently private;
+  // clicking moves it to public (and pushes an upsert to the server).
+  els.list.querySelectorAll('.note-card-private').forEach(btn => {
+    btn.onclick = async (e) => {
+      e.stopPropagation()
+      const id = parseInt(btn.dataset.id, 10)
+      const wasPrivate = btn.dataset.private === '1'
+      const nextIsPrivate = !wasPrivate
+      btn.disabled = true
+      try {
+        const r = await api.setNotePrivate(id, nextIsPrivate)
+        if (!r || !r.ok) { setStatus('切换隐私状态失败: ' + (r && r.error)); return }
+        await loadNotes()
+        setStatus(nextIsPrivate ? '已设为仅本机保存，云端已撤销' : '已设为公开，同步中…')
+      } catch (err) {
+        setStatus('切换隐私状态失败: ' + err.message)
+      } finally {
+        btn.disabled = false
+      }
+    }
+  })
+
+  // Multi-select checkbox: clicking the box toggles this id in/out of the
+  // selected set and re-renders only the batch bar (cheaper than render()).
+  els.list.querySelectorAll('.note-select-box input').forEach(cb => {
+    cb.onclick = (e) => { e.stopPropagation() }
+    cb.onchange = (e) => {
+      const id = parseInt(cb.dataset.id, 10)
+      if (cb.checked) selectedIds.add(id)
+      else selectedIds.delete(id)
+      renderFloatBatch()
     }
   })
   els.list.querySelectorAll('.note-card-format').forEach(btn => {
@@ -210,21 +275,32 @@ function render() {
       if (id) api.revealSource(id)
     }
   })
+  // 2-step delete confirm: 1st click arms, 2nd within 3s confirms.
   els.list.querySelectorAll('.note-card-del').forEach(btn => {
+    let armedTimer = null
     btn.onclick = async (e) => {
       e.stopPropagation()
       const id = parseInt(btn.dataset.id, 10)
-      const note = allNotes.find(n => n.id === id)
-      if (!note) return
-      const title = ((note.title || note.content || '').split('\n')[0] || '').substring(0, 30) || '(无标题)'
-      if (!window.confirm('删除笔记:\n\n' + title + '\n\n确定?')) return
-      try {
-        await api.deleteNote(id)
-        await loadNotes()
-        setStatus('已删除')
-      } catch (err) {
-        setStatus('删除失败: ' + err.message)
+      if (btn.classList.contains('confirm-delete')) {
+        if (armedTimer) { clearTimeout(armedTimer); armedTimer = null }
+        btn.classList.remove('confirm-delete')
+        try {
+          await api.deleteNote(id)
+          await loadNotes()
+          setStatus('已删除')
+        } catch (err) {
+          setStatus('删除失败: ' + err.message)
+        }
+        return
       }
+      btn.classList.add('confirm-delete')
+      btn.textContent = '确认删除?'
+      if (armedTimer) clearTimeout(armedTimer)
+      armedTimer = setTimeout(() => {
+        btn.classList.remove('confirm-delete')
+        btn.textContent = '\u{1F5D1}'
+        armedTimer = null
+      }, 3000)
     }
   })
   els.list.querySelectorAll('.note-source').forEach(el => {
@@ -338,25 +414,147 @@ async function saveModal() {
 }
 
 
-els.filters.querySelectorAll('.filter-chip').forEach(c => {
-  if (c.dataset.type) {
-    c.onclick = () => {
-      currentType = c.dataset.type
-      els.filters.querySelectorAll('.filter-chip').forEach(x => {
-        if (x.dataset.type) x.classList.toggle('active', x === c)
-      })
-      render()
-    }
+// ===== Multi-select + floating batch bar =====
+function setSelectionMode(on) {
+  selectionMode = !!on
+  if (!on) selectedIds.clear()
+  els.batchToggleBtn.classList.toggle('active', on)
+  updateToolbarDisabled()
+  render()
+}
+
+function updateToolbarDisabled() {
+  const disable = selectionMode
+  for (const b of [els.addBtn, els.aiBtn, els.importBtn, els.settingsBtnMain]) {
+    if (b) b.disabled = disable
   }
-  if (c.dataset.privacy) {
-    c.onclick = () => {
-      currentPrivacy = c.dataset.privacy
-      els.filters.querySelectorAll('.filter-chip').forEach(x => {
-        if (x.dataset.privacy) x.classList.toggle('active', x === c)
-      })
-      render()
+}
+
+els.batchToggleBtn.onclick = () => setSelectionMode(!selectionMode)
+
+els.fbExit.onclick = () => setSelectionMode(false)
+
+els.fbSelectAll.onclick = () => {
+  const visible = getFiltered().map(n => n.id)
+  const allSelected = visible.length > 0 && visible.every(id => selectedIds.has(id))
+  if (allSelected) visible.forEach(id => selectedIds.delete(id))
+  else visible.forEach(id => selectedIds.add(id))
+  render()
+}
+
+els.fbSetPublic.onclick = async () => {
+  if (selectedIds.size === 0) return
+  const ids = Array.from(selectedIds)
+  setStatus('正在设为公开·' + ids.length + ' 条…')
+  try {
+    const r = await api.setNotesPrivateBulk(ids, false)
+    if (r && r.ok) {
+      setStatus('已将 ' + r.count + ' 条设为公开，同步中…')
+      setSelectionMode(false)
+      await loadNotes()
+    } else {
+      setStatus('设为公开失败: ' + (r && r.error))
     }
+  } catch (e) { setStatus('设为公开失败: ' + e.message) }
+}
+
+els.fbSetPrivate.onclick = async () => {
+  if (selectedIds.size === 0) return
+  const ids = Array.from(selectedIds)
+  setStatus('正在设为隐私·' + ids.length + ' 条…')
+  try {
+    const r = await api.setNotesPrivateBulk(ids, true)
+    if (r && r.ok) {
+      setStatus('已将 ' + r.count + ' 条设为隐私，已从云端撤销')
+      setSelectionMode(false)
+      await loadNotes()
+    } else {
+      setStatus('设为隐私失败: ' + (r && r.error))
+    }
+  } catch (e) { setStatus('设为隐私失败: ' + e.message) }
+}
+
+function renderFloatBatch() {
+  if (!els.floatBatch) return
+  if (!selectionMode) { els.floatBatch.classList.remove('show'); return }
+  els.floatBatch.classList.add('show')
+  const count = selectedIds.size
+  els.fbCount.textContent = '已选 ' + count + ' 条'
+  els.fbSetPublic.disabled = count === 0
+  els.fbSetPrivate.disabled = count === 0
+  const visible = getFiltered().map(n => n.id)
+  const allSelected = visible.length > 0 && visible.every(id => selectedIds.has(id))
+  els.fbSelectAll.textContent = allSelected ? '取消全选' : '全选可见'
+}
+
+// ===== Filter popover =====
+const FILTER_CATS = ['全部', '工作', '学习', '生活', '灵感', '其他']
+const FILTER_TYPES = ['全部', '源笔记', '原子笔记']
+const FILTER_PRIVS = ['全部', '🔒 仅本机', '☁︎ 已同步']
+
+function renderFilterPopover() {
+  const buildChips = (container, values, current, mapper) => {
+    container.innerHTML = values.map((label, i) => {
+      const value = mapper ? mapper(label, i) : label
+      const isActive = value === current
+      return '<span class="filter-popover-chip' + (isActive ? ' active' : '') + '" data-value="' + value + '">' + label + '</span>'
+    }).join('')
   }
+  buildChips(els.filterCatChips, FILTER_CATS, currentCategory, (_, i) => i === 0 ? 'all' : FILTER_CATS[i])
+  buildChips(els.filterTypeChips, FILTER_TYPES, currentType, (_, i) => i === 0 ? 'all' : (i === 1 ? 'source' : 'atom'))
+  buildChips(els.filterPrivacyChips, FILTER_PRIVS, currentPrivacy, (_, i) => i === 0 ? 'all' : (i === 1 ? 'private' : 'public'))
+
+  const total = (currentCategory !== 'all' ? 1 : 0) + (currentType !== 'all' ? 1 : 0) + (currentPrivacy !== 'all' ? 1 : 0)
+  els.filterBadge.textContent = total
+  els.filterBadge.style.display = total > 0 ? '' : 'none'
+}
+
+function toggleFilterPopover() {
+  const isHidden = els.filterPopover.classList.contains('hidden')
+  if (isHidden) {
+    renderFilterPopover()
+    els.filterPopover.classList.remove('hidden')
+  } else {
+    els.filterPopover.classList.add('hidden')
+  }
+}
+
+els.filterBtn.onclick = (e) => { e.stopPropagation(); toggleFilterPopover() }
+
+els.filterPopover.addEventListener('click', (e) => {
+  const chip = e.target.closest('.filter-popover-chip')
+  if (!chip) return
+  const value = chip.dataset.value
+  const section = chip.parentElement
+  if (section === els.filterCatChips) currentCategory = value
+  else if (section === els.filterTypeChips) currentType = value
+  else if (section === els.filterPrivacyChips) currentPrivacy = value
+  renderFilterPopover()
+  render()
+})
+
+els.filterClear.onclick = () => {
+  currentCategory = 'all'
+  currentType = 'all'
+  currentPrivacy = 'all'
+  renderFilterPopover()
+  render()
+}
+
+document.addEventListener('click', (e) => {
+  if (els.filterPopover.classList.contains('hidden')) return
+  if (els.filterPopover.contains(e.target)) return
+  if (els.filterBtn.contains(e.target)) return
+  els.filterPopover.classList.add('hidden')
+})
+
+document.addEventListener('keydown', (e) => {
+  if (!(e.ctrlKey || e.metaKey)) return
+  if (e.key !== 'm' && e.key !== 'M') return
+  const tag = (e.target && e.target.tagName) || ''
+  if (tag === 'INPUT' || tag === 'TEXTAREA') return
+  e.preventDefault()
+  setSelectionMode(!selectionMode)
 })
 
 els.addBtn.onclick = showAddModal
@@ -432,15 +630,7 @@ els.search.addEventListener('input', () => {
   }, 200)
 })
 
-els.filters.addEventListener('click', (e) => {
-  const chip = e.target.closest('.filter-chip')
-  if (!chip) return
-  els.filters.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'))
-  chip.classList.add('active')
-  currentCategory = chip.dataset.cat
-  render()
-})
-
+// #filters container removed; filter popover above handles filter state.
 els.aiBtn.onclick = () => openAISettings()
 
 async function refreshAutoLaunch() {
@@ -819,11 +1009,7 @@ if (api.onLocateNote) {
     els.search.value = currentSearch
     currentCategory = 'all'
     currentType = note.is_atom ? 'atom' : 'source'
-    els.filters.querySelectorAll('.filter-chip').forEach(c => {
-      const isActive = (c.dataset.type && c.dataset.type === currentType) ||
-                        (!c.dataset.type && c.dataset.cat === 'all')
-      c.classList.toggle('active', isActive)
-    })
+    currentPrivacy = 'all'
     render()
     if (range && range.start != null) {
       const snippet = note.content.slice(range.start, range.end)
@@ -847,3 +1033,5 @@ if (api.onShowAddDialog) {
 }
 
 loadNotes()
+
+els.settingsBtnMain.onclick = () => { if (els.settingsBtn) els.settingsBtn.click() }

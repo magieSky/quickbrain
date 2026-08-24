@@ -315,7 +315,7 @@ return { success: true, ...result }
 
   ipcMain.handle('get-all-notes', async () => {
     const db = getDB()
-    return db.prepare('SELECT * FROM notes ORDER BY created_at DESC').all()
+    return db.prepare('SELECT * FROM notes WHERE deleted_at IS NULL ORDER BY created_at DESC').all()
       .map(row => ({ ...row, tags: safeParse(row.tags, []) }))
   })
 

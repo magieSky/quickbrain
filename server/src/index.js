@@ -6,6 +6,8 @@ const devicesRoutes = require('./routes/devices')
 const syncRoutes = require('./routes/sync')
 const extractionQueue = require('./queues/extraction')
 const { extractAtomsForSource } = require('./extractor')
+const aiRoutes = require('./routes/ai')
+const aiSvc = require('./services/ai')
 
 function build({ db = null } = {}) {
   const cfg = loadConfig()
@@ -32,6 +34,7 @@ function build({ db = null } = {}) {
 }
 
 async function startExtractionWorker({ db, aiService, redisUrl }) {
+  if (!aiService) aiService = aiSvc.get() || undefined;
   if (!db) throw new Error('db required')
   if (!aiService) console.warn('[server] extraction worker started without aiService; jobs will fail until AI is configured')
   return extractionQueue.startWorker({

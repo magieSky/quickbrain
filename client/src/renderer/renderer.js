@@ -320,6 +320,36 @@ function openSettings() {
 }
 
 
+
+// AI Settings dialog
+async function openAISettingsDialog() {
+  document.getElementById("aiDialog").style.display = "flex";
+  try {
+    const r = await window.quickbrain.getAIMode();
+    document.getElementById(r.mode === "server" ? "aiModeServer" : "aiModeDirect").checked = true;
+    document.getElementById("aiServerStatus").textContent = r.serverConfigured
+      ? "Server is configured (sync enabled). Server mode will route AI calls to /v1/ai/*."
+      : "Server NOT configured. Enable sync in Sync Settings first.";
+    try {
+      const cfg = await window.quickbrain.getAIConfig();
+      document.getElementById("aiDirectStatus").textContent = cfg && cfg.provider
+        ? ("Direct: provider=" + cfg.provider + ", model=" + (cfg.model || "default"))
+        : "Direct: no AI config. Set provider + apiKey via main-preload.getAIConfig/saveAIConfig.";
+    } catch (e) {
+      document.getElementById("aiDirectStatus").textContent = "Direct: " + e.message;
+    }
+  } catch (e) { showToast("Open failed: " + e.message, "error"); }
+}
+function closeAISettingsDialog() { document.getElementById("aiDialog").style.display = "none"; }
+async function saveAIMode() {
+  const mode = document.getElementById("aiModeServer").checked ? "server" : "direct";
+  try {
+    const r = await window.quickbrain.setAIMode(mode);
+    showToast("AI mode: " + r.mode, "success");
+    closeAISettingsDialog();
+  } catch (e) { showToast("Save failed: " + e.message, "error"); }
+}
+
 // Sync dialog
 async function openSyncDialog() {
   document.getElementById("syncDialog").style.display = "flex";

@@ -12,6 +12,7 @@
     <div class="title-bar">
       <div class="title-bar-text">⚡ QuickBrain</div>
       <button class="sync-btn" onclick="openSyncDialog()" title="Sync">sync</button>
+      <button class="ai-btn" onclick="openAISettingsDialog()" title="AI Settings">AI</button>
       <button class="settings-btn" onclick="openSettings()" title="设置">⚙️</button>
       <div class="title-bar-controls">
         <button aria-label="Minimize" onclick="minimizeWindow()"></button>
@@ -169,6 +170,31 @@
         <button class="sync-btn" onclick="pushAll()">Push All</button>
         <button class="sync-btn" id="syncSaveBtn" onclick="saveSyncConfig()">Save &amp; Enable</button>
         <button class="danger" onclick="disableSync()">Disable</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- AI Settings Dialog -->
+  <div class="dialog-overlay" id="aiDialog" style="display:none">
+    <div class="dialog">
+      <div class="dialog-header">
+        <h3>AI Settings</h3>
+        <button class="close-btn" onclick="closeAISettingsDialog()">x</button>
+      </div>
+      <div class="dialog-body">
+        <div class="form-group">
+          <label>AI Source</label>
+          <div style="display:flex; gap:16px; margin-top:6px;">
+            <label style="flex-direction:row; align-items:center;"><input type="radio" name="aiMode" value="direct" id="aiModeDirect"> Direct (use local config)</label>
+            <label style="flex-direction:row; align-items:center;"><input type="radio" name="aiMode" value="server" id="aiModeServer"> Server (use sync server AI)</label>
+          </div>
+        </div>
+        <div id="aiDirectStatus" class="info"></div>
+        <div id="aiServerStatus" class="info"></div>
+      </div>
+      <div class="dialog-footer">
+        <button class="cancel-btn" onclick="closeAISettingsDialog()">Close</button>
+        <button class="sync-btn" onclick="saveAIMode()">Save</button>
       </div>
     </div>
   </div>

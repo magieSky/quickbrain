@@ -275,8 +275,32 @@ return { success: true, ...result }
     return true
   })
 
+  ipcMain.handle('get-ai-mode', () => {
+    const cfg = require('./config')
+    const c = cfg.read()
+    return { mode: (c.ai && c.ai.mode) || 'direct', serverConfigured: !!(c.sync && c.sync.enabled && c.sync.serverUrl && c.sync.token) }
+  })
+
+  ipcMain.handle('set-ai-mode', (_e, mode) => {
+    const cfg = require('./config')
+    const c = cfg.read()
+    c.ai = c.ai || {}
+    c.ai.mode = mode === 'server' ? 'server' : 'direct'
+    cfg.write(c)
+    return { ok: true, mode: c.ai.mode }
+  })
+
   ipcMain.handle('format-with-ai', async (event, { content, style }) => {
     console.log('[ipc] format-with-ai style=' + style + ' contentLen=' + (content || '').length)
+    try {
+      const serverProxy = require('./ai/server-proxy')
+      const ctx = serverProxy.getProxyContext ? serverProxy.getProxyContext() : null
+      if (ctx) {
+        const r = await serverProxy.formatViaServer({ content, style })
+        console.log('[ipc] format-with-ai (server) success=' + r.success + (r.error ? ' err=' + r.error : ''))
+        return r
+      }
+    } catch (e) { console.error('[ipc] format-with-ai server proxy error:', e.message) }
     if (!aiService) { console.log('[ipc] format-with-ai: no AI service'); return { success: false, error: 'no-ai' } }
     const r = await aiService.formatContent(content, style)
     console.log('[ipc] format-with-ai result: success=' + r.success + ' bodyLen=' + ((r && r.formattedContent) || '').length + (r.error ? ' err=' + r.error : ''))
@@ -284,11 +308,23 @@ return { success: true, ...result }
   })
 
   ipcMain.handle('categorize-with-ai', async (event, { content }) => {
+    try {
+      const serverProxy = require('./ai/server-proxy')
+      const ctx = serverProxy.getProxyContext ? serverProxy.getProxyContext() : null
+      if (ctx) {
+        return await serverProxy.categorizeViaServer({ content })
+      }
+    } catch (e) { console.error('[ipc] categorize-with-ai server proxy error:', e.message) }
     if (!aiService) return { success: false, error: 'no-ai' }
     return await aiService.categorizeContent(content)
   })
   ipcMain.handle('semantic-search', async (event, { query, candidateSummaries }) => {
-    if (!aiService) return { success: false, error: '鏈厤缃?AI 鏈嶅姟' }
+    try {
+      const serverProxy = require('./ai/server-proxy')
+      const ctx = serverProxy.getProxyContext ? serverProxy.getProxyContext() : null
+      if (ctx) return await serverProxy.semanticSearchViaServer({ query, candidateSummaries })
+    } catch (e) { console.error('[ipc] server proxy error:', e.message) }
+    if (!aiService) return { success: false, error: 'no-ai' }
     return await aiService.semanticSearch(query, candidateSummaries)
   })
 

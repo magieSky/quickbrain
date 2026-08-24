@@ -94,7 +94,9 @@ describe('ipc save-ai-config preserves config fields', () => {
     const r = await mockHandlers['save-ai-config'](null, {
       provider: 'deepseek',
       apiKey: 'sk-new',
-      model: 'deepseek-chat'
+      model: 'deepseek-chat',
+      serverUrl: 'https://ai.example',
+      serverToken: 'st-new'
     })
     expect(r.success).toBe(true)
 

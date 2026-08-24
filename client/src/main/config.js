@@ -28,12 +28,26 @@ function ensureDeviceId() {
   return id
 }
 
-function buildBearer() {
+function buildBearer(override) {
   const cfg = read()
+  if (override && override.deviceId && override.token) {
+    const { encode } = require('@quickbrain/shared/sync/token')
+    return encode({ deviceId: override.deviceId, token: override.token })
+  }
   const sync = cfg.sync || {}
   if (!sync.enabled || !sync.token || !sync.deviceId) return null
   const { encode } = require('@quickbrain/shared/sync/token')
   return encode({ deviceId: sync.deviceId, token: sync.token })
 }
 
-module.exports = { read, write, ensureDeviceId, buildBearer, configPath }
+function ensureAIDeviceId() {
+  const cfg = read()
+  const ai = cfg.ai || {}
+  if (ai.deviceId) return ai.deviceId
+  const id = crypto.randomUUID()
+  cfg.ai = Object.assign({}, ai, { deviceId: id })
+  write(cfg)
+  return id
+}
+
+module.exports = { read, write, ensureDeviceId, ensureAIDeviceId, buildBearer, configPath }

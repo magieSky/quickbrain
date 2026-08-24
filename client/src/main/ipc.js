@@ -275,21 +275,6 @@ return { success: true, ...result }
     return true
   })
 
-  ipcMain.handle('get-ai-mode', () => {
-    const cfg = require('./config')
-    const c = cfg.read()
-    return { mode: (c.ai && c.ai.mode) || 'direct', serverConfigured: !!(c.sync && c.sync.enabled && c.sync.serverUrl && c.sync.token) }
-  })
-
-  ipcMain.handle('set-ai-mode', (_e, mode) => {
-    const cfg = require('./config')
-    const c = cfg.read()
-    c.ai = c.ai || {}
-    c.ai.mode = mode === 'server' ? 'server' : 'direct'
-    cfg.write(c)
-    return { ok: true, mode: c.ai.mode }
-  })
-
   ipcMain.handle('format-with-ai', async (event, { content, style }) => {
     console.log('[ipc] format-with-ai style=' + style + ' contentLen=' + (content || '').length)
     try {
@@ -403,12 +388,15 @@ return { success: true, ...result }
   ipcMain.handle('get-ai-config', async () => {
     const cfg = readConfig()
     const provider = cfg.provider ? PROVIDERS.find(p => p.id === cfg.provider) : null
+    const ai = cfg.ai || {}
     return {
       provider: cfg.provider || null,
       hasApiKey: !!cfg.apiKey,
       apiKeyPreview: cfg.apiKey ? cfg.apiKey.slice(0, 4) + '****' : null,
       model: cfg.model || (provider && provider.defaultModel) || null,
-      baseURL: cfg.baseURL || null
+      baseURL: cfg.baseURL || null,
+      serverUrl: ai.serverUrl || null,
+      serverTokenPreview: ai.serverToken ? ai.serverToken.slice(0, 4) + '****' : null
     }
   })
 
@@ -420,16 +408,27 @@ return { success: true, ...result }
       const incomingKey = (cfg.apiKey && String(cfg.apiKey).trim()) || ''
       const apiKey = incomingKey || existing.apiKey || ''
       if (provider.requiresApiKey && !apiKey) return { success: false, error: '请填写 API Key' }
+      const incomingServerToken = (cfg.serverToken && String(cfg.serverToken).trim()) || ''
+      const existingAi = existing.ai || {}
+      const serverToken = incomingServerToken || existingAi.serverToken || ''
+      const incomingServerUrl = (cfg.serverUrl != null ? String(cfg.serverUrl).trim() : '')
+      const serverUrl = incomingServerUrl || existingAi.serverUrl || ''
+      const ai = Object.assign({}, existingAi, {
+        serverUrl: serverUrl || undefined,
+        serverToken: serverToken || undefined,
+        mode: (serverUrl && serverToken) ? 'server' : 'direct'
+      })
       const clean = Object.assign({}, existing, {
         provider: cfg.provider,
         apiKey: apiKey,
         model: cfg.model || existing.model || undefined,
-        baseURL: cfg.baseURL || existing.baseURL || undefined
+        baseURL: cfg.baseURL || existing.baseURL || undefined,
+        ai: ai
       })
       writeConfig(clean)
       const newService = await buildService(clean)
       setAIService(newService)
-      console.log('[ipc] save-ai-config: provider=' + clean.provider + ' service=' + (newService ? 'OK' : 'NULL'))
+      console.log('[ipc] save-ai-config: provider=' + clean.provider + ' service=' + (newService ? 'OK' : 'NULL') + ' ai.mode=' + ai.mode + ' server=' + (serverUrl ? 'YES' : 'NO'))
       return { success: true, info: newService ? newService.getInfo() : null }
     } catch (e) {
       return { success: false, error: e.message }

@@ -80,7 +80,7 @@ describe('ipc AI handlers proxy routing', () => {
 
   it('format-with-ai routes through server proxy when proxy ctx exists', async () => {
     proxyMock.getProxyContext.mockReturnValue({ serverUrl: 'http://s', bearer: 'tk', deviceId: 'd1' })
-    writeConfig(tmp, { ai: { mode: 'server' } })
+    writeConfig(tmp, { ai: { serverUrl: 'http://s', serverToken: 'tk', deviceId: 'd1' } })
 
     const ipcModule = await import('../client/src/main/ipc.js')
     ipcModule.registerIpcHandlers()
@@ -92,7 +92,7 @@ describe('ipc AI handlers proxy routing', () => {
 
   it('format-with-ai falls back to local aiService when proxy ctx is null', async () => {
     proxyMock.getProxyContext.mockReturnValue(null)
-    writeConfig(tmp, { ai: { mode: 'direct' } })
+    writeConfig(tmp, {})
 
     const localSvc = { formatContent: vi.fn().mockResolvedValue({ success: true, formattedContent: '[local-formatted]' }) }
     const ipcModule = await import('../client/src/main/ipc.js')
@@ -107,7 +107,7 @@ describe('ipc AI handlers proxy routing', () => {
 
   it('categorize-with-ai routes through server proxy when proxy ctx exists', async () => {
     proxyMock.getProxyContext.mockReturnValue({ serverUrl: 'http://s', bearer: 'tk', deviceId: 'd1' })
-    writeConfig(tmp, { ai: { mode: 'server' } })
+    writeConfig(tmp, { ai: { serverUrl: 'http://s', serverToken: 'tk', deviceId: 'd1' } })
 
     const ipcModule = await import('../client/src/main/ipc.js')
     ipcModule.registerIpcHandlers()

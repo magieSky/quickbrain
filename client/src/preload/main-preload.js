@@ -26,8 +26,6 @@ contextBridge.exposeInMainWorld('quickbrain', {
   getProviders: () => ipcRenderer.invoke('get-ai-providers'),
   getAIConfig: () => ipcRenderer.invoke('get-ai-config'),
   saveAIConfig: (cfg) => ipcRenderer.invoke('save-ai-config', cfg),
-  getAIMode: () => ipcRenderer.invoke('get-ai-mode'),
-  setAIMode: (mode) => ipcRenderer.invoke('set-ai-mode', mode),
   testAIConnection: (cfg) => ipcRenderer.invoke('test-ai-connection', cfg),
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
 

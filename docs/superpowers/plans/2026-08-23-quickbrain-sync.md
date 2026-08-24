@@ -4428,42 +4428,47 @@ git -c user.name='quickbrain' -c user.email='qb@local' commit -m "refactor(sync)
 - E2E test that registers two users on one server and verifies notes from user A are never visible to user B (currently only unit-tested).
 ---
 
-## Deployment reality (post Phase 9)
+## Deployment reality: local vs SaaS
 
-After Phase 9 the user-facing deployment story is fully implemented and matches spec section 3. The same client binary and same server binary serve every mode the user might pick.
+After Phase 9 and the product-positioning decision (2026-08-24), the server runs in **exactly one mode**: the SaaS we operate. There is no BYOS, no local-only server, no `MODE` env var. The user picks between two product modes from the client.
 
-### What the code actually supports today
+### What the code supports today (after this change)
 
 | Concern | Current state | Reference |
 |---|---|---|
-| Server `MODE` env var | accepts `byos` / `local` / `saas` (default `byos`); validated at startup | `server/src/config.js:11` |
-| Owner bootstrap from `OWNER_TOKEN` | seeds `owner` user on first boot if no users exist | `server/src/db/bootstrap.js` (`ensureOwnerUser`) |
-| Multi-tenant registration | `POST /v1/auth/register|login|change-password|me` | `server/src/routes/auth.js` |
-| Per-user data isolation | `notes.user_id` NOT NULL; every route filters by userId from bearer | `server/src/services/notes.js`, `server/src/auth/hmac.js` |
-| Client `sync.enabled` toggle | written by Settings UI; daemon is started/stopped accordingly | `client/src/main/sync/ipc-handlers.js` |
-| Client `ai.mode` toggle | `direct` = client API key; `server` = proxy via `/v1/ai/*` | `client/src/main/ai/server-proxy.js` (`getProxyContext` reads `ai.mode === "server"` + `sync.*`) |
-| Migration path from old local-only | install server, paste token in Settings, click "Push local data to server" | spec section 1 |
+| Server runs as | Single-purpose SaaS endpoint | `server/src/index.js` |
+| First admin bootstrap | `POST /v1/auth/register-admin` gated by `ADMIN_BOOTSTRAP_TOKEN` header; 403 if any user exists | `server/src/routes/auth.js` (new) |
+| Public user registration | `POST /v1/auth/register` (email + password) | `server/src/routes/auth.js` |
+| Auth + token | Per-user HMAC-bound bearer (`X-QB-Device` header) | `server/src/auth/hmac.js`, `server/src/services/users.js` |
+| Per-user data isolation | `notes.user_id` NOT NULL; every route filters by userId from bearer | `server/src/services/notes.js` |
+| AI proxy | `/v1/ai/{format,categorize,semantic-search}` using server-side shared key | `server/src/routes/ai.js` |
+| Sync | `/v1/sync/{pull,push,cursor,health}` with LWW by `updated_at + client_id` | `server/src/routes/sync.js`, `server/src/services/notes.js` |
+| Client `sync.enabled` toggle | false = pure local; true = SaaS mode (this is the **only** product-mode selector) | `client/src/main/sync/ipc-handlers.js` |
+| Client `ai.mode` toggle | direct = user's own LLM key; server = SaaS AI proxy | `client/src/main/ai/server-proxy.js` |
 
-### The four real-world deployments the user can choose
+### The two product modes the user picks
 
-1. **Pure local.** No server. `sync.enabled = false`, `ai.mode = direct`. Pre-sync QuickBrain behaviour preserved. No network code path active.
-2. **Self-hosted (BYOS).** Run `node server/src/index.js` with `MODE=byos` on a NAS / Docker host. Owner auto-seeded. Multiple devices paste the same `OWNER_TOKEN` into Server settings. Optional `ai.mode = server` shares one AI key across devices.
-3. **Hosted SaaS (planned, not shipped).** Same server binary with `MODE=saas`; bootstrap policy becomes "no auto owner, registration required". Same routes, same protocol.
-4. **Mixed.** `sync.enabled = true` + `ai.mode = direct` — notes go through the server, AI runs locally per device.
+| Mode | `sync.enabled` | `ai.mode` | Behaviour |
+|---|---|---|---|
+| **Local** | `false` | `direct` | Client uses local SQLite + IPC + browser extension. User pastes their own LLM key. No data leaves the machine except to the LLM endpoint. One device. |
+| **SaaS** | `true` | `server` | Client syncs notes through `sync.serverUrl` (our SaaS endpoint). User registers an account, gets a JWT, AI is billed per usage. Multi-device sync. |
 
-### Why BYOS and SaaS share code (not a fork)
+Note: in SaaS mode the user can still set `ai.mode = direct` (sync notes, run AI on their own key) — that is an orthogonal setting, not a third product mode.
 
-- Server is one Fastify app. `MODE` only flips bootstrap (auto-owner vs registration-only) and bind address. All sync / AI / auth routes are identical.
-- Client has no `if (saas)` branches. It posts to whatever `server.url` it is configured with. Bearer format, sync protocol, AI proxy are all the same.
-- A user can switch from BYOS to SaaS by changing `server.url` + `server.token` in Settings and running `POST /v1/auth/login` on the new server to mint a new bearer; existing local SQLite cache keeps working because the schema is identical.
+### What we explicitly removed from scope
 
-### What is NOT yet implemented
+- `MODE` env var (`byos` / `local` / `saas`) — server has only one mode now.
+- Owner auto-seed from `OWNER_TOKEN` env — replaced with `/v1/auth/register-admin` flow.
+- BYOS / self-hosted distribution paths.
+- "Local sync" (LAN peer-to-peer, shared SQLite between two desktops).
 
-- SaaS signup UI / billing / quota enforcement. Spec section 2 marks these deferred.
-- Real `MODE=saas` divergence in the bootstrap module — today `ensureOwnerUser` runs regardless of `MODE`. A follow-up task should make it conditional (`if (MODE === "saas") skip; require registration`). This is a small, isolated change tracked in Open follow-ups.
-- Token rotation on shared secret compromise (per-user rotateSecret exists; operator runbook for forced rotation across all devices not written).
+### What is NOT yet implemented for the SaaS
 
-For the canonical user-facing description of the deployment matrix, see **spec section 3** (`docs/superpowers/specs/2026-08-23-quickbrain-sync-design.md`).
+- Signup UI in the client (today the operator creates the first admin via curl; subsequent users register through whatever UI we ship — likely a dedicated web page, not the desktop client).
+- Billing / per-user quota / rate limiting. Spec section 2 marks these deferred.
+- Per-user AI usage accounting.
+
+For the canonical product positioning, see **spec section 3** (`docs/superpowers/specs/2026-08-23-quickbrain-sync-design.md`).
 
 ---
 

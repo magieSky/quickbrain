@@ -1,4 +1,4 @@
-const { verifyBearer } = require('../auth/hmac')
+﻿const { verifyBearer } = require('../auth/hmac')
 const notes = require('../services/notes')
 const { randomUUID } = require('crypto')
 
@@ -7,7 +7,7 @@ module.exports = async function extensionNotesRoutes(fastify, opts) {
 
   // POST /v1/notes - single-note upsert used by browser extension / external clients
   fastify.post('/v1/notes', async (req, reply) => {
-    const v = verifyBearer(req.headers)
+    const v = await verifyBearer(db, req.headers)
     if (!v.ok) return reply.code(401).send({ error: 'unauthorized', reason: v.reason })
     const body = req.body || {}
     if (typeof body.content !== 'string' || !body.content.trim()) {
@@ -34,30 +34,35 @@ module.exports = async function extensionNotesRoutes(fastify, opts) {
       rev: body.rev || 1
     }
     try {
-      const r = await notes.upsertNote(db, incoming)
+      const r = await notes.upsertNote(db, v.userId, incoming)
       if (r.status === 'accepted') {
-        return { success: true, client_id: incoming.client_id }
+        return { success: true, client_id: incoming.client_id, user_id: v.userId }
       }
       if (r.status === 'conflict') {
         return reply.code(409).send({ error: 'conflict', server: { updated_at: r.server && r.server.updated_at } })
       }
       return reply.code(500).send({ error: 'upsert-failed', message: r.error })
     } catch (e) {
-      return reply.code(500).send({ error: 'server-error', message: e.message })
+      return reply.code(500).send({ error: 'server-error', error: e.message })
     }
   })
 
-  // GET /v1/notes - list recent notes (used for sync preview)
+  // GET /v1/notes - list recent notes for current user
   fastify.get('/v1/notes', async (req, reply) => {
-    const v = verifyBearer(req.headers)
+    const v = await verifyBearer(db, req.headers)
     if (!v.ok) return reply.code(401).send({ error: 'unauthorized', reason: v.reason })
     const limit = Math.min(Number(req.query.limit || 50), 200)
     const since = Number(req.query.since || 0)
     try {
-      const rows = await notes.listChangedSince(db, since, limit)
-      return { notes: rows, next_cursor: rows.length ? Number(rows[rows.length - 1].updated_at) : since }
+      const rows = since > 0
+        ? await notes.listChangedSince(db, v.userId, since, limit)
+        : await notes.listAll(db, v.userId, limit)
+      return {
+        notes: rows,
+        next_cursor: rows.length ? Number(rows[rows.length - 1].updated_at) : since
+      }
     } catch (e) {
-      return reply.code(500).send({ error: 'server-error', message: e.message })
+      return reply.code(500).send({ error: 'server-error', error: e.message })
     }
   })
 }

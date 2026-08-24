@@ -2,8 +2,10 @@
 const aiSvc = require('../services/ai')
 
 module.exports = async function aiRoutes(fastify, opts) {
+  const db = opts.db
+
   fastify.post('/v1/ai/format', async (req, reply) => {
-    const v = verifyBearer(req.headers)
+    const v = await verifyBearer(db, req.headers)
     if (!v.ok) return reply.code(401).send({ error: 'unauthorized', reason: v.reason })
     if (!aiSvc.hasService()) return reply.code(503).send({ error: 'ai-not-configured' })
     const body = req.body || {}
@@ -17,7 +19,7 @@ module.exports = async function aiRoutes(fastify, opts) {
   })
 
   fastify.post('/v1/ai/categorize', async (req, reply) => {
-    const v = verifyBearer(req.headers)
+    const v = await verifyBearer(db, req.headers)
     if (!v.ok) return reply.code(401).send({ error: 'unauthorized', reason: v.reason })
     if (!aiSvc.hasService()) return reply.code(503).send({ error: 'ai-not-configured' })
     const body = req.body || {}
@@ -31,7 +33,7 @@ module.exports = async function aiRoutes(fastify, opts) {
   })
 
   fastify.post('/v1/ai/semantic-search', async (req, reply) => {
-    const v = verifyBearer(req.headers)
+    const v = await verifyBearer(db, req.headers)
     if (!v.ok) return reply.code(401).send({ error: 'unauthorized', reason: v.reason })
     if (!aiSvc.hasService()) return reply.code(503).send({ error: 'ai-not-configured' })
     const body = req.body || {}

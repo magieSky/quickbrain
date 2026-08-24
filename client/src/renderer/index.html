@@ -12,7 +12,6 @@
     <div class="title-bar">
       <div class="title-bar-text">⚡ QuickBrain</div>
       <button class="sync-btn" onclick="openSyncDialog()" title="Sync">sync</button>
-      <button class="ai-btn" onclick="openAISettingsDialog()" title="AI Settings">AI</button>
       <button class="settings-btn" onclick="openSettings()" title="设置">⚙️</button>
       <div class="title-bar-controls">
         <button aria-label="Minimize" onclick="minimizeWindow()"></button>
@@ -174,30 +173,52 @@
     </div>
   </div>
 
-  <!-- AI Settings Dialog -->
-  <div class="dialog-overlay" id="aiDialog" style="display:none">
+  <!-- Settings Dialog -->
+  <div class="dialog-overlay" id="settingsDialog" style="display:none">
     <div class="dialog">
       <div class="dialog-header">
-        <h3>AI Settings</h3>
-        <button class="close-btn" onclick="closeAISettingsDialog()">x</button>
+        <h3>Settings</h3>
+        <button class="close-btn" onclick="closeSettingsDialog()">x</button>
       </div>
       <div class="dialog-body">
         <div class="form-group">
-          <label>AI Source</label>
+          <label>AI Mode</label>
           <div style="display:flex; gap:16px; margin-top:6px;">
-            <label style="flex-direction:row; align-items:center;"><input type="radio" name="aiMode" value="direct" id="aiModeDirect"> Direct (use local config)</label>
-            <label style="flex-direction:row; align-items:center;"><input type="radio" name="aiMode" value="server" id="aiModeServer"> Server (use sync server AI)</label>
+            <label style="flex-direction:row; align-items:center;"><input type="radio" name="aiMode" value="direct" id="setAiModeDirect"> Direct (local provider)</label>
+            <label style="flex-direction:row; align-items:center;"><input type="radio" name="aiMode" value="server" id="setAiModeServer"> Server (sync server AI)</label>
           </div>
+          <div id="setAiServerStatus" class="info"></div>
         </div>
-        <div id="aiDirectStatus" class="info"></div>
-        <div id="aiServerStatus" class="info"></div>
+        <div class="form-group">
+          <label>AI Provider (Direct Mode)</label>
+          <select id="setProvider" onchange="onProviderChange()"></select>
+        </div>
+        <div class="form-group">
+          <label>Model</label>
+          <select id="setModel"></select>
+          <input id="setModelCustom" type="text" placeholder="custom model name" style="display:none; margin-top:6px;">
+        </div>
+        <div class="form-group">
+          <label id="setApiKeyLabel">API Key</label>
+          <input id="setApiKey" type="password" placeholder="leave blank to keep current">
+        </div>
+        <div class="form-group">
+          <label>Base URL</label>
+          <input id="setBaseUrl" type="text" placeholder="(use provider default)">
+        </div>
+        <div id="setProviderStatus" class="info"></div>
+        <div class="form-group">
+          <label><input type="checkbox" id="setAutoLaunch"> Start QuickBrain at login</label>
+        </div>
       </div>
       <div class="dialog-footer">
-        <button class="cancel-btn" onclick="closeAISettingsDialog()">Close</button>
-        <button class="sync-btn" onclick="saveAIMode()">Save</button>
+        <button class="cancel-btn" onclick="closeSettingsDialog()">Close</button>
+        <button class="sync-btn" onclick="testProvider()">Test Connection</button>
+        <button class="sync-btn" onclick="saveSettings()">Save All</button>
       </div>
     </div>
   </div>
+
 
   <!-- Toast Notification -->
   <div class="toast" id="toast"></div>

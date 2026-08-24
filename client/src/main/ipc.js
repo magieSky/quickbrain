@@ -414,19 +414,23 @@ return { success: true, ...result }
 
   ipcMain.handle('save-ai-config', async (event, cfg) => {
     try {
-      const clean = {
+      const provider = PROVIDERS.find(p => p.id === cfg.provider)
+      if (!provider) return { success: false, error: 'unknown provider' }
+      const existing = readConfig() || {}
+      const incomingKey = (cfg.apiKey && String(cfg.apiKey).trim()) || ''
+      const apiKey = incomingKey || existing.apiKey || ''
+      if (provider.requiresApiKey && !apiKey) return { success: false, error: 'API Key required' }
+      const clean = Object.assign({}, existing, {
         provider: cfg.provider,
-        apiKey: cfg.apiKey || '',
-        model: cfg.model || undefined,
-        baseURL: cfg.baseURL || undefined
-      }
-      const provider = PROVIDERS.find(p => p.id === clean.provider)
-      if (!provider) return { success: false, error: '未知的 provider' }
-      if (provider.requiresApiKey && !clean.apiKey) return { success: false, error: '请填写 API Key' }
+        apiKey: apiKey,
+        model: cfg.model || existing.model || undefined,
+        baseURL: cfg.baseURL || existing.baseURL || undefined
+      })
       writeConfig(clean)
       const newService = await buildService(clean)
       setAIService(newService)
-      console.log('[ipc] save-ai-config: provider=' + clean.provider + ' service=' + (newService ? 'OK' : 'NULL'))
+      const preserved = Object.keys(existing).filter(k => !(k in { provider: 1, apiKey: 1, model: 1, baseURL: 1 }))
+      console.log('[ipc] save-ai-config: provider=' + clean.provider + ' service=' + (newService ? 'OK' : 'NULL') + ' preservedFields=' + preserved.join(','))
       return { success: true, info: newService ? newService.getInfo() : null }
     } catch (e) {
       return { success: false, error: e.message }

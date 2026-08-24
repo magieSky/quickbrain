@@ -4426,8 +4426,45 @@ git -c user.name='quickbrain' -c user.email='qb@local' commit -m "refactor(sync)
 - Per-user AES-256-GCM AI key store (current `config` table is global — change to `(user_id, key)`).
 - Rate limit `/v1/auth/login` (bcrypt cost 10 is intentional but vulnerable to credential stuffing without a limiter).
 - E2E test that registers two users on one server and verifies notes from user A are never visible to user B (currently only unit-tested).
-
 ---
+
+## Deployment reality (post Phase 9)
+
+After Phase 9 the user-facing deployment story is fully implemented and matches spec section 3. The same client binary and same server binary serve every mode the user might pick.
+
+### What the code actually supports today
+
+| Concern | Current state | Reference |
+|---|---|---|
+| Server `MODE` env var | accepts `byos` / `local` / `saas` (default `byos`); validated at startup | `server/src/config.js:11` |
+| Owner bootstrap from `OWNER_TOKEN` | seeds `owner` user on first boot if no users exist | `server/src/db/bootstrap.js` (`ensureOwnerUser`) |
+| Multi-tenant registration | `POST /v1/auth/register|login|change-password|me` | `server/src/routes/auth.js` |
+| Per-user data isolation | `notes.user_id` NOT NULL; every route filters by userId from bearer | `server/src/services/notes.js`, `server/src/auth/hmac.js` |
+| Client `sync.enabled` toggle | written by Settings UI; daemon is started/stopped accordingly | `client/src/main/sync/ipc-handlers.js` |
+| Client `ai.mode` toggle | `direct` = client API key; `server` = proxy via `/v1/ai/*` | `client/src/main/ai/server-proxy.js` (`getProxyContext` reads `ai.mode === "server"` + `sync.*`) |
+| Migration path from old local-only | install server, paste token in Settings, click "Push local data to server" | spec section 1 |
+
+### The four real-world deployments the user can choose
+
+1. **Pure local.** No server. `sync.enabled = false`, `ai.mode = direct`. Pre-sync QuickBrain behaviour preserved. No network code path active.
+2. **Self-hosted (BYOS).** Run `node server/src/index.js` with `MODE=byos` on a NAS / Docker host. Owner auto-seeded. Multiple devices paste the same `OWNER_TOKEN` into Server settings. Optional `ai.mode = server` shares one AI key across devices.
+3. **Hosted SaaS (planned, not shipped).** Same server binary with `MODE=saas`; bootstrap policy becomes "no auto owner, registration required". Same routes, same protocol.
+4. **Mixed.** `sync.enabled = true` + `ai.mode = direct` — notes go through the server, AI runs locally per device.
+
+### Why BYOS and SaaS share code (not a fork)
+
+- Server is one Fastify app. `MODE` only flips bootstrap (auto-owner vs registration-only) and bind address. All sync / AI / auth routes are identical.
+- Client has no `if (saas)` branches. It posts to whatever `server.url` it is configured with. Bearer format, sync protocol, AI proxy are all the same.
+- A user can switch from BYOS to SaaS by changing `server.url` + `server.token` in Settings and running `POST /v1/auth/login` on the new server to mint a new bearer; existing local SQLite cache keeps working because the schema is identical.
+
+### What is NOT yet implemented
+
+- SaaS signup UI / billing / quota enforcement. Spec section 2 marks these deferred.
+- Real `MODE=saas` divergence in the bootstrap module — today `ensureOwnerUser` runs regardless of `MODE`. A follow-up task should make it conditional (`if (MODE === "saas") skip; require registration`). This is a small, isolated change tracked in Open follow-ups.
+- Token rotation on shared secret compromise (per-user rotateSecret exists; operator runbook for forced rotation across all devices not written).
+
+For the canonical user-facing description of the deployment matrix, see **spec section 3** (`docs/superpowers/specs/2026-08-23-quickbrain-sync-design.md`).
+
 ---
 
 ## Self-review

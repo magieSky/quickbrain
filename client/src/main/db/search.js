@@ -4,7 +4,11 @@ function addNote(db, note) {
   return db.transaction(() => {
     const { title = '', content, tags = [], category = 'uncategorized',
             original_content = '', source_path = '', source_type = '',
-            parent_id = null, source_range = '', is_atom = 0 } = note
+            parent_id = null, source_range = '', is_atom = 0,
+            // is_private: 1 = private (stays local, never queued for upload);
+            // 0 = public (eligible for push to SaaS). Default 1 keeps the
+            // schema default and means a fresh install is private-by-default.
+            is_private = 1 } = note
     const clientId = (typeof note.client_id === 'string' && note.client_id) || require('crypto').randomUUID()
     // updated_at is stored as INTEGER ms epoch so the sync push protocol
     // (which validates Number.isFinite(updated_at)) can ship it without
@@ -12,11 +16,11 @@ function addNote(db, note) {
     const now = Date.now()
     const stmt = db.prepare(`
       INSERT INTO notes (client_id, content, title, category, tags, original_content, source_path, source_type,
-                         parent_id, source_range, is_atom, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                         parent_id, source_range, is_atom, updated_at, is_private)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
     const result = stmt.run(clientId, content, title, category, JSON.stringify(tags), original_content,
-      source_path, source_type, parent_id, source_range, is_atom, now)
+      source_path, source_type, parent_id, source_range, is_atom, now, is_private ? 1 : 0)
     const id = result.lastInsertRowid
     const py = generatePinyinForNote(title, content)
     db.prepare(`INSERT INTO notes_pinyin (id, pinyin_title, pinyin_content) VALUES (?, ?, ?)`)
@@ -100,7 +104,8 @@ function rowToNote(row) {
     parent_id: row.parent_id != null ? row.parent_id : null,
     source_range: row.source_range || '',
     is_atom: row.is_atom || 0,
-    extracted_at: row.extracted_at != null ? row.extracted_at : null
+    extracted_at: row.extracted_at != null ? row.extracted_at : null,
+    is_private: row.is_private != null ? (row.is_private ? 1 : 0) : 1
   }
 }
 
@@ -123,14 +128,15 @@ function getRecentNotes(db, limit = 20) {
 
 
 
-function addAtomNote(db, { parentId, title, content, sourceRange, tags = [], source_path = '', source_type = '' }) {
+function addAtomNote(db, { parentId, title, content, sourceRange, tags = [], source_path = '', source_type = '', is_private = 1 }) {
   return addNote(db, {
     title, content, tags,
     parent_id: parentId,
     source_range: JSON.stringify(sourceRange || {}),
     is_atom: 1,
     source_path,
-    source_type
+    source_type,
+    is_private
   })
 }
 

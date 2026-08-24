@@ -59,4 +59,23 @@ function ensureAIDeviceId() {
   return id
 }
 
-module.exports = { read, write, ensureDeviceId, ensureAIDeviceId, buildBearer, configPath, defaultSyncServerUrl }
+function readSettings() {
+  const cfg = read()
+  const s = cfg.settings || {}
+  return {
+    newNoteDefaultPrivate: s.newNoteDefaultPrivate !== false
+  }
+}
+
+function writeSettings(patch) {
+  const cfg = read()
+  const current = cfg.settings || {}
+  const next = Object.assign({}, current, patch || {})
+  // Always keep the documented defaults in place so a future caller cannot
+  // wipe them by writing an empty object.
+  cfg.settings = Object.assign({ newNoteDefaultPrivate: true }, next)
+  write(cfg)
+  return readSettings()
+}
+
+module.exports = { read, write, ensureDeviceId, ensureAIDeviceId, buildBearer, configPath, defaultSyncServerUrl, readSettings, writeSettings }

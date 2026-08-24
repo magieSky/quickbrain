@@ -10,7 +10,10 @@ async function pushAllToServer({ db, serverUrl, bearer, deviceId, batchSize = 10
   if (!bearer) throw new Error('bearer required')
   if (!deviceId) deviceId = (cfg && cfg.ensureDeviceId) ? cfg.ensureDeviceId() : null
 
-  const rows = db.prepare('SELECT * FROM notes WHERE deleted_at IS NULL ORDER BY id ASC').all()
+  // is_private=1 notes stay local even on bulk migration; only public
+  // notes (or explicitly-public rows after the user toggled them) get
+  // pushed to the server.
+  const rows = db.prepare('SELECT * FROM notes WHERE deleted_at IS NULL AND is_private = 0 ORDER BY id ASC').all()
   let totalAccepted = 0
   let totalConflicts = 0
 

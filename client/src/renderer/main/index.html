@@ -168,6 +168,17 @@
     .form-row .form-group { flex: 1; }
     .modal-actions { display: flex; gap: 8px; margin-top: 16px; justify-content: flex-end; }
     .modal-actions .btn { flex: 0 0 auto; padding: 8px 20px; }
+    /* ====== Privacy ====== */
+    .privacy-toggle-row { display: flex; flex-direction: column; gap: 4px; }
+    .privacy-toggle-label { display: flex; align-items: center; gap: 8px; font-size: 12px; color: rgba(255,255,255,0.85); cursor: pointer; user-select: none; }
+    .privacy-toggle-label input[type="checkbox"] { accent-color: rgba(120,150,255,0.85); transform: scale(1.05); }
+    .privacy-hint { font-size: 11px; color: rgba(255,255,255,0.4); padding-left: 24px; }
+    .privacy-block { padding: 12px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; margin-bottom: 14px; }
+    .privacy-block-title { font-size: 11px; color: rgba(255,255,255,0.55); margin-bottom: 8px; letter-spacing: 0.5px; }
+    .privacy-chip.active { background: rgba(120,150,255,0.25); border-color: rgba(120,150,255,0.5); color: #fff; }
+    .note-private-badge { font-size: 10px; padding: 1px 6px; border-radius: 8px; background: rgba(255,180,80,0.18); color: rgba(255,200,120,0.95); border: 1px solid rgba(255,180,80,0.25); margin-right: 6px; }
+    .note-card.is-private { border-left: 2px solid rgba(255,180,80,0.55); }
+    .note-card-act.note-card-private { color: rgba(255,200,120,0.85); }
     /* ====== AI 设置弹窗 ====== */
     .ai-modal { max-width: 560px; }
     .sync-modal { max-width: 460px; }
@@ -302,6 +313,9 @@
     <span class="filter-chip" data-type="all">全部</span>
     <span class="filter-chip" data-type="source">源笔记</span>
     <span class="filter-chip" data-type="atom">原子笔记</span>
+    <span class="filter-chip privacy-chip" data-privacy="all">全部隐私</span>
+    <span class="filter-chip privacy-chip" data-privacy="private">🔒 仅本机</span>
+    <span class="filter-chip privacy-chip" data-privacy="public">☁︎ 已同步</span>
   </div>
 
   <div class="toolbar">
@@ -347,6 +361,13 @@
             <option value="灵感">灵感</option>
           </select>
         </div>
+      </div>
+      <div class="form-group privacy-toggle-row">
+        <label class="privacy-toggle-label">
+          <input type="checkbox" id="modal-private" checked>
+          <span>🔒 仅在本机保存（不同步到云端）</span>
+        </label>
+        <div class="privacy-hint" id="modal-private-hint">默认隐私 · 可在设置中改为默认公开</div>
       </div>
       <div class="modal-actions">
         <button class="btn" id="modal-cancel">取消</button>
@@ -412,6 +433,14 @@
       <div class="sync-status" id="sync-status-box">
         <div class="sync-status-line" id="sync-status-line"></div>
         <button class="btn" id="sync-disconnect" style="display: none;">断开连接</button>
+      </div>
+      <div class="privacy-block" id="privacy-block">
+        <div class="privacy-block-title">隐私偏好</div>
+        <label class="privacy-toggle-label">
+          <input type="checkbox" id="settings-default-private" checked>
+          <span>新笔记默认仅本机保存（不上云）</span>
+        </label>
+        <div class="privacy-hint">关闭后，新笔记默认同步到云端。随时可在添加窗口单独指定每条笔记。</div>
       </div>
       <div class="sync-tabs">
         <button class="sync-tab active" data-tab="signup" id="sync-tab-signup">注册</button>

@@ -6,6 +6,7 @@ const { getDB } = require('./db-init')
 const { addNote, searchNotes, getNoteById, getRecentNotes } = require('./db/search')
 const { importDocument } = require('./import/store')
 const autoLaunch = require('./auto-launch-service')
+const cfg = require('./config')
 const pipeBridge = require('./named-pipe-bridge')
 
 let aiService = null
@@ -126,14 +127,50 @@ function smartSearch(keyword, limit = 20) {
 }
 
 function registerIpcHandlers() {
+  ipcMain.handle('get-settings', () => cfg.readSettings())
+  ipcMain.handle('set-settings', (_e, patch) => {
+    try { return { ok: true, settings: cfg.writeSettings(patch || {}) } }
+    catch (e) { return { ok: false, error: e.message } }
+  })
+
+  // Per-note privacy toggle. Going public enqueues an upsert (server has
+  // never seen a private row, so upsert = create). Going private enqueues
+  // a delete (server still has the old copy and must drop it).
+  ipcMain.handle('set-note-private', async (_e, { id, isPrivate }) => {
+    if (!id) return { ok: false, error: 'missing-id' }
+    const db = getDB()
+    const isPriv = !!isPrivate
+    db.prepare('UPDATE notes SET is_private = ?, updated_at = ? WHERE id = ?')
+      .run(isPriv ? 1 : 0, Date.now(), id)
+    enqueueNoteOutbox(db, id, isPriv ? 'delete' : 'upsert')
+    return { ok: true, id, is_private: isPriv }
+  })
+
+  // Bulk variant: same logic per note, wrapped in a single transaction so
+  // either every row flips or none does.
+  ipcMain.handle('set-notes-private-bulk', async (_e, { ids, isPrivate }) => {
+    if (!Array.isArray(ids) || ids.length === 0) return { ok: false, error: 'missing-ids' }
+    const db = getDB()
+    const isPriv = !!isPrivate
+    const ts = Date.now()
+    db.transaction(() => {
+      const stmt = db.prepare('UPDATE notes SET is_private = ?, updated_at = ? WHERE id = ?')
+      for (const id of ids) stmt.run(isPriv ? 1 : 0, ts, id)
+    })()
+    for (const id of ids) enqueueNoteOutbox(db, id, isPriv ? 'delete' : 'upsert')
+    return { ok: true, count: ids.length, is_private: isPriv }
+  })
+
   function enqueueNoteOutbox(db, noteId, op, extra) {
     try {
       const cfg = require('./config')
       const outbox = require('./sync/outbox')
       const sync = cfg.read().sync || {}
       if (!sync.deviceId) return
-      const row = db.prepare('SELECT client_id, content, title, category, tags, source_path, source_type, parent_id, source_range, is_atom, updated_at, rev, deleted_at FROM notes WHERE id = ?').get(noteId)
+      const row = db.prepare('SELECT client_id, content, title, category, tags, source_path, source_type, parent_id, source_range, is_atom, updated_at, rev, deleted_at, is_private FROM notes WHERE id = ?').get(noteId)
       if (!row || !row.client_id) return
+      // is_private notes stay local — they never enter the outbox.
+      if (op === 'upsert' && row.is_private) return
       // Normalize updated_at to INTEGER ms epoch. The push protocol
       // validates Number.isFinite(updated_at); legacy rows created before
       // search.js started writing Date.now() still hold a DATETIME string
@@ -217,9 +254,18 @@ function registerIpcHandlers() {
 
   ipcMain.handle('add-note', async (event, noteData) => {
     const db = getDB()
-    const id = addNote(db, noteData)
+    // Default privacy comes from settings.newNoteDefaultPrivate (true by
+    // default — fresh installs are private-by-default). The renderer can
+    // override per note via noteData.is_private.
+    const settings = cfg.readSettings()
+    const isPrivate = noteData && typeof noteData.is_private === 'boolean'
+      ? noteData.is_private
+      : settings.newNoteDefaultPrivate
+    const id = addNote(db, { ...(noteData || {}), is_private: isPrivate })
+    // enqueueNoteOutbox skips rows whose is_private=1, so private notes are
+    // never queued for upload. Public notes land in the outbox as before.
     enqueueNoteOutbox(db, id, 'upsert')
-    return { id, ...noteData }
+    return { id, ...(noteData || {}), is_private: isPrivate }
   })
 
   ipcMain.handle('import-document', async (event, filePath) => {

@@ -55,13 +55,19 @@ const els = {
   syncSubmitSignup: document.getElementById('sync-submit-signup'),
   syncSubmitSignin: document.getElementById('sync-submit-signin'),
   syncOpenAiSettings: document.getElementById('sync-open-ai-settings'),
-  syncUseDefaultUrl: document.getElementById('sync-use-default-url')
+  syncUseDefaultUrl: document.getElementById('sync-use-default-url'),
+  modalPrivate: document.getElementById('modal-private'),
+  modalPrivateHint: document.getElementById('modal-private-hint'),
+  settingsDefaultPrivate: document.getElementById('settings-default-private'),
+  privacyBlock: document.getElementById('privacy-block')
 }
 
 let allNotes = []
 let currentSearch = ''
 let currentCategory = 'all'
 let currentType = 'all' // 'all' | 'source' | 'atom'
+let currentPrivacy = 'all' // 'all' | 'private' | 'public'
+let defaultPrivate = true
 let aiReady = false
 
 async function loadNotes() {
@@ -90,6 +96,8 @@ function getFiltered() {
   if (currentCategory !== 'all') {
     r = r.filter(n => (n.category || '其他') === currentCategory)
   }
+  if (currentPrivacy === 'private') r = r.filter(n => n.is_private)
+  else if (currentPrivacy === 'public') r = r.filter(n => !n.is_private)
   if (currentSearch.trim()) {
     const q = currentSearch.toLowerCase()
     r = r.filter(n =>
@@ -140,9 +148,11 @@ function render() {
       const titleText = isWeb ? ('打开 ' + n.source_path) : ('定位 ' + n.source_path)
       return '<span class="' + cls + '" data-path="' + path + '" data-web="' + (isWeb ? '1' : '0') + '" title="' + escapeHtml(titleText) + '">' + label + '</span>'
     })()
+    const privClass = n.is_private ? ' note-card is-private' : ''
+    const privBadge = n.is_private ? '<span class="note-private-badge" title="仅本机保存">🔒 仅本机</span>' : ''
     return (
-      '<div class="note-card" data-id="' + n.id + '">' +
-        '<div class="note-title">' + escapeHtml(title) + '</div>' +
+      '<div class="note-card' + privClass + '" data-id="' + n.id + '">' +
+        '<div class="note-title">' + privBadge + escapeHtml(title) + '</div>' +
         '<div class="note-content">' + renderMarkdown(content) + '</div>' +
         '<div class="note-meta">' +
           '<span class="badge">' + escapeHtml(cat) + '</span>' +
@@ -282,9 +292,19 @@ function translateSyncError(err) {
 function setStatus(text) { els.status.textContent = text }
 
 // ===== 添加笔记弹窗 =====
-function showAddModal() {
+async function showAddModal() {
   els.modalContent.value = ''
   els.modalCategory.value = currentCategory === 'all' ? '其他' : currentCategory
+  // Refresh default privacy from settings in case the user toggled it
+  // in Settings while the modal was last open.
+  try {
+    const s = await api.getSettings()
+    if (s && typeof s.newNoteDefaultPrivate === 'boolean') defaultPrivate = s.newNoteDefaultPrivate
+  } catch (_) {}
+  els.modalPrivate.checked = defaultPrivate
+  els.modalPrivateHint.textContent = defaultPrivate
+    ? '默认隐私 · 可在设置中改为默认公开'
+    : '默认公开 · 可在设置中改为默认隐私'
   els.modal.classList.add('show')
   setTimeout(() => els.modalContent.focus(), 50)
 }
@@ -305,7 +325,7 @@ async function saveModal() {
   els.modalSave.disabled = true
   els.modalSave.textContent = '保存中...'
   try {
-    await api.addNote({ content, title, category })
+    await api.addNote({ content, title, category, is_private: els.modalPrivate.checked })
     hideAddModal()
     await loadNotes()
     setStatus('已添加')
@@ -322,7 +342,18 @@ els.filters.querySelectorAll('.filter-chip').forEach(c => {
   if (c.dataset.type) {
     c.onclick = () => {
       currentType = c.dataset.type
-      els.filters.querySelectorAll('.filter-chip').forEach(x => x.classList.toggle('active', x === c))
+      els.filters.querySelectorAll('.filter-chip').forEach(x => {
+        if (x.dataset.type) x.classList.toggle('active', x === c)
+      })
+      render()
+    }
+  }
+  if (c.dataset.privacy) {
+    c.onclick = () => {
+      currentPrivacy = c.dataset.privacy
+      els.filters.querySelectorAll('.filter-chip').forEach(x => {
+        if (x.dataset.privacy) x.classList.toggle('active', x === c)
+      })
       render()
     }
   }
@@ -579,6 +610,15 @@ async function openSyncSettings() {
   els.syncFeedbackSignin.textContent = ''
   els.syncModal.classList.add('show')
   switchSyncTab('signup')
+  // Sync the privacy defaults into the in-memory state so the next add-note
+  // modal reflects the user's choice here.
+  try {
+    const s = await api.getSettings()
+    if (s && typeof s.newNoteDefaultPrivate === 'boolean') {
+      defaultPrivate = s.newNoteDefaultPrivate
+      els.settingsDefaultPrivate.checked = s.newNoteDefaultPrivate
+    }
+  } catch (_) {}
   await refreshSyncStatus()
 }
 
@@ -650,6 +690,15 @@ els.syncUseDefaultUrl.onclick = (e) => { e.preventDefault(); useDefaultSyncServe
 els.syncModal.addEventListener('click', (e) => {
   if (e.target === els.syncModal) closeSyncSettings()
 })
+
+els.settingsDefaultPrivate.onchange = async () => {
+  defaultPrivate = els.settingsDefaultPrivate.checked
+  try {
+    await api.setSettings({ newNoteDefaultPrivate: defaultPrivate })
+  } catch (e) {
+    setStatus('保存设置失败: ' + e.message)
+  }
+}
 
 els.syncSubmitSignup.onclick = async () => {
   const serverUrl = els.syncServerUrl.value.trim()

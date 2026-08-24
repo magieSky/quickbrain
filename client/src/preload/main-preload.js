@@ -43,6 +43,14 @@ contextBridge.exposeInMainWorld('quickbrain', {
   registerWithServer: (payload) => ipcRenderer.invoke('register-with-server', payload),
   signInWithToken: (payload) => ipcRenderer.invoke('sign-in-with-token', payload),
 
+  // Settings (privacy defaults, future per-user prefs)
+  getSettings: () => ipcRenderer.invoke('get-settings'),
+  setSettings: (patch) => ipcRenderer.invoke('set-settings', patch),
+
+  // Per-note privacy ops
+  setNotePrivate: (id, isPrivate) => ipcRenderer.invoke('set-note-private', { id, isPrivate: !!isPrivate }),
+  setNotesPrivateBulk: (ids, isPrivate) => ipcRenderer.invoke('set-notes-private-bulk', { ids, isPrivate: !!isPrivate }),
+
   // Window controls
   hideWindow: () => ipcRenderer.send('hide-window'),
   notify: (params) => ipcRenderer.invoke('notify', params),

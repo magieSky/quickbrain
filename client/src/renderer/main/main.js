@@ -54,7 +54,8 @@ const els = {
   syncCancel: document.getElementById('sync-cancel'),
   syncSubmitSignup: document.getElementById('sync-submit-signup'),
   syncSubmitSignin: document.getElementById('sync-submit-signin'),
-  syncOpenAiSettings: document.getElementById('sync-open-ai-settings')
+  syncOpenAiSettings: document.getElementById('sync-open-ai-settings'),
+  syncUseDefaultUrl: document.getElementById('sync-use-default-url')
 }
 
 let allNotes = []
@@ -595,31 +596,34 @@ async function refreshSyncStatus() {
     els.syncDisconnect.style.display = 'none'
     return
   }
-  // Always pre-fill both URL inputs so a fresh install opens Settings with
-  // the bundled SaaS URL ready to go instead of two empty text boxes.
-  if (c.serverUrl) {
-    els.syncServerUrl.value = c.serverUrl
-    els.syncTokenServerUrl.value = c.serverUrl
-  } else {
-    try {
-      const d = await api.getDefaultSyncServerUrl()
-      if (d && d.serverUrl) {
-        els.syncServerUrl.value = d.serverUrl
-        els.syncTokenServerUrl.value = d.serverUrl
-      }
-    } catch (_) { /* fall through to whatever the input HTML default is */ }
-  }
-  if (c.enabled && c.serverUrl && !c.serverUrlIsDefault) {
+  // Local mode is the default. Only fill the URL inputs when the user has
+  // already configured a server; a fresh install keeps them empty so the
+  // modal does not look like something is broken or missing.
+  els.syncServerUrl.value = c.serverUrl || ''
+  els.syncTokenServerUrl.value = c.serverUrl || ''
+  if (c.enabled && c.serverUrl) {
     els.syncStatusBox.className = 'sync-status connected'
-    els.syncStatusLine.textContent = '已连接到 ' + c.serverUrl + (c.hasToken ? '（令牌已保存）' : '')
+    els.syncStatusLine.textContent = '已同步到 ' + c.serverUrl + (c.hasToken ? '（令牌已保存）' : '')
     els.syncDisconnect.style.display = ''
   } else {
-    els.syncStatusBox.className = 'sync-status disconnected'
-    els.syncStatusLine.textContent = c.serverUrlIsDefault
-      ? '未连接。已预填默认服务器 - 注册账号或粘贴令牌即可连接。'
-      : '未连接任何服务器'
+    els.syncStatusBox.className = 'sync-status local'
+    els.syncStatusLine.textContent = '本地模式：笔记只在本机保存。要在多设备间同步？注册账号或粘贴令牌即可启用云同步。'
     els.syncDisconnect.style.display = 'none'
   }
+}
+
+// One-click helper: fill both URL inputs with the bundled SaaS URL. We do
+// not auto-fill on open because local mode is the obvious default; users
+// who want cloud sync click this link to opt in.
+async function useDefaultSyncServerUrl() {
+  try {
+    const d = await api.getDefaultSyncServerUrl()
+    if (d && d.serverUrl) {
+      els.syncServerUrl.value = d.serverUrl
+      els.syncTokenServerUrl.value = d.serverUrl
+      els.syncServerUrl.focus()
+    }
+  } catch (_) { /* leave the inputs as they are */ }
 }
 
 function switchSyncTab(name) {
@@ -642,6 +646,7 @@ els.syncTabSignin.onclick = () => switchSyncTab('signin')
 
 els.syncCancel.onclick = closeSyncSettings
 els.syncOpenAiSettings.onclick = (e) => { e.preventDefault(); closeSyncSettings(); openAISettings() }
+els.syncUseDefaultUrl.onclick = (e) => { e.preventDefault(); useDefaultSyncServerUrl() }
 els.syncModal.addEventListener('click', (e) => {
   if (e.target === els.syncModal) closeSyncSettings()
 })

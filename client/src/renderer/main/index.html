@@ -422,7 +422,10 @@
         <div class="form-hint" style="margin-bottom: 12px;">在 QuickBrain 云创建一个新账号。密码用于保护你的笔记，服务器只能看到属于你账号的数据。</div>
         <div class="form-group">
           <label class="form-label">服务器地址</label>
-          <input type="text" class="form-input" id="sync-server-url" placeholder="https://api.quickbrain.app">
+          <div style="position: relative;">
+            <input type="text" class="form-input" id="sync-server-url" placeholder="https://你的同步服务器">
+            <a href="#" id="sync-use-default-url" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 11px; color: rgba(120,150,255,0.7); text-decoration: none;">使用官方地址</a>
+          </div>
         </div>
         <div class="form-group">
           <label class="form-label">用户名</label>
@@ -439,7 +442,7 @@
         <div class="form-hint" style="margin-bottom: 12px;">已有账号？粘贴从其他设备或备份获得的登录令牌即可恢复同步。</div>
         <div class="form-group">
           <label class="form-label">服务器地址</label>
-          <input type="text" class="form-input" id="sync-token-server-url" placeholder="https://api.quickbrain.app">
+          <input type="text" class="form-input" id="sync-token-server-url" placeholder="https://你的同步服务器">
         </div>
         <div class="form-group">
           <label class="form-label">登录令牌</label>

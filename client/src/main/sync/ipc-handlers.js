@@ -82,10 +82,12 @@ async function signInWithToken({ serverUrl, token }) {
 function registerSyncHandlers(getDB) {
   ipcMain.handle('get-sync-config', () => {
     const c = cfg.read().sync || {}
-    const serverUrl = c.serverUrl || cfg.defaultSyncServerUrl()
-    return { enabled: !!c.enabled, serverUrl, serverUrlIsDefault: !c.serverUrl, hasToken: !!c.token, deviceId: c.deviceId || cfg.ensureDeviceId() }
+    return { enabled: !!c.enabled, serverUrl: c.serverUrl || '', hasToken: !!c.token, deviceId: c.deviceId || cfg.ensureDeviceId() }
   })
 
+  // Returns the bundled SaaS URL as a suggestion when the user explicitly
+  // opts into cloud sync. The renderer surfaces this as a one-click link,
+  // not an auto-fill, so local mode stays the obvious default.
   ipcMain.handle('get-default-sync-server-url', () => {
     return { serverUrl: cfg.defaultSyncServerUrl() }
   })

@@ -34,3 +34,16 @@ describe('client sync config default URL', () => {
       })
   })
 })
+
+describe('client sync config does not auto-fill', () => {
+  it('read() with no config file returns sync.serverUrl undefined, NOT the default', async () => {
+    // The renderer asks for the default URL only when the user clicks the
+    // "使用官方地址" link. Local mode is the default; auto-filling would
+    // make the Settings modal look like something is broken.
+    const fs = await import('node:fs')
+    const cfgOnDisk = cfgModule.read().sync || {}
+    expect(cfgOnDisk.serverUrl || '').toBe('')
+    // sanity: the helper still exists so the renderer can wire the link
+    expect(typeof cfgModule.defaultSyncServerUrl).toBe('function')
+  })
+})

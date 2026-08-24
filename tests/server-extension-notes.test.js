@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+﻿import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import path from 'node:path'
 import Fastify from 'fastify'
 import crypto from 'node:crypto'
@@ -10,7 +10,8 @@ function buildBearer(deviceId, token) {
   return tokenMod.encode({ deviceId, token })
 }
 
-function fakeDb() {
+function fakeDb(opts = {}) {
+  const users = opts.users || [{ id: 1, username: 'tester', secret: opts.token || 'h'.repeat(32) }]
   const stored = new Map()
   const buildChain = () => ({
     where: () => ({
@@ -28,10 +29,18 @@ function fakeDb() {
     executeTakeFirst: async () => null
   })
   return {
-    stored,
-    selectFrom: () => ({
-      selectAll: () => buildChain()
-    }),
+    stored, users,
+    selectFrom: (table) => {
+      if (table === 'users') {
+        return {
+          selectAll: () => ({
+            where: () => ({ executeTakeFirst: async () => users[0] || null }),
+            execute: async () => users
+          })
+        }
+      }
+      return { selectAll: () => buildChain() }
+    },
     insertInto: () => ({
       values: (v) => ({
         onConflict: () => ({
@@ -53,7 +62,7 @@ async function buildApp(db) {
   return app
 }
 
-describe('extension /v1/notes routes', () => {
+describe('extension /v1/notes routes (multi-tenant)', () => {
   let originalEnv
   beforeEach(() => {
     originalEnv = { ...process.env }
@@ -69,11 +78,7 @@ describe('extension /v1/notes routes', () => {
   it('rejects POST /v1/notes without bearer (401)', async () => {
     const db = fakeDb()
     const app = await buildApp(db)
-    const r = await app.inject({
-      method: 'POST',
-      url: '/v1/notes',
-      payload: { content: 'hi' }
-    })
+    const r = await app.inject({ method: 'POST', url: '/v1/notes', payload: { content: 'hi' } })
     expect(r.statusCode).toBe(401)
   })
 
@@ -83,41 +88,38 @@ describe('extension /v1/notes routes', () => {
     const deviceId = crypto.randomUUID()
     const bearer = buildBearer(deviceId, process.env.OWNER_TOKEN)
     const r = await app.inject({
-      method: 'POST',
-      url: '/v1/notes',
+      method: 'POST', url: '/v1/notes',
       headers: { authorization: 'Bearer ' + bearer, 'x-qb-device': deviceId },
       payload: { content: '   ' }
     })
     expect(r.statusCode).toBe(400)
   })
 
-  it('accepts POST /v1/notes with valid bearer, persists, returns client_id', async () => {
+  it('accepts POST /v1/notes with valid bearer, persists, returns client_id + user_id', async () => {
     const db = fakeDb()
     const app = await buildApp(db)
     const deviceId = crypto.randomUUID()
     const bearer = buildBearer(deviceId, process.env.OWNER_TOKEN)
     const r = await app.inject({
-      method: 'POST',
-      url: '/v1/notes',
+      method: 'POST', url: '/v1/notes',
       headers: { authorization: 'Bearer ' + bearer, 'x-qb-device': deviceId },
       payload: {
-        content: 'hello world',
-        title: 'test page',
-        tags: ['web-page', 'extension'],
-        source_path: 'https://example.com',
-        source_type: 'web'
+        content: 'hello world', title: 'test page', tags: ['web-page', 'extension'],
+        source_path: 'https://example.com', source_type: 'web'
       }
     })
     expect(r.statusCode).toBe(200)
     const body = r.json()
     expect(body.success).toBe(true)
     expect(body.client_id).toBeTruthy()
+    expect(body.user_id).toBe(1)
     expect(db.stored.size).toBe(1)
     const row = db.stored.values().next().value
     expect(row.content).toBe('hello world')
     expect(row.title).toBe('test page')
     expect(row.tags).toBe(JSON.stringify(['web-page', 'extension']))
     expect(row.source_path).toBe('https://example.com')
+    expect(row.user_id).toBe(1)
   })
 
   it('upserts same client_id (idempotent re-save)', async () => {
@@ -128,8 +130,7 @@ describe('extension /v1/notes routes', () => {
     const client_id = 'fixed-uuid-1'
     for (const title of ['first', 'updated']) {
       const r = await app.inject({
-        method: 'POST',
-        url: '/v1/notes',
+        method: 'POST', url: '/v1/notes',
         headers: { authorization: 'Bearer ' + bearer, 'x-qb-device': deviceId },
         payload: { client_id, content: 'content', title, source_type: 'web' }
       })
@@ -144,18 +145,15 @@ describe('extension /v1/notes routes', () => {
     const app = await buildApp(db)
     const deviceId = crypto.randomUUID()
     const bearer = buildBearer(deviceId, process.env.OWNER_TOKEN)
-    // seed 2 notes
     for (let i = 0; i < 2; i++) {
       await app.inject({
-        method: 'POST',
-        url: '/v1/notes',
+        method: 'POST', url: '/v1/notes',
         headers: { authorization: 'Bearer ' + bearer, 'x-qb-device': deviceId },
         payload: { content: 'note ' + i, title: 't' + i, source_type: 'web' }
       })
     }
     const r = await app.inject({
-      method: 'GET',
-      url: '/v1/notes',
+      method: 'GET', url: '/v1/notes',
       headers: { authorization: 'Bearer ' + bearer, 'x-qb-device': deviceId }
     })
     expect(r.statusCode).toBe(200)

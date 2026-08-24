@@ -3,6 +3,7 @@ import path from 'node:path'
 import Fastify from 'fastify'
 import crypto from 'node:crypto'
 import tokenMod from '../shared/sync/token.js'
+import { fakeDb } from './helpers/fake-db.js'
 
 const syncUrl = 'file:///' + path.resolve('server/src/routes/sync.js').replace(/\\/g, '/')
 
@@ -20,32 +21,8 @@ describe('POST /v1/sync/push enqueue integration', () => {
     for (const k of Object.keys(originalEnv)) process.env[k] = originalEnv[k]
   })
 
-  function fakeDb(stored) {
-    return {
-      selectFrom: () => ({
-        selectAll: () => ({
-          where: (col, op, val) => ({
-            executeTakeFirst: async () => stored.get(val) || null
-          })
-        })
-      }),
-      insertInto: () => ({
-        values: (v) => ({
-          onConflict: () => ({
-            doUpdateSet: () => ({ executeTakeFirst: async () => ({ client_id: v.client_id }) }),
-            executeTakeFirst: async () => { stored.set(v.client_id, v); return { client_id: v.client_id } }
-          })
-        })
-      }),
-      updateTable: () => ({
-        set: () => ({ where: () => ({ executeTakeFirst: async () => ({}) }) })
-      })
-    }
-  }
-
   it('calls _enqueueExtract for upsert of a source note (not atom, not yet extracted)', async () => {
-    const stored = new Map()
-    const db = fakeDb(stored)
+    const db = fakeDb({ token: process.env.OWNER_TOKEN })
     const syncMod = await import(syncUrl + '?t=' + Date.now())
     const enqueued = []
     syncMod.setEnqueueExtract(async (cid) => { enqueued.push(cid) })
@@ -54,7 +31,7 @@ describe('POST /v1/sync/push enqueue integration', () => {
     const deviceId = crypto.randomUUID()
     const bearer = tokenMod.encode({ deviceId, token: process.env.OWNER_TOKEN })
     const body = { ops: [
-      { op: 'upsert', note: { client_id: 'src-A', updated_at: Date.now(), rev: 1, content: 'hello', is_atom: 0, extracted_at: null } }
+      { op: 'upsert', note: { client_id: 'src-A', updated_at: Date.now(), rev: 1, content: 'hello', is_atom: 0, extracted_at: null, user_id: 1 } }
     ] }
     const res = await app.inject({ method: 'POST', url: '/v1/sync/push', headers: { authorization: 'Bearer ' + bearer, 'x-qb-device': deviceId }, payload: body })
     expect(res.statusCode).toBe(200)
@@ -63,8 +40,7 @@ describe('POST /v1/sync/push enqueue integration', () => {
   })
 
   it('does NOT call _enqueueExtract for atom notes', async () => {
-    const stored = new Map()
-    const db = fakeDb(stored)
+    const db = fakeDb({ token: process.env.OWNER_TOKEN })
     const syncMod = await import(syncUrl + '?t=' + (Date.now() + 1))
     const enqueued = []
     syncMod.setEnqueueExtract(async (cid) => { enqueued.push(cid) })
@@ -73,7 +49,7 @@ describe('POST /v1/sync/push enqueue integration', () => {
     const deviceId = crypto.randomUUID()
     const bearer = tokenMod.encode({ deviceId, token: process.env.OWNER_TOKEN })
     const body = { ops: [
-      { op: 'upsert', note: { client_id: 'src-A:atom:0', updated_at: Date.now(), rev: 1, content: 'atom', is_atom: 1, parent_id: 'src-A', extracted_at: 1 } }
+      { op: 'upsert', note: { client_id: 'src-A:atom:0', updated_at: Date.now(), rev: 1, content: 'atom', is_atom: 1, parent_id: 'src-A', extracted_at: 1, user_id: 1 } }
     ] }
     const res = await app.inject({ method: 'POST', url: '/v1/sync/push', headers: { authorization: 'Bearer ' + bearer, 'x-qb-device': deviceId }, payload: body })
     expect(res.statusCode).toBe(200)
@@ -82,9 +58,7 @@ describe('POST /v1/sync/push enqueue integration', () => {
   })
 
   it('does NOT call _enqueueExtract when source already has extracted_at set', async () => {
-    const stored = new Map()
-    stored.set('src-A', { client_id: 'src-A', updated_at: 100, rev: 1, is_atom: 0, extracted_at: 12345 })
-    const db = fakeDb(stored)
+    const db = fakeDb({ token: process.env.OWNER_TOKEN })
     const syncMod = await import(syncUrl + '?t=' + (Date.now() + 2))
     const enqueued = []
     syncMod.setEnqueueExtract(async (cid) => { enqueued.push(cid) })
@@ -92,9 +66,8 @@ describe('POST /v1/sync/push enqueue integration', () => {
     await app.register(syncMod.default || syncMod, { db })
     const deviceId = crypto.randomUUID()
     const bearer = tokenMod.encode({ deviceId, token: process.env.OWNER_TOKEN })
-    const ts = Date.now()
     const body = { ops: [
-      { op: 'upsert', note: { client_id: 'src-A', updated_at: ts, rev: 2, content: 'newer', is_atom: 0, extracted_at: 12345 } }
+      { op: 'upsert', note: { client_id: 'src-A', updated_at: Date.now(), rev: 1, content: 'already extracted', is_atom: 0, extracted_at: 12345, user_id: 1 } }
     ] }
     const res = await app.inject({ method: 'POST', url: '/v1/sync/push', headers: { authorization: 'Bearer ' + bearer, 'x-qb-device': deviceId }, payload: body })
     expect(res.statusCode).toBe(200)

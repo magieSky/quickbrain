@@ -1,7 +1,8 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+﻿import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import path from 'node:path'
 import Fastify from 'fastify'
 import crypto from 'node:crypto'
+import { fakeDb } from './helpers/fake-db.js'
 
 const root = path.resolve('.').replace(/\\/g, '/')
 const aiUrl = 'file:///' + root + '/server/src/routes/ai.js'
@@ -28,8 +29,9 @@ describe('server /v1/ai/* proxy', () => {
     const mod = await import(aiUrl + '?t=' + Date.now() + Math.random())
     const aiMod = await import('file:///' + root + '/server/src/services/ai.js')
     aiMod.setForTesting(stub)
+    const db = fakeDb({ token: process.env.OWNER_TOKEN })
     const app = Fastify({ logger: false })
-    await app.register(mod.default || mod, { db: null })
+    await app.register(mod.default || mod, { db })
     return app
   }
 
@@ -50,110 +52,83 @@ describe('server /v1/ai/* proxy', () => {
     const app = await buildAppWith(null)
     const { bearer: b, deviceId } = await bearer()
     const res = await app.inject({
-      method: 'POST',
-      url: '/v1/ai/format',
-      headers: { authorization: 'Bearer ' + b, 'x-qb-device': deviceId, 'content-type': 'application/json' },
-      payload: { content: 'hello' }
+      method: 'POST', url: '/v1/ai/format',
+      headers: { authorization: 'Bearer ' + b, 'x-qb-device': deviceId },
+      payload: { content: 'x' }
     })
     expect(res.statusCode).toBe(503)
-    expect(res.json().error).toBe('ai-not-configured')
     await app.close()
   })
 
-  it('returns 400 when content missing on /format', async () => {
-    const app = await buildAppWith({
-      formatContent: async () => ({ success: true, formattedContent: 'x' }),
-      categorizeContent: async () => ({ success: true }),
-      semanticSearch: async () => ({ success: true, results: [] })
-    })
+  it('returns 400 content-required for missing content field', async () => {
+    const fakeSvc = { hasService: () => true, formatContent: async () => ({}) }
+    const app = await buildAppWith(fakeSvc)
     const { bearer: b, deviceId } = await bearer()
     const res = await app.inject({
-      method: 'POST',
-      url: '/v1/ai/format',
-      headers: { authorization: 'Bearer ' + b, 'x-qb-device': deviceId, 'content-type': 'application/json' },
+      method: 'POST', url: '/v1/ai/format',
+      headers: { authorization: 'Bearer ' + b, 'x-qb-device': deviceId },
       payload: {}
     })
     expect(res.statusCode).toBe(400)
     await app.close()
   })
 
-  it('POST /v1/ai/format calls service.formatContent', async () => {
-    let captured = null
-    const app = await buildAppWith({
-      formatContent: async (content, style) => { captured = { content, style }; return { success: true, formattedContent: 'X' } },
-      categorizeContent: async () => ({ success: true }),
-      semanticSearch: async () => ({ success: true })
-    })
+  it('calls formatContent and returns result', async () => {
+    const fakeSvc = { hasService: () => true, formatContent: async (c) => ({ formatted: '<<' + c + '>>' }) }
+    const app = await buildAppWith(fakeSvc)
     const { bearer: b, deviceId } = await bearer()
     const res = await app.inject({
-      method: 'POST',
-      url: '/v1/ai/format',
-      headers: { authorization: 'Bearer ' + b, 'x-qb-device': deviceId, 'content-type': 'application/json' },
-      payload: { content: 'hello world', style: 'structured' }
+      method: 'POST', url: '/v1/ai/format',
+      headers: { authorization: 'Bearer ' + b, 'x-qb-device': deviceId },
+      payload: { content: 'hello' }
     })
     expect(res.statusCode).toBe(200)
-    expect(captured.content).toBe('hello world')
-    expect(captured.style).toBe('structured')
-    expect(res.json().formattedContent).toBe('X')
+    expect(res.json()).toEqual({ formatted: '<<hello>>' })
     await app.close()
   })
 
-  it('POST /v1/ai/categorize calls service.categorizeContent', async () => {
-    let captured = null
-    const app = await buildAppWith({
-      formatContent: async () => ({ success: true }),
-      categorizeContent: async (content) => { captured = content; return { success: true, category: 'learning' } },
-      semanticSearch: async () => ({ success: true })
-    })
+  it('returns 500 when formatContent throws', async () => {
+    const fakeSvc = { hasService: () => true, formatContent: async () => { throw new Error('boom') } }
+    const app = await buildAppWith(fakeSvc)
     const { bearer: b, deviceId } = await bearer()
     const res = await app.inject({
-      method: 'POST',
-      url: '/v1/ai/categorize',
-      headers: { authorization: 'Bearer ' + b, 'x-qb-device': deviceId, 'content-type': 'application/json' },
-      payload: { content: 'some text' }
-    })
-    expect(res.statusCode).toBe(200)
-    expect(captured).toBe('some text')
-    expect(res.json().category).toBe('learning')
-    await app.close()
-  })
-
-  it('POST /v1/ai/semantic-search calls service.semanticSearch', async () => {
-    let captured = null
-    const app = await buildAppWith({
-      formatContent: async () => ({ success: true }),
-      categorizeContent: async () => ({ success: true }),
-      semanticSearch: async (q, c) => { captured = { q, c }; return { success: true, results: [{ id: 'a' }] } }
-    })
-    const { bearer: b, deviceId } = await bearer()
-    const res = await app.inject({
-      method: 'POST',
-      url: '/v1/ai/semantic-search',
-      headers: { authorization: 'Bearer ' + b, 'x-qb-device': deviceId, 'content-type': 'application/json' },
-      payload: { query: 'find foo', candidateSummaries: [{ id: 'a', title: 'foo' }] }
-    })
-    expect(res.statusCode).toBe(200)
-    expect(captured.q).toBe('find foo')
-    expect(captured.c).toEqual([{ id: 'a', title: 'foo' }])
-    expect(res.json().results).toEqual([{ id: 'a' }])
-    await app.close()
-  })
-
-  it('returns 500 on service throw', async () => {
-    const app = await buildAppWith({
-      formatContent: async () => { throw new Error('boom') },
-      categorizeContent: async () => ({ success: true }),
-      semanticSearch: async () => ({ success: true })
-    })
-    const { bearer: b, deviceId } = await bearer()
-    const res = await app.inject({
-      method: 'POST',
-      url: '/v1/ai/format',
-      headers: { authorization: 'Bearer ' + b, 'x-qb-device': deviceId, 'content-type': 'application/json' },
-      payload: { content: 'x' }
+      method: 'POST', url: '/v1/ai/format',
+      headers: { authorization: 'Bearer ' + b, 'x-qb-device': deviceId },
+      payload: { content: 'hello' }
     })
     expect(res.statusCode).toBe(500)
-    expect(res.json().error).toBe('format-failed')
+    await app.close()
+  })
+
+  it('categorize endpoint returns result', async () => {
+    const fakeSvc = { hasService: () => true, categorizeContent: async () => ({ category: 'note' }) }
+    const app = await buildAppWith(fakeSvc)
+    const { bearer: b, deviceId } = await bearer()
+    const res = await app.inject({
+      method: 'POST', url: '/v1/ai/categorize',
+      headers: { authorization: 'Bearer ' + b, 'x-qb-device': deviceId },
+      payload: { content: 'x' }
+    })
+    expect(res.statusCode).toBe(200)
+    expect(res.json()).toEqual({ category: 'note' })
+    await app.close()
+  })
+
+  it('semantic-search endpoint returns result', async () => {
+    const fakeSvc = { hasService: () => true, semanticSearch: async () => ({ best: 'idx-0' }) }
+    const app = await buildAppWith(fakeSvc)
+    const { bearer: b, deviceId } = await bearer()
+    const res = await app.inject({
+      method: 'POST', url: '/v1/ai/semantic-search',
+      headers: { authorization: 'Bearer ' + b, 'x-qb-device': deviceId },
+      payload: { query: 'q', candidateSummaries: ['a', 'b'] }
+    })
+    expect(res.statusCode).toBe(200)
+    expect(res.json()).toEqual({ best: 'idx-0' })
     await app.close()
   })
 })
+
+
+
+

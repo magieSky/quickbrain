@@ -1,11 +1,12 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+﻿import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import crypto from 'node:crypto'
 import path from 'node:path'
 import tokenMod from '../shared/sync/token.js'
+import { fakeDb } from './helpers/fake-db.js'
 
 const url = 'file:///' + path.resolve('server/src/auth/hmac.js').replace(/\\/g, '/')
 
-describe('server auth hmac', () => {
+describe('server auth hmac (multi-tenant)', () => {
   let originalEnv
   beforeEach(() => {
     originalEnv = { ...process.env }
@@ -20,26 +21,38 @@ describe('server auth hmac', () => {
     const deviceId = crypto.randomUUID()
     const bearer = tokenMod.encode({ deviceId, token: process.env.OWNER_TOKEN })
     const mod = await import(url + '?t=' + Date.now())
-    expect(mod.verifyBearer({ authorization: 'Bearer ' + bearer, 'x-qb-device': deviceId })).toEqual({ ok: true, deviceId })
+    const db = fakeDb({ token: process.env.OWNER_TOKEN })
+    const r = await mod.verifyBearer(db, { authorization: 'Bearer ' + bearer, 'x-qb-device': deviceId })
+    expect(r.ok).toBe(true)
+    expect(r.deviceId).toBe(deviceId)
+    expect(r.userId).toBe(1)
   })
 
   it('rejects mismatched device id', async () => {
     const deviceId = crypto.randomUUID()
     const bearer = tokenMod.encode({ deviceId, token: process.env.OWNER_TOKEN })
     const mod = await import(url + '?t=' + (Date.now() + 1))
-    const r = mod.verifyBearer({ authorization: 'Bearer ' + bearer, 'x-qb-device': 'spoof' }); expect(r.ok).toBe(false); expect(['device-mismatch', 'hmac-mismatch']).toContain(r.reason)
+    const db = fakeDb({ token: process.env.OWNER_TOKEN })
+    const r = await mod.verifyBearer(db, { authorization: 'Bearer ' + bearer, 'x-qb-device': 'spoof' })
+    expect(r.ok).toBe(false)
+    expect(r.reason).toBe('hmac-mismatch')
   })
 
-  it('rejects missing header', async () => {
+  it('rejects missing bearer', async () => {
     const mod = await import(url + '?t=' + (Date.now() + 2))
-    expect(mod.verifyBearer({})).toEqual({ ok: false, reason: 'missing-auth' })
+    const db = fakeDb({ token: process.env.OWNER_TOKEN })
+    const r = await mod.verifyBearer(db, { 'x-qb-device': crypto.randomUUID() })
+    expect(r.ok).toBe(false)
+    expect(r.reason).toBe('missing-auth')
   })
 
-  it('rejects when OWNER_TOKEN not set', async () => {
-    delete process.env.OWNER_TOKEN
+  it('rejects missing device header', async () => {
     const deviceId = crypto.randomUUID()
-    const bearer = tokenMod.encode({ deviceId, token: 'any' })
+    const bearer = tokenMod.encode({ deviceId, token: process.env.OWNER_TOKEN })
     const mod = await import(url + '?t=' + (Date.now() + 3))
-    expect(mod.verifyBearer({ authorization: 'Bearer ' + bearer, 'x-qb-device': deviceId }).reason).toBe('server-not-bootstrapped')
+    const db = fakeDb({ token: process.env.OWNER_TOKEN })
+    const r = await mod.verifyBearer(db, { authorization: 'Bearer ' + bearer })
+    expect(r.ok).toBe(false)
+    expect(r.reason).toBe('missing-device')
   })
 })

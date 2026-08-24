@@ -247,6 +247,37 @@ function formatDate(d) {
   } catch { return d }
 }
 
+// Map server / network error codes to friendly Chinese text. Anything we
+// do not recognise falls through to the raw string so we never hide useful
+// debugging information from the user.
+const SYNC_ERROR_MESSAGES = {
+  'invalid-username': '用户名不合法（仅支持字母、数字、下划线和连字符）',
+  'invalid-password': '密码不合法（至少 6 个字符）',
+  'username-taken': '该用户名已被占用',
+  'invalid-credentials': '用户名或密码错误',
+  'wrong-password': '旧密码错误',
+  'no-such-user': '用户不存在',
+  'missing-fields': '缺少必填项',
+  'missing-server-url': '缺少服务器地址',
+  'missing-token': '缺少登录令牌',
+  'unauthorized': '未授权，令牌无效或已过期',
+  'invalid-response': '服务器响应无效',
+  'network-error': '无法连接服务器，请检查网络或服务器地址',
+  'bootstrap-disabled': '服务器未开启管理员注册通道',
+  'invalid-bootstrap-token': '服务器拒绝了这次注册请求',
+  'already-bootstrapped': '服务器已经初始化过，不能再注册管理员账号'
+}
+
+function translateSyncError(err) {
+  if (!err) return '未知错误'
+  const code = String(err).split(':')[0].trim()
+  if (SYNC_ERROR_MESSAGES[code]) return SYNC_ERROR_MESSAGES[code]
+  if (/^network-error/.test(err)) return '网络错误：' + String(err).slice('network-error:'.length).trim()
+  if (/^invalid-response/.test(err)) return '服务器响应无效：' + String(err).slice('invalid-response:'.length).trim()
+  if (/^http-/.test(err)) return '服务器返回 HTTP ' + err.slice(5) + '，请稍后重试'
+  return err
+}
+
 function setStatus(text) { els.status.textContent = text }
 
 // ===== 添加笔记弹窗 =====
@@ -560,7 +591,7 @@ async function refreshSyncStatus() {
     c = await api.getSyncConfig()
   } catch (e) {
     els.syncStatusBox.className = 'sync-status disconnected'
-    els.syncStatusLine.textContent = 'Sync config unavailable'
+    els.syncStatusLine.textContent = '同步配置不可用'
     els.syncDisconnect.style.display = 'none'
     return
   }
@@ -580,13 +611,13 @@ async function refreshSyncStatus() {
   }
   if (c.enabled && c.serverUrl && !c.serverUrlIsDefault) {
     els.syncStatusBox.className = 'sync-status connected'
-    els.syncStatusLine.textContent = 'Connected to ' + c.serverUrl + (c.hasToken ? ' (token saved)' : '')
+    els.syncStatusLine.textContent = '已连接到 ' + c.serverUrl + (c.hasToken ? '（令牌已保存）' : '')
     els.syncDisconnect.style.display = ''
   } else {
     els.syncStatusBox.className = 'sync-status disconnected'
     els.syncStatusLine.textContent = c.serverUrlIsDefault
-      ? 'Not connected. Default server pre-filled - create an account or sign in to connect.'
-      : 'Not connected to any server'
+      ? '未连接。已预填默认服务器 - 注册账号或粘贴令牌即可连接。'
+      : '未连接任何服务器'
     els.syncDisconnect.style.display = 'none'
   }
 }
@@ -620,22 +651,22 @@ els.syncSubmitSignup.onclick = async () => {
   const username = els.syncUsername.value.trim()
   const password = els.syncPassword.value
   if (!serverUrl || !username || !password) {
-    showSyncFeedback(els.syncFeedbackSignup, 'Server URL, username and password are all required', false)
+    showSyncFeedback(els.syncFeedbackSignup, '服务器地址、用户名和密码都是必填项', false)
     return
   }
   els.syncSubmitSignup.disabled = true
-  showSyncFeedback(els.syncFeedbackSignup, 'Creating account...', true)
+  showSyncFeedback(els.syncFeedbackSignup, '正在创建账号...', true)
   try {
     const r = await api.registerWithServer({ serverUrl, username, password })
     if (r.ok) {
-      showSyncFeedback(els.syncFeedbackSignup, 'Account created and connected as ' + r.username, true)
+      showSyncFeedback(els.syncFeedbackSignup, '账号已创建并已连接为 ' + r.username, true)
       await refreshSyncStatus()
       setTimeout(closeSyncSettings, 1200)
     } else {
-      showSyncFeedback(els.syncFeedbackSignup, 'Failed: ' + (r.error || 'unknown'), false)
+      showSyncFeedback(els.syncFeedbackSignup, '失败：' + translateSyncError(r.error), false)
     }
   } catch (e) {
-    showSyncFeedback(els.syncFeedbackSignup, 'Network error: ' + e.message, false)
+    showSyncFeedback(els.syncFeedbackSignup, '网络错误：' + e.message, false)
   }
   els.syncSubmitSignup.disabled = false
 }
@@ -644,22 +675,22 @@ els.syncSubmitSignin.onclick = async () => {
   const serverUrl = els.syncTokenServerUrl.value.trim()
   const token = els.syncToken.value.trim()
   if (!serverUrl || !token) {
-    showSyncFeedback(els.syncFeedbackSignin, 'Server URL and token are both required', false)
+    showSyncFeedback(els.syncFeedbackSignin, '服务器地址和令牌都是必填项', false)
     return
   }
   els.syncSubmitSignin.disabled = true
-  showSyncFeedback(els.syncFeedbackSignin, 'Signing in...', true)
+  showSyncFeedback(els.syncFeedbackSignin, '正在登录...', true)
   try {
     const r = await api.signInWithToken({ serverUrl, token })
     if (r.ok) {
-      showSyncFeedback(els.syncFeedbackSignin, 'Signed in as ' + (r.username || 'user'), true)
+      showSyncFeedback(els.syncFeedbackSignin, '已登录为 ' + (r.username || '用户'), true)
       await refreshSyncStatus()
       setTimeout(closeSyncSettings, 1200)
     } else {
-      showSyncFeedback(els.syncFeedbackSignin, 'Failed: ' + (r.error || 'unknown'), false)
+      showSyncFeedback(els.syncFeedbackSignin, '失败：' + translateSyncError(r.error), false)
     }
   } catch (e) {
-    showSyncFeedback(els.syncFeedbackSignin, 'Network error: ' + e.message, false)
+    showSyncFeedback(els.syncFeedbackSignin, '网络错误：' + e.message, false)
   }
   els.syncSubmitSignin.disabled = false
 }

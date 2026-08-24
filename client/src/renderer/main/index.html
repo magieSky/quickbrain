@@ -364,13 +364,13 @@
       <div class="ai-server-section">
         <div class="form-group">
           <label class="form-label">服务端代理（可选，留空走本地）</label>
-          <input type="text" class="form-input" id="ai-server-url" placeholder="https://your-quickbrain-server.example">
+          <input type="text" class="form-input" id="ai-server-url" placeholder="https://你的quickbrain服务器">
           <div class="form-hint" id="ai-server-url-hint">填了就用服务端 AI（format / categorize / semantic-search）。</div>
         </div>
         <div class="form-group">
           <label class="form-label">Server Token（可选）</label>
           <div class="key-row">
-            <input type="password" class="form-input" id="ai-server-token" placeholder="server token">
+            <input type="password" class="form-input" id="ai-server-token" placeholder="服务端令牌">
             <button class="btn" id="ai-toggle-server-token" style="flex: 0 0 auto; padding: 8px 12px;">👁</button>
           </div>
         </div>
@@ -378,7 +378,7 @@
       <div class="provider-list" id="provider-list"></div>
       <div class="ai-form" id="ai-form">
         <div class="form-group">
-          <label class="form-label" id="ai-form-title">API Key</label>
+          <label class="form-label" id="ai-form-title">API Key（密钥）</label>
           <div class="key-row">
             <input type="password" class="form-input" id="ai-apikey" placeholder="sk-...">
             <button class="btn" id="ai-toggle-key" style="flex: 0 0 auto; padding: 8px 12px;">👁</button>
@@ -387,12 +387,12 @@
         </div>
         <div class="form-row" id="ai-extra-row" style="display: none;">
           <div class="form-group">
-            <label class="form-label">Base URL</label>
+            <label class="form-label">Base URL（接口地址）</label>
             <input type="text" class="form-input" id="ai-baseurl" placeholder="http://localhost:11434/v1">
           </div>
           <div class="form-group">
-            <label class="form-label">Model</label>
-            <input type="text" class="form-input" id="ai-model" placeholder="qwen2.5:7b">
+            <label class="form-label">模型</label>
+            <input type="text" class="form-input" id="ai-model" placeholder="例如 qwen2.5:7b">
           </div>
         </div>
         <div class="ai-status" id="ai-status"></div>
@@ -408,51 +408,51 @@
   <!-- Sync / Server Settings modal -->
   <div class="modal-overlay" id="sync-modal">
     <div class="modal sync-modal">
-      <h2>Sync to QuickBrain Cloud</h2>
+      <h2>同步到 QuickBrain 云</h2>
       <div class="sync-status" id="sync-status-box">
         <div class="sync-status-line" id="sync-status-line"></div>
-        <button class="btn" id="sync-disconnect" style="display: none;">Disconnect</button>
+        <button class="btn" id="sync-disconnect" style="display: none;">断开连接</button>
       </div>
       <div class="sync-tabs">
-        <button class="sync-tab active" data-tab="signup" id="sync-tab-signup">Sign up</button>
-        <button class="sync-tab" data-tab="signin" id="sync-tab-signin">Sign in with token</button>
+        <button class="sync-tab active" data-tab="signup" id="sync-tab-signup">注册</button>
+        <button class="sync-tab" data-tab="signin" id="sync-tab-signin">使用令牌登录</button>
       </div>
 
       <div class="sync-pane" id="sync-pane-signup">
-        <div class="form-hint" style="margin-bottom: 12px;">Create a new account on the QuickBrain cloud. Your password protects your notes; the server only sees data scoped to your user.</div>
+        <div class="form-hint" style="margin-bottom: 12px;">在 QuickBrain 云创建一个新账号。密码用于保护你的笔记，服务器只能看到属于你账号的数据。</div>
         <div class="form-group">
-          <label class="form-label">Server URL</label>
+          <label class="form-label">服务器地址</label>
           <input type="text" class="form-input" id="sync-server-url" placeholder="https://api.quickbrain.app">
         </div>
         <div class="form-group">
-          <label class="form-label">Username</label>
-          <input type="text" class="form-input" id="sync-username" placeholder="alice" autocomplete="username">
+          <label class="form-label">用户名</label>
+          <input type="text" class="form-input" id="sync-username" placeholder="例如 alice" autocomplete="username">
         </div>
         <div class="form-group">
-          <label class="form-label">Password</label>
-          <input type="password" class="form-input" id="sync-password" placeholder="at least 6 characters" autocomplete="new-password">
+          <label class="form-label">密码</label>
+          <input type="password" class="form-input" id="sync-password" placeholder="至少 6 个字符" autocomplete="new-password">
         </div>
         <div class="sync-feedback" id="sync-feedback-signup"></div>
       </div>
 
       <div class="sync-pane" id="sync-pane-signin" style="display: none;">
-        <div class="form-hint" style="margin-bottom: 12px;">Already have an account? Paste the secret token you received from another device or from a backup.</div>
+        <div class="form-hint" style="margin-bottom: 12px;">已有账号？粘贴从其他设备或备份获得的登录令牌即可恢复同步。</div>
         <div class="form-group">
-          <label class="form-label">Server URL</label>
+          <label class="form-label">服务器地址</label>
           <input type="text" class="form-input" id="sync-token-server-url" placeholder="https://api.quickbrain.app">
         </div>
         <div class="form-group">
-          <label class="form-label">Secret token</label>
-          <input type="password" class="form-input" id="sync-token" placeholder="paste token here" autocomplete="off">
+          <label class="form-label">登录令牌</label>
+          <input type="password" class="form-input" id="sync-token" placeholder="在此粘贴令牌" autocomplete="off">
         </div>
         <div class="sync-feedback" id="sync-feedback-signin"></div>
       </div>
 
       <div class="modal-actions">
-        <a href="#" id="sync-open-ai-settings" style="display:block; text-align:center; margin-bottom:12px; font-size:11px; color:rgba(120,150,255,0.7); text-decoration:none;">AI provider settings...</a>
-        <button class="btn" id="sync-cancel">Cancel</button>
-        <button class="btn primary" id="sync-submit-signup">Create account</button>
-        <button class="btn primary" id="sync-submit-signin" style="display: none;">Sign in</button>
+        <a href="#" id="sync-open-ai-settings" style="display:block; text-align:center; margin-bottom:12px; font-size:11px; color:rgba(120,150,255,0.7); text-decoration:none;">AI 提供方设置...</a>
+        <button class="btn" id="sync-cancel">取消</button>
+        <button class="btn primary" id="sync-submit-signup">创建账号</button>
+        <button class="btn primary" id="sync-submit-signin" style="display: none;">登录</button>
       </div>
     </div>
   </div>

@@ -4,7 +4,7 @@
 
 **Goal:** Add a self-hosted (BYOS) sync mode so two QuickBrain installs on different machines see each others notes within seconds, while keeping the existing local-only behaviour unchanged when `sync.enabled = false`.
 
-**Architecture:** Monorepo split (`client/` + `server/` + `shared/`). Server is a Fastify + Postgres + Redis (BullMQ) app that stores notes (LWW conflict resolution by `updated_at + client_id`), runs AI atom extraction in a worker, and exposes a static admin UI. Client keeps a local SQLite cache + outbox; a daemon pulls every 5s and pushes debounced. Auth is HMAC-bound bearer tokens validated server-side.
+**Architecture:** Monorepo split (`client/` + `server/` + `shared/`). Server is a Fastify + Postgres + Redis (BullMQ) app that stores notes (LWW conflict resolution by `updated_at + client_id`), runs AI atom extraction in a worker, and exposes a static admin UI. Client keeps a local SQLite cache + outbox; a daemon pulls every 5s and pushes debounced. Auth is per-user HMAC-bound bearer tokens validated server-side. Phase 9 adds a `users` table with bcrypt password + per-user secret; the server seeds an `owner` user from the existing `OWNER_TOKEN` env var on first boot, so single-tenant BYOS deployments keep working unchanged. Multi-user / SaaS-ready deployments register additional users via `POST /v1/auth/register`.
 
 **Tech Stack:** Node.js 20+, Fastify 4, Kysely + Postgres 15, BullMQ + Redis 7, better-sqlite3 (client cache), ws (admin UI optional), vitest (TDD), plain HTML+vanilla JS for admin UI (no React). HMAC-SHA256 for token binding. AES-256-GCM for AI key at rest on server. npm workspaces (no Lerna/Nx).
 
@@ -3807,6 +3807,627 @@ git add tests/e2e-sync.test.js
 git -c user.name='quickbrain' -c user.email='qb@local' commit -m "test: e2e sync roundtrip (faked transport, real route)"
 ```
 
+## Phase 9: Multi-tenant user/auth refactor
+
+> Phases 1–8 ship a **single-tenant BYOS** server: one server-wide `OWNER_TOKEN` env var authenticates every device. That's fine for a personal NAS, but it conflates *the operator* with *the data owner*, can't host multiple humans on one host, and can't rotate a leaked bearer without a full restart.
+>
+> This phase introduces a `users` table with per-user password + per-user HMAC secret, makes every authenticated route identify a `userId`, and seeds an `owner` user from the existing `OWNER_TOKEN` env var so current BYOS deployments continue to work unchanged. After this phase the same binary can run in single-user (BYOS) or multi-user (SaaS-ready) mode without code changes — mode is decided by how many rows the `users` table contains.
+
+### New endpoints
+
+| Method | Path | Auth | Purpose |
+|---|---|---|---|
+| POST | `/v1/auth/register` | none | `{ username, password }` → `{ user_id, username, secret }`. Returns the secret **once**. |
+| POST | `/v1/auth/login` | none | `{ username, password }` → `{ user_id, username, secret }`. |
+| POST | `/v1/auth/change-password` | bearer | `{ old_password, new_password }` → rotates the secret, invalidating every existing bearer. |
+| GET | `/v1/auth/me` | bearer | Echoes `{ user_id, username, device_id }` for "is my token still valid?" checks. |
+
+Username regex `^[a-zA-Z0-9_.-]{3,32}$`. Password 6–200 chars. Username is unique (409 on collision). Secret is `base64url(crypto.randomBytes(32))` (43 chars), treated as the HMAC key — it's stored in plaintext in the DB (access-token semantics) and never returned after registration/change-password.
+
+### Files added / changed in this phase
+
+| File | Change | Responsibility |
+|---|---|---|
+| `shared/schema/pg/0002_users.sql` | new | `users` table + `notes.user_id` column |
+| `server/src/services/users.js` | new | bcrypt-hashed register / login / changePassword / rotateSecret |
+| `server/src/routes/auth.js` | new | `/v1/auth/*` endpoints |
+| `server/src/db/bootstrap.js` | new | `ensureOwnerUser` + `enforceNotesUserNotNull` (runs at server start) |
+| `server/src/auth/hmac.js` | mutate | `verifyBearer(db, headers)` becomes async, returns `{ ok, userId, username, deviceId }` |
+| `server/src/services/notes.js` | mutate | All functions gain `userId` arg, filter by `user_id` |
+| `server/src/routes/sync.js` | mutate | Pull/push/cursor pass `v.userId` into services |
+| `server/src/routes/devices.js` | mutate | `preHandler` uses async verifyBearer, sets `req.userId` |
+| `server/src/routes/extension-notes.js` | mutate | POST/GET `/v1/notes` scope to current user |
+| `server/src/routes/ai.js` | mutate | async verifyBearer |
+| `server/src/index.js` | mutate | Registers authRoutes, calls `bootstrapDb` on start |
+| `shared/schema/pg/migrations.js` | mutate | Migrator rewritten on top of Kysely transactions (raw SQL via `executeQuery`) |
+| `tests/helpers/fake-db.js` | new | In-memory Kysely-shaped fake; lets unit tests skip real Postgres |
+| `tests/server-auth.test.js` | new | 7 cases for register/login edge cases |
+| `tests/server-auth-middleware.test.js` | mutate | Async verifyBearer + multi-tenant expectations |
+| `tests/server-pull.test.js`, `tests/server-push.test.js`, `tests/server-push-enqueue.test.js`, `tests/server-notes-service.test.js`, `tests/server-devices-route.test.js`, `tests/server-extension-notes.test.js`, `tests/server-ai-proxy.test.js` | mutate | Use `fakeDb`, populate `user_id`, pass `OWNER_TOKEN` so bootstrap-style seed exists in the fake |
+| `server/package.json` | mutate | Add `bcryptjs` + `@types/bcryptjs` |
+
+---
+
+### Task 33: `users` table + `notes.user_id`
+
+**Files:**
+- Create: `shared/schema/pg/0002_users.sql`
+- Modify: `tests/shared-schema-pg.test.js` (assertion that users table appears in `readMigrations()`)
+
+- [ ] **Step 1: SQL migration**
+
+```sql
+-- Multi-tenant: per-user HMAC secret + bcrypt password
+CREATE TABLE IF NOT EXISTS users (
+  id              BIGSERIAL PRIMARY KEY,
+  username        TEXT NOT NULL UNIQUE,
+  password_hash   TEXT NOT NULL,
+  secret          TEXT NOT NULL,
+  is_owner        INTEGER NOT NULL DEFAULT 0,
+  created_at      BIGINT NOT NULL,
+  updated_at      BIGINT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_users_updated_at ON users (updated_at);
+
+-- Add user_id to notes; NOT NULL enforcement happens in bootstrap
+-- after the default owner user is seeded.
+ALTER TABLE notes ADD COLUMN IF NOT EXISTS user_id BIGINT REFERENCES users(id);
+CREATE INDEX IF NOT EXISTS idx_notes_user_updated ON notes (user_id, updated_at);
+```
+
+- [ ] **Step 2: Test**
+
+```js
+import { readMigrations } from '../shared/schema/pg/migrations.js'
+it('includes the users migration', () => {
+  expect(readMigrations().map(m => m.name)).toContain('0002_users.sql')
+})
+```
+
+- [ ] **Step 3: Run, expect PASS**
+
+```powershell
+cd E:\note\quickbrain
+npm test -- tests/shared-schema-pg.test.js
+```
+
+- [ ] **Step 4: Commit**
+
+```powershell
+git add shared/schema/pg/0002_users.sql tests/shared-schema-pg.test.js
+git -c user.name='quickbrain' -c user.email='qb@local' commit -m "feat(sync): users table + notes.user_id"
+```
+
+---
+
+### Task 34: server `services/users.js`
+
+**Files:**
+- Create: `server/src/services/users.js`
+- Modify: `server/package.json` (add `bcryptjs ^3.0.3`, `@types/bcryptjs ^2.4.6`)
+- Create: `tests/server-users-service.test.js`
+
+- [ ] **Step 1: Write failing test** (registration)
+
+```js
+import users from '../server/src/services/users.js'
+const db = fakeDb()
+
+it('register hashes password and stores secret', async () => {
+  const r = await users.register(db, { username: 'alice', password: 'hunter2' })
+  expect(r.ok).toBe(true)
+  expect(r.user.username).toBe('alice')
+  expect(r.user.password_hash).toMatch(/^\$2[aby]\$/)
+  expect(r.secret).toMatch(/^[A-Za-z0-9_-]{40,}$/)
+  // plaintext password must NOT leak
+  expect(JSON.stringify(r.user)).not.toContain('hunter2')
+})
+```
+
+- [ ] **Step 2: Implement `users.js`**
+
+```js
+const bcrypt = require('bcryptjs')
+const crypto = require('crypto')
+
+const USERNAME_RE = /^[a-zA-Z0-9_.-]{3,32}$/
+const MIN_PW = 6, MAX_PW = 200
+
+function newSecret() { return crypto.randomBytes(32).toString('base64url') }
+function validateUsername(u) { return typeof u === 'string' && USERNAME_RE.test(u) }
+function validatePassword(p) { return typeof p === 'string' && p.length >= MIN_PW && p.length <= MAX_PW }
+
+async function getById(db, id) { /* selectFrom('users') where id */ }
+async function getByUsername(db, username) { /* where username */ }
+async function getBySecret(db, secret) { /* where secret — used by verifyBearer */ }
+
+async function register(db, { username, password }) {
+  if (!validateUsername(username)) return { ok: false, error: 'invalid-username' }
+  if (!validatePassword(password)) return { ok: false, error: 'invalid-password' }
+  if (await getByUsername(db, username)) return { ok: false, error: 'username-taken' }
+  const now = Date.now()
+  const secret = newSecret()
+  const passwordHash = bcrypt.hashSync(password, 10)
+  const row = await db.insertInto('users').values({
+    username, password_hash: passwordHash, secret, is_owner: 0, created_at: now, updated_at: now
+  }).returningAll().executeTakeFirst()
+  return { ok: true, user: row, secret }
+}
+
+async function login(db, { username, password }) {
+  const u = await getByUsername(db, username)
+  if (!u) return { ok: false, error: 'invalid-credentials' }
+  if (!bcrypt.compareSync(password, u.password_hash)) return { ok: false, error: 'invalid-credentials' }
+  return { ok: true, user: u, secret: u.secret }
+}
+
+async function changePassword(db, userId, { oldPassword, newPassword }) {
+  const u = await getById(db, userId)
+  if (!u) return { ok: false, error: 'no-such-user' }
+  if (!bcrypt.compareSync(oldPassword, u.password_hash)) return { ok: false, error: 'wrong-password' }
+  await db.updateTable('users').set({
+    password_hash: bcrypt.hashSync(newPassword, 10),
+    secret: newSecret(),
+    updated_at: Date.now()
+  }).where('id', '=', userId).execute()
+  return { ok: true, secret: newSecret() /* returned by caller */ }
+}
+
+async function rotateSecret(db, userId) { /* used by admin "force rotate" */ }
+
+module.exports = { register, login, changePassword, rotateSecret, getById, getByUsername, getBySecret, newSecret }
+```
+
+- [ ] **Step 3: Install bcryptjs**
+
+```powershell
+cd E:\note\quickbrain\server
+npm install bcryptjs@^3.0.3
+npm install --save-dev @types/bcryptjs@^2.4.6
+```
+
+- [ ] **Step 4: Tests for the rest of the service**
+
+Login happy/wrong/no-user; `changePassword` happy/wrong-old; `rotateSecret`; username/password validators; username-taken returns `username-taken`.
+
+- [ ] **Step 5: Run, expect PASS**
+
+```powershell
+cd E:\note\quickbrain
+npm test -- tests/server-users-service.test.js
+```
+
+- [ ] **Step 6: Commit**
+
+```powershell
+git add server/src/services/users.js server/package.json server/package-lock.json tests/server-users-service.test.js
+git -c user.name='quickbrain' -c user.email='qb@local' commit -m "feat(sync): users service (register/login/changePassword)"
+```
+
+---
+
+
+### Task 35: server `routes/auth.js`
+
+**Files:**
+- Create: `server/src/routes/auth.js`
+- Create: `tests/server-auth.test.js`
+
+- [ ] **Step 1: Failing test for register**
+
+```js
+import Fastify from 'fastify'
+import authRoutes from '../server/src/routes/auth.js'
+
+it('POST /v1/auth/register returns 201 + secret', async () => {
+  const app = Fastify()
+  await app.register(authRoutes, { db: fakeDb() })
+  const r = await app.inject({ method: 'POST', url: '/v1/auth/register',
+    payload: { username: 'alice', password: 'hunter2' } })
+  expect(r.statusCode).toBe(201)
+  const body = r.json()
+  expect(body.username).toBe('alice')
+  expect(body.user_id).toBeTruthy()
+  expect(body.secret.length).toBeGreaterThanOrEqual(40)
+})
+```
+
+- [ ] **Step 2: Implement the four routes**
+
+`register` (201 + `{ user_id, username, secret }`; 409 on `username-taken`; 400 on invalid-username/password), `login` (200; 401 on bad creds), `change-password` (calls `verifyBearer` first → 401 if invalid; 403 on wrong-old-password; rotates secret; returns `{ secret }`), `me` (calls `verifyBearer` → 401 if invalid; echoes user_id/username/device_id).
+
+- [ ] **Step 3: Tests for the failure paths**
+
+Bad username (400), short password (400), duplicate username (409), login wrong password (401), login unknown user (401), `change-password` with mismatched old (403), `me` without bearer (401).
+
+- [ ] **Step 4: Run, expect PASS (7 tests)**
+
+```powershell
+cd E:\note\quickbrain
+npm test -- tests/server-auth.test.js
+```
+
+- [ ] **Step 5: Commit**
+
+```powershell
+git add server/src/routes/auth.js tests/server-auth.test.js
+git -c user.name='quickbrain' -c user.email='qb@local' commit -m "feat(sync): /v1/auth/register|login|change-password|me"
+```
+
+---
+
+### Task 36: `verifyBearer` becomes async + multi-tenant
+
+**Files:**
+- Modify: `server/src/auth/hmac.js`
+- Modify: `tests/server-auth-middleware.test.js`
+
+- [ ] **Step 1: Failing test for userId in success**
+
+```js
+import { fakeDb } from './helpers/fake-db.js'
+import { verifyBearer } from '../server/src/auth/hmac.js'
+import tokenMod from '../shared/sync/token.js'
+
+it('verifyBearer returns userId + username on success', async () => {
+  const db = fakeDb({ token: 'h'.repeat(32) })
+  const deviceId = crypto.randomUUID()
+  const bearer = tokenMod.encode({ deviceId, token: 'h'.repeat(32) })
+  const r = await verifyBearer(db, { authorization: 'Bearer ' + bearer, 'x-qb-device': deviceId })
+  expect(r.ok).toBe(true)
+  expect(r.userId).toBe(1)
+  expect(r.username).toBe('tester')
+  expect(r.deviceId).toBe(deviceId)
+})
+```
+
+- [ ] **Step 2: Rewrite `hmac.js`**
+
+```js
+const users = require('../services/users')
+const token = require('@quickbrain/shared/sync/token')
+
+function extract(headers) { /* unchanged: returns { ok, bearer, deviceId } or { ok:false, reason } */ }
+
+async function verifyBearer(db, headers) {
+  const ex = extract(headers)
+  if (!ex.ok) return ex
+  const usernameHint = (headers['x-qb-user'] || headers['X-QB-User'] || '').toString().trim() || null
+  const candidates = usernameHint
+    ? [await users.getByUsername(db, usernameHint)].filter(Boolean)
+    : await db.selectFrom('users').selectAll().execute()
+  for (const u of candidates) {
+    if (token.verify({ bearer: ex.bearer, deviceId: ex.deviceId, token: u.secret })) {
+      return { ok: true, userId: u.id, username: u.username, deviceId: ex.deviceId }
+    }
+  }
+  return { ok: false, reason: 'hmac-mismatch' }
+}
+
+module.exports = { verifyBearer, extract }
+```
+
+Note: `OWNER_TOKEN` env var is no longer consulted by `verifyBearer` directly — it's only used as the **secret** of the bootstrapped `owner` user (Task 37), so existing BYOS deployments keep working without a code change.
+
+- [ ] **Step 3: Update every call site to `await verifyBearer(db, headers)`**
+
+Affected files: `server/src/routes/sync.js`, `server/src/routes/devices.js`, `server/src/routes/extension-notes.js`, `server/src/routes/ai.js`, `server/src/routes/admin.js`, `server/src/routes/auth.js` (change-password + me).
+
+- [ ] **Step 4: Run affected tests, expect PASS**
+
+```powershell
+cd E:\note\quickbrain
+npm test -- tests/server-auth-middleware.test.js tests/server-pull.test.js tests/server-push.test.js tests/server-push-enqueue.test.js tests/server-devices-route.test.js tests/server-extension-notes.test.js tests/server-ai-proxy.test.js
+```
+
+- [ ] **Step 5: Commit**
+
+```powershell
+git add server/src/auth/hmac.js server/src/routes/sync.js server/src/routes/devices.js server/src/routes/extension-notes.js server/src/routes/ai.js server/src/routes/admin.js server/src/routes/auth.js tests/server-auth-middleware.test.js
+git -c user.name='quickbrain' -c user.email='qb@local' commit -m "feat(sync): async multi-tenant verifyBearer"
+```
+
+---
+
+
+### Task 37: bootstrap owner user + enforce NOT NULL
+
+**Files:**
+- Create: `server/src/db/bootstrap.js`
+- Modify: `server/src/index.js` (call `bootstrapDb(db)` before `app.listen`)
+
+- [ ] **Step 1: Failing test for `ensureOwnerUser`**
+
+```js
+import { ensureOwnerUser, enforceNotesUserNotNull } from '../server/src/db/bootstrap.js'
+
+it('ensureOwnerUser seeds owner from OWNER_TOKEN and backfills notes', async () => {
+  process.env.OWNER_TOKEN = 'h'.repeat(32)
+  const db = fakeDb({ token: process.env.OWNER_TOKEN, notes: [{ client_id: 'a', user_id: null }] })
+  const u = await ensureOwnerUser(db)
+  expect(u.username).toBe('owner')
+  expect(u.is_owner).toBe(1)
+  expect(db.notes.find(n => n.client_id === 'a').user_id).toBe(u.id)
+})
+
+it('ensureOwnerUser is idempotent', async () => { /* call twice, only one row */ })
+
+it('enforceNotesUserNotNull sets NOT NULL on notes.user_id', async () => { /* spy on schema.alterTable */ })
+```
+
+- [ ] **Step 2: Implement `bootstrap.js`**
+
+```js
+const bcrypt = require('bcryptjs')
+
+async function ensureOwnerUser(db) {
+  const existing = await db.selectFrom('users').selectAll().where('username', '=', 'owner').executeTakeFirst()
+  if (existing) {
+    await db.updateTable('notes').set({ user_id: existing.id }).where('user_id', 'is', null).execute()
+    return existing
+  }
+  const ownerToken = process.env.OWNER_TOKEN
+  if (!ownerToken) { console.warn('[bootstrap] OWNER_TOKEN not set; skipping owner seed'); return null }
+  const now = Date.now()
+  const passwordHash = bcrypt.hashSync('changeme', 10)
+  const inserted = await db.insertInto('users').values({
+    username: 'owner', password_hash: passwordHash, secret: ownerToken,
+    is_owner: 1, created_at: now, updated_at: now
+  }).returningAll().executeTakeFirst()
+  await db.updateTable('notes').set({ user_id: inserted.id }).where('user_id', 'is', null).execute()
+  console.log('[bootstrap] seeded owner user id=' + inserted.id + ' (username=owner password=changeme secret=*** — change the password!)')
+  return inserted
+}
+
+async function enforceNotesUserNotNull(db) {
+  try {
+    await db.schema.alterTable('notes').alterColumn('user_id', col => col.setNotNull()).execute()
+  } catch (e) {
+    if (!/already (has|is not)?\s*not null/i.test(e.message)) throw e
+  }
+}
+
+module.exports = { ensureOwnerUser, enforceNotesUserNotNull }
+```
+
+- [ ] **Step 3: Wire into `index.js`**
+
+```js
+async function bootstrapDb(db) {
+  await applyAll(db)
+  await ensureOwnerUser(db)
+  await enforceNotesUserNotNull(db)
+}
+
+if (require.main === module) {
+  (async () => {
+    const db = require('./db/pool').createPool()
+    try { await bootstrapDb(db) } catch (e) { console.error('[bootstrap] failed:', e.message); process.exit(1) }
+    const app = build({ db })
+    const cfg = loadConfig()
+    await app.listen({ port: cfg.port, host: '0.0.0.0' })
+  })().catch(e => { console.error(e); process.exit(1) })
+}
+```
+
+Register `authRoutes` in `build({ db })` alongside the others.
+
+- [ ] **Step 4: Run, expect PASS**
+
+```powershell
+cd E:\note\quickbrain
+npm test -- tests/server-bootstrap.test.js
+```
+
+- [ ] **Step 5: Commit**
+
+```powershell
+git add server/src/db/bootstrap.js server/src/index.js tests/server-bootstrap.test.js
+git -c user.name='quickbrain' -c user.email='qb@local' commit -m "feat(sync): bootstrap owner user + enforce notes.user_id"
+```
+
+---
+
+### Task 38: `notes` service filters by `user_id`
+
+**Files:**
+- Modify: `server/src/services/notes.js`
+- Modify: `tests/server-notes-service.test.js`
+
+- [ ] **Step 1: Update function signatures**
+
+```js
+async function findByClientId(db, userId, client_id) { /* .where('user_id','=',userId).where('client_id','=',client_id) */ }
+async function upsertNote(db, userId, incoming) { /* mapIncoming sets user_id = userId */ }
+async function softDelete(db, userId, client_id, updated_at) { /* + where user_id */ }
+async function listChangedSince(db, userId, since, limit) { /* + where user_id, orderBy updated_at asc */ }
+async function listAll(db, userId, limit = 200) { /* new: list recent for /v1/notes GET */ }
+```
+
+`mapIncoming(n, userId)` adds `user_id: userId` to the row.
+
+- [ ] **Step 2: Failing test — cross-user isolation**
+
+```js
+it('listChangedSince returns only the requesters rows', async () => {
+  const db = fakeDb({ token: process.env.OWNER_TOKEN })
+  db.notes.push({ client_id: 'a', user_id: 1, updated_at: 200 })
+  db.notes.push({ client_id: 'b', user_id: 2, updated_at: 200 })
+  const rows = await notes.listChangedSince(db, 1, 0, 50)
+  expect(rows.map(r => r.client_id)).toEqual(['a'])
+})
+```
+
+- [ ] **Step 3: Implement and rerun the full notes-service suite**
+
+```powershell
+cd E:\note\quickbrain
+npm test -- tests/server-notes-service.test.js
+```
+
+- [ ] **Step 4: Commit**
+
+```powershell
+git add server/src/services/notes.js tests/server-notes-service.test.js
+git -c user.name='quickbrain' -c user.email='qb@local' commit -m "feat(sync): notes service scopes by user_id"
+```
+
+---
+
+
+### Task 39: every server route passes `userId` into services
+
+**Files:**
+- Modify: `server/src/routes/sync.js`, `server/src/routes/extension-notes.js`, `server/src/routes/devices.js` (preHandler sets `req.userId`), `server/src/routes/ai.js`
+
+- [ ] **Step 1: Sync push/pull/cursor**
+
+```js
+fastify.post('/v1/sync/push', async (req, reply) => {
+  const v = await verifyBearer(db, req.headers)
+  if (!v.ok) return reply.code(401).send({ error: 'unauthorized', reason: v.reason })
+  const ops = (req.body && req.body.ops) || []
+  const validation = validatePushOps(ops)
+  if (validation.length) return reply.code(400).send({ error: 'invalid-ops', details: validation })
+  const result = await applyOps(db, v.userId, ops)
+  return { accepted: result.accepted.length, conflicts: result.conflicts }
+})
+```
+
+`applyOps(db, userId, ops)` calls `notes.upsertNote(db, userId, op.note)` and `notes.softDelete(db, userId, op.client_id, op.updated_at)`.
+
+- [ ] **Step 2: `/v1/notes` GET and POST**
+
+POST returns `{ success: true, client_id, user_id }` (added `user_id` to the response). GET scopes via `listChangedSince(db, v.userId, since, limit)` or `listAll(db, v.userId, limit)` when `since == 0`.
+
+- [ ] **Step 3: devices preHandler**
+
+```js
+fastify.addHook('preHandler', async (req, reply) => {
+  const v = await verifyBearer(db, req.headers)
+  if (!v.ok) return
+  try { await devices.recordSeen(db, { device_id: v.deviceId, user_id: v.userId, /* ... */ }) } catch (e) { /* log */ }
+  req.deviceId = v.deviceId
+  req.userId = v.userId
+})
+```
+
+`devices.recordSeen` now also stores `user_id` so admin's "device list" can show per-user device rows (future: cross-owner visibility filtering on the admin UI).
+
+- [ ] **Step 4: Rerun the affected test files**
+
+```powershell
+cd E:\note\quickbrain
+npm test -- tests/server-pull.test.js tests/server-push.test.js tests/server-push-enqueue.test.js tests/server-extension-notes.test.js tests/server-devices-route.test.js tests/server-ai-proxy.test.js
+```
+
+Expected: every file green (after Tasks 36 and 38).
+
+- [ ] **Step 5: Commit**
+
+```powershell
+git add server/src/routes/sync.js server/src/routes/extension-notes.js server/src/routes/devices.js
+git -c user.name='quickbrain' -c user.email='qb@local' commit -m "feat(sync): routes scope by userId"
+```
+
+---
+
+### Task 40: `tests/helpers/fake-db.js` — Kysely-shaped in-memory fake
+
+**Files:**
+- Create: `tests/helpers/fake-db.js`
+
+- [ ] **Step 1: Implement**
+
+Minimal Kysely-like fake supporting `selectFrom(table).selectAll().where(col, op, val).execute() / .executeTakeFirst()`, `insertInto(table).values(v).onConflict(...).doUpdateSet(patch).executeTakeFirst()`, `updateTable(table).set(p).where(col, op, val).execute()`, `db.schema.alterTable(...).alterColumn(...).setNotNull().execute()` (spied).
+
+Tables implemented: `users` (small fixed array), `notes` (Map keyed by `client_id`, scoped by `user_id`), `devices` (Map keyed by `device_id`).
+
+- [ ] **Step 2: Refactor every test that previously hand-rolled a fake DB**
+
+Affected: `tests/server-auth-middleware.test.js`, `tests/server-pull.test.js`, `tests/server-push.test.js`, `tests/server-push-enqueue.test.js`, `tests/server-notes-service.test.js`, `tests/server-extension-notes.test.js`, `tests/server-devices-route.test.js`, `tests/server-ai-proxy.test.js`.
+
+Each test now starts with:
+
+```js
+import { fakeDb } from './helpers/fake-db.js'
+const db = fakeDb({ token: process.env.OWNER_TOKEN })
+```
+
+…then sets up notes/devices/users by mutating `db.notes` / `db.users` arrays directly.
+
+- [ ] **Step 3: Run, expect PASS**
+
+```powershell
+cd E:\note\quickbrain
+npm test
+```
+
+- [ ] **Step 4: Commit**
+
+```powershell
+git add tests/helpers/fake-db.js tests/server-auth-middleware.test.js tests/server-pull.test.js tests/server-push.test.js tests/server-push-enqueue.test.js tests/server-notes-service.test.js tests/server-extension-notes.test.js tests/server-devices-route.test.js tests/server-ai-proxy.test.js
+git -c user.name='quickbrain' -c user.email='qb@local' commit -m "test(sync): fake-db helper + rewrite server-* unit tests"
+```
+
+---
+
+### Task 41: `shared/schema/pg/migrations.js` rewrite on top of Kysely transactions
+
+**Files:**
+- Modify: `shared/schema/pg/migrations.js`
+
+- [ ] **Step 1: Rewrite**
+
+The old implementation used `pool.connect()` + raw `pg.query()`. Replace with Kysely so the same migration driver works whether the caller passes a `pg.Pool` (production, wrapped as Kysely) or a Kysely instance directly (tests):
+
+```js
+async function applyAll(db) {
+  await db.schema.createTable('schema_version').ifNotExists()
+    .addColumn('version', 'integer', col => col.primaryKey())
+    .addColumn('applied_at', 'bigint', col => col.notNull())
+    .execute().catch(() => { /* already exists race */ })
+
+  const existing = await db.selectFrom('schema_version').select('version').execute()
+  const applied = new Set(existing.map(r => r.version))
+  for (const m of readMigrations()) {
+    const version = parseInt(m.name.split('_')[0], 10)
+    if (applied.has(version)) continue
+    await db.transaction().execute(async trx => {
+      await trx.executeQuery({ sql: m.sql, parameters: [], query: { kind: 'RawNode' } })
+      await trx.insertInto('schema_version').values({ version, applied_at: Date.now() }).execute()
+    })
+  }
+}
+```
+
+- [ ] **Step 2: Run, expect PASS**
+
+```powershell
+cd E:\note\quickbrain
+npm test -- tests/shared-schema-pg.test.js
+```
+
+- [ ] **Step 3: Commit**
+
+```powershell
+git add shared/schema/pg/migrations.js
+git -c user.name='quickbrain' -c user.email='qb@local' commit -m "refactor(sync): pg migrator on Kysely transactions"
+```
+
+---
+
+### Phase-9 known follow-ups (not blocking, parked for the SaaS plan)
+
+- Add a `X-QB-User` header to the desktop sync client so `verifyBearer` can short-circuit instead of scanning the `users` table.
+- Server-side device registry: today `devices.user_id` is captured but admin UI still lists cross-user; add a per-user filter.
+- `users.delete` / "deactivate account" route + soft-delete column on `users`.
+- Per-user AES-256-GCM AI key store (current `config` table is global — change to `(user_id, key)`).
+- Rate limit `/v1/auth/login` (bcrypt cost 10 is intentional but vulnerable to credential stuffing without a limiter).
+- E2E test that registers two users on one server and verifies notes from user A are never visible to user B (currently only unit-tested).
+
+---
 ---
 
 ## Self-review
@@ -3830,9 +4451,14 @@ git -c user.name='quickbrain' -c user.email='qb@local' commit -m "test: e2e sync
 | 9.1 first-run BYOS bootstrap | Task 8, 12 |
 | 9.2 devices registry | Task 15 |
 | 9.3 token format (HMAC-bound) | Task 13, 14 |
+| 9.4 multi-tenant users table + per-user secret | Task 33, 34, 36, 37 |
+| 9.5 /v1/auth/register|login|change-password|me | Task 35 |
+| 9.6 per-user sync isolation (notes.user_id) | Task 36, 38, 39 |
+| 9.7 Kysely-based migrator | Task 41 |
+| 9.8 fake-db test helper | Task 40 |
 | 10 admin UI | Task 29 |
 | 11 config (env, client JSON) | Task 8, 21 |
-| 13 risks (see mitigations) | implicit (offline-first, LWW, HMAC binding, AES at rest) |
+| 13 risks (see mitigations) | implicit (offline-first, LWW, HMAC binding, AES at rest, per-user secret rotation on password change) |
 | 14 phased plan | every Task above |
 
 **Placeholder scan:** No `TBD` / `TODO` / `fill in details` in any task. Each step shows exact commands and code.
@@ -3865,7 +4491,7 @@ npm rebuild better-sqlite3
 npm test
 ```
 
-Expected: every test file green. Then:
+Expected: every test file green, including `tests/server-auth.test.js`, `tests/server-auth-middleware.test.js`, `tests/server-users-service.test.js`, `tests/server-bootstrap.test.js`. Then:
 
 ```powershell
 npx @electron/rebuild -f -w better-sqlite3

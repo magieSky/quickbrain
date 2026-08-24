@@ -143,6 +143,12 @@ function registerIpcHandlers() {
     db.prepare('UPDATE notes SET is_private = ?, updated_at = ? WHERE id = ?')
       .run(isPriv ? 1 : 0, Date.now(), id)
     enqueueNoteOutbox(db, id, isPriv ? 'delete' : 'upsert')
+    try {
+      const { BrowserWindow } = require('electron')
+      for (const w of BrowserWindow.getAllWindows()) {
+        if (!w.isDestroyed()) w.webContents.send('notes-updated', { type: 'privacy', id, is_private: isPriv ? 1 : 0 })
+      }
+    } catch (_) {}
     return { ok: true, id, is_private: isPriv }
   })
 
@@ -158,6 +164,12 @@ function registerIpcHandlers() {
       for (const id of ids) stmt.run(isPriv ? 1 : 0, ts, id)
     })()
     for (const id of ids) enqueueNoteOutbox(db, id, isPriv ? 'delete' : 'upsert')
+    try {
+      const { BrowserWindow } = require('electron')
+      for (const w of BrowserWindow.getAllWindows()) {
+        if (!w.isDestroyed()) w.webContents.send('notes-updated', { type: 'privacy-bulk', count: ids.length })
+      }
+    } catch (_) {}
     return { ok: true, count: ids.length, is_private: isPriv }
   })
 
@@ -265,6 +277,12 @@ function registerIpcHandlers() {
     // enqueueNoteOutbox skips rows whose is_private=1, so private notes are
     // never queued for upload. Public notes land in the outbox as before.
     enqueueNoteOutbox(db, id, 'upsert')
+    try {
+      const { BrowserWindow } = require('electron')
+      for (const w of BrowserWindow.getAllWindows()) {
+        if (!w.isDestroyed()) w.webContents.send('notes-updated', { type: 'add', id })
+      }
+    } catch (_) {}
     return { id, ...(noteData || {}), is_private: isPrivate }
   })
 

@@ -178,6 +178,14 @@ app.whenReady().then(async () => {
   runtime.set(syncDaemon)
 
   function applyServerRowToDb(db, row) {
+    // A row the user marked private must never be overwritten by a server
+    // pull — the whole point of going private is "the server doesn't get
+    // to decide what this row looks like". So when our own toggle-private
+    // push triggers a server-side soft-delete that flows back via pull,
+    // we drop it on the floor here. Similarly, server edits that arrive
+    // for a row we have since hidden stay hidden.
+    const local = db.prepare('SELECT is_private FROM notes WHERE client_id = ?').get(row.client_id)
+    if (local && local.is_private) return
     if (row.deleted_at) {
       db.prepare('UPDATE notes SET deleted_at = ? WHERE client_id = ?').run(row.deleted_at, row.client_id)
       return

@@ -1,14 +1,17 @@
-const Fastify = require('fastify')
+﻿const Fastify = require('fastify')
 const path = require('path')
 const { loadConfig } = require('./config')
 const healthRoutes = require('./routes/health')
 const devicesRoutes = require('./routes/devices')
 const syncRoutes = require('./routes/sync')
 const extensionNotesRoutes = require('./routes/extension-notes')
+const authRoutes = require('./routes/auth')
 const extractionQueue = require('./queues/extraction')
 const { extractAtomsForSource } = require('./extractor')
 const aiRoutes = require('./routes/ai')
 const aiSvc = require('./services/ai')
+const { applyAll } = require('@quickbrain/shared/schema/pg/migrations')
+const { ensureOwnerUser, enforceNotesUserNotNull } = require('./db/bootstrap')
 
 function build({ db = null } = {}) {
   const cfg = loadConfig()
@@ -22,6 +25,7 @@ function build({ db = null } = {}) {
     app.get('/admin', async (_req, reply) => reply.redirect('/admin/'))
   } catch (e) { console.warn('[server] admin static not available:', e.message) }
   if (db) {
+    app.register(authRoutes, { db })
     app.register(devicesRoutes, { db })
     app.register(syncRoutes, { db })
     app.register(extensionNotesRoutes, { db })
@@ -45,11 +49,25 @@ async function startExtractionWorker({ db, aiService, redisUrl }) {
   })
 }
 
-module.exports = { build, startExtractionWorker }
+async function bootstrapDb(db) {
+  await applyAll(db)
+  await ensureOwnerUser(db)
+  await enforceNotesUserNotNull(db)
+}
+
+module.exports = { build, startExtractionWorker, bootstrapDb }
 
 if (require.main === module) {
-  build({ db: require('./db/pool').createPool() }).then(async (app) => {
+  (async () => {
+    const db = require('./db/pool').createPool()
+    try {
+      await bootstrapDb(db)
+    } catch (e) {
+      console.error('[bootstrap] failed:', e.message)
+      process.exit(1)
+    }
+    const app = build({ db })
     const cfg = loadConfig()
     await app.listen({ port: cfg.port, host: '0.0.0.0' })
-  }).catch(e => { console.error(e); process.exit(1) })
+  })().catch(e => { console.error(e); process.exit(1) })
 }

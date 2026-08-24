@@ -39,6 +39,8 @@ contextBridge.exposeInMainWorld('quickbrain', {
   pushLocal: () => ipcRenderer.invoke('push-local'),
   pushAll: () => ipcRenderer.invoke('push-all'),
   pullNow: () => ipcRenderer.invoke('pull-now'),
+  registerWithServer: (payload) => ipcRenderer.invoke('register-with-server', payload),
+  signInWithToken: (payload) => ipcRenderer.invoke('sign-in-with-token', payload),
 
   // Window controls
   hideWindow: () => ipcRenderer.send('hide-window'),

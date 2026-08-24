@@ -1,4 +1,4 @@
-const fs = require('fs')
+﻿const fs = require('fs')
 const path = require('path')
 
 const DIR = path.join(__dirname)
@@ -10,27 +10,36 @@ function readMigrations() {
     .map(name => ({ name, sql: fs.readFileSync(path.join(DIR, name), 'utf8') }))
 }
 
-async function applyAll(pool) {
-  const client = await pool.connect()
-  try {
-    await client.query('CREATE TABLE IF NOT EXISTS schema_version (version INTEGER PRIMARY KEY, applied_at BIGINT NOT NULL)')
-    const { rows } = await client.query('SELECT version FROM schema_version')
-    const applied = new Set(rows.map(r => r.version))
-    for (const m of readMigrations()) {
-      const version = parseInt(m.name.split('_')[0], 10)
-      if (applied.has(version)) continue
-      await client.query('BEGIN')
-      try {
-        await client.query(m.sql)
-        await client.query('INSERT INTO schema_version (version, applied_at) VALUES ($1, $2)', [version, Date.now()])
-        await client.query('COMMIT')
-      } catch (e) {
-        await client.query('ROLLBACK')
-        throw e
-      }
-    }
-  } finally {
-    client.release()
+/**
+ * Apply migrations using a Kysely instance.
+ * Uses Kysely's transaction() + executeQuery for raw SQL.
+ */
+async function applyAll(db) {
+  await db.schema
+    .createTable('schema_version')
+    .ifNotExists()
+    .addColumn('version', 'integer', col => col.primaryKey())
+    .addColumn('applied_at', 'bigint', col => col.notNull())
+    .execute()
+    .catch(() => { /* ignore "already exists" race */ })
+
+  const existing = await db.selectFrom('schema_version').select('version').execute()
+  const applied = new Set(existing.map(r => r.version))
+  for (const m of readMigrations()) {
+    const version = parseInt(m.name.split('_')[0], 10)
+    if (applied.has(version)) continue
+    await db.transaction().execute(async trx => {
+      // Run the raw SQL via Kysely's executeQuery
+      await trx.executeQuery({
+        sql: m.sql,
+        parameters: [],
+        query: { kind: 'RawNode' }
+      })
+      await trx
+        .insertInto('schema_version')
+        .values({ version, applied_at: Date.now() })
+        .execute()
+    })
   }
 }
 

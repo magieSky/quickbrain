@@ -30,7 +30,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: npm
 
       - name: Show toolchain
@@ -41,10 +41,12 @@ jobs:
           uname -a || true
 
       - name: Install deps (workspaces)
+        # better-sqlite3 + @node-rs/jieba ship darwin-arm64 prebuilts via optionalDependencies;
+        # no manual @electron/rebuild needed (both use N-API / napi-rs prebuilt).
+        env:
+          npm_config_fund: "false"
+          npm_config_audit: "false"
         run: npm ci
-
-      - name: Rebuild native modules for Electron
-        run: npx --yes @electron/rebuild -f -w better-sqlite3 -w @node-rs/jieba
 
       - name: Build macOS dmg (arm64, unsigned dev)
         env:

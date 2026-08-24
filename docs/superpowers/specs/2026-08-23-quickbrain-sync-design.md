@@ -33,15 +33,50 @@ Success criteria:
 
 ## 3. Deployment modes
 
-The same codebase ships in three modes. The mode is decided at server startup (MODE env var), and the client picks sync.enabled independently in Settings.
+QuickBrain is shipped as **one client binary + one optional server binary**, with a deployment choice the user makes in Settings. There is **no separate SaaS build**; the same server code runs as a local BYOS instance or (later) a hosted multi-tenant service. The user picks which one to point at; switching is just changing `server.url` + `server.token` in client Settings.
 
-| Mode | Server | Client config | Auth | Network |
-|---|---|---|---|---|
-| Local | none | sync.enabled = false | n/a | none |
-| BYOS | user runs quickbrain-server on a NAS/PC, MODE=byos | sync.enabled = true, server.url, server.token | first-run token from server .env | LAN or reverse-proxied HTTPS |
-| SaaS (later) | QuickBrain hosted, MODE=saas | same as BYOS | email + password -> JWT | public HTTPS |
+### 3.1 Two independent client switches
 
-All three modes share the same client code. The client does not know whether the server is local or remote; it just speaks the sync protocol over HTTPS.
+The client has **two orthogonal toggles**, both defaulting to off / direct:
+
+| Client setting | Values | Default | Meaning |
+|---|---|---|---|
+| `sync.enabled` | `true` / `false` | `false` | When true, the daemon pulls/pushes notes to the configured server. When false, the app is fully local (no network). |
+| `ai.mode` | `direct` / `server` | `direct` | `direct` = client calls OpenAI/Deepseek/etc. directly using its own `apiKey`. `server` = client posts to the server's `/v1/ai/*` proxy (server-side API key, shared quota). |
+
+These are independent. A user can have `sync.enabled = false` and still use `ai.mode = server` (only meaningful with a server running); or `sync.enabled = true` and `ai.mode = direct` (sync notes, run AI locally). The four cells are all supported.
+
+### 3.2 Server `MODE` env var
+
+The server is one Fastify app. Its behaviour is selected by `MODE` at startup (`server/src/config.js:11`):
+
+| `MODE` | Meaning | Users | Notes |
+|---|---|---|---|
+| `byos` (default) | Bring Your Own Server — user runs it on NAS / Docker / PC | 1 owner by default; can register more via `POST /v1/auth/register` | `OWNER_TOKEN` is auto-seeded from env or generated + logged on first boot. |
+| `local` | Same Fastify app, but DB + Redis bound to localhost only | 1 owner | Equivalent to `byos` with `host=127.0.0.1`; kept as an explicit knob for clarity. |
+| `saas` (later) | Hosted multi-tenant QuickBrain service | N users, each registered with email + password | The code path is identical to `byos`; only the bootstrap differs (no auto owner, registration is the only entry). |
+
+`local` / `byos` / `saas` are **not separate code forks**. The server reads `MODE` once at startup and switches the bootstrap policy (auto-seed owner vs require registration) and the bind address. All sync / AI / auth routes are shared.
+
+### 3.3 What the user actually picks
+
+The user's real-world decision is **"do I run a server, and if so, where?"**:
+
+1. **Pure local.** Install client only. `sync.enabled = false`, `ai.mode = direct`, paste own API key. No server, no network. Identical to pre-sync QuickBrain.
+2. **Self-hosted (BYOS).** Run `quickbrain-server` on a NAS / Docker host with `MODE=byos`. Copy the printed `OWNER_TOKEN` into the client's Server settings on every device that should sync. `ai.mode = server` optional — lets multiple devices share one AI key.
+3. **Hosted SaaS (later).** Sign up at `quickbrain.app`. Set `sync.enabled = true`, `server.url = https://api.quickbrain.app`, `server.token = <JWT from login>`. Same client binary, same sync protocol, same AI proxy.
+4. **Mixed.** `sync.enabled = true` + `ai.mode = direct` — sync notes to BYOS/SaaS but run AI on each device with its own key.
+
+The client does not know whether the server is local or remote; it speaks the sync protocol over HTTPS (or LAN HTTP) and the AI proxy over the same connection.
+
+### 3.4 Multi-tenant safety (Phase 9)
+
+Regardless of which `MODE` is active, **data is always scoped per user**:
+
+- `notes.user_id` is `NOT NULL`; the server enforces this on bootstrap (`enforceNotesUserNotNull`).
+- Every sync / AI / extension-notes route filters by the authenticated userId from the bearer.
+- A leaked token from user A cannot read user B's notes, even within the same `byos` deployment.
+- The first user in a fresh BYOS deployment is the `owner` row seeded from `OWNER_TOKEN`; subsequent users are added via `POST /v1/auth/register`.
 
 ## 4. Repository layout (monorepo)
 

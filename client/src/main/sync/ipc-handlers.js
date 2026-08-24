@@ -6,6 +6,79 @@ const syncClient = require('./client')
 const runtime = require('./runtime')
 const migration = require('./migration')
 
+/**
+ * Sign up a new account on the SaaS server. POST {serverUrl}/v1/auth/register
+ * with {username, password}. On success, write the resulting secret into
+ * local config under sync.* and enable sync.
+ *
+ * Returns: { ok, username, secret } on success; { ok: false, error } on failure.
+ */
+async function registerWithServer({ serverUrl, username, password }) {
+  if (!serverUrl || typeof serverUrl !== 'string') return { ok: false, error: 'missing-server-url' }
+  if (!username || typeof username !== 'string') return { ok: false, error: 'missing-username' }
+  if (!password || typeof password !== 'string') return { ok: false, error: 'missing-password' }
+  let base = serverUrl; while (base.endsWith('/')) base = base.slice(0, -1)
+  let res, text
+  try {
+    res = await fetch(base + '/v1/auth/register', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    })
+    text = await res.text()
+  } catch (e) {
+    return { ok: false, error: 'network-error: ' + (e.message || String(e)) }
+  }
+  let body
+  try { body = JSON.parse(text) } catch { body = { error: 'invalid-response: ' + text.slice(0, 80) } }
+  if (!res.ok || !body.ok) return { ok: false, error: body.error || ('http-' + res.status) }
+  // Persist as enabled sync with this server
+  const cur = cfg.read()
+  const sync = Object.assign({}, cur.sync || {}, {
+    enabled: true,
+    serverUrl: base,
+    token: body.secret
+  })
+  sync.deviceId = sync.deviceId || cfg.ensureDeviceId()
+  cur.sync = sync
+  cfg.write(cur)
+  return { ok: true, username: body.username, user_id: body.user_id, secret: body.secret }
+}
+
+/**
+ * Sign in with an existing token (paste from another device or recovered from
+ * a backup). Validates by calling /v1/auth/me, then persists serverUrl + token
+ * into local config and enables sync.
+ */
+async function signInWithToken({ serverUrl, token }) {
+  if (!serverUrl || typeof serverUrl !== 'string') return { ok: false, error: 'missing-server-url' }
+  if (!token || typeof token !== 'string') return { ok: false, error: 'missing-token' }
+  let base = serverUrl; while (base.endsWith('/')) base = base.slice(0, -1)
+  // Build a bearer from the token + our deviceId, then probe /v1/auth/me
+  const deviceId = cfg.ensureDeviceId()
+  const bearer = cfg.buildBearer({ deviceId, token })
+  if (!bearer) return { ok: false, error: 'build-bearer-failed' }
+  let res, text
+  try {
+    res = await fetch(base + '/v1/auth/me', {
+      method: 'GET',
+      headers: { authorization: 'Bearer ' + bearer, 'x-qb-device': deviceId }
+    })
+    text = await res.text()
+  } catch (e) {
+    return { ok: false, error: 'network-error: ' + (e.message || String(e)) }
+  }
+  let body
+  try { body = JSON.parse(text) } catch { body = {} }
+  if (!res.ok) return { ok: false, error: body.error || ('http-' + res.status) }
+  const cur = cfg.read()
+  const sync = Object.assign({}, cur.sync || {}, { enabled: true, serverUrl: base, token })
+  sync.deviceId = deviceId
+  cur.sync = sync
+  cfg.write(cur)
+  return { ok: true, username: body.username, user_id: body.user_id }
+}
+
 function registerSyncHandlers(getDB) {
   ipcMain.handle('get-sync-config', () => {
     const c = cfg.read().sync || {}
@@ -70,7 +143,17 @@ function registerSyncHandlers(getDB) {
     return { ok: false, error: 'tickPull-not-available' }
   })
 
-  ipcMain.handle('push-all', async () => {
+  ipcMain.handle('register-with-server', async (_e, payload) => {
+    try { return await registerWithServer(payload || {}) }
+    catch (e) { return { ok: false, error: 'unexpected: ' + (e.message || String(e)) } }
+  })
+
+  ipcMain.handle('sign-in-with-token', async (_e, payload) => {
+    try { return await signInWithToken(payload || {}) }
+    catch (e) { return { ok: false, error: 'unexpected: ' + (e.message || String(e)) } }
+  })
+
+    ipcMain.handle('push-all', async () => {
     const c = cfg.read().sync || {}
     if (!c.enabled || !c.serverUrl) return { ok: false, error: 'sync-disabled' }
     const bearer = cfg.buildBearer()
@@ -84,4 +167,4 @@ function registerSyncHandlers(getDB) {
   })
 }
 
-module.exports = { registerSyncHandlers }
+module.exports = { registerSyncHandlers, registerWithServer, signInWithToken }

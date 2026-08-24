@@ -14,7 +14,10 @@
     "rebuild:electron": "npx --yes @electron/rebuild -f -w better-sqlite3",
     "rebuild:node": "npm rebuild better-sqlite3",
     "test:all": "npm run rebuild:node && npm test",
-    "start:fresh": "npm run rebuild:electron && electron ."
+    "start:fresh": "npm run rebuild:electron && electron .",
+    "build:mac": "electron-builder --mac --arm64",
+    "build:mac:universal": "electron-builder --mac --arm64 --x64",
+    "build:mac:intel": "electron-builder --mac --x64"
   },
   "keywords": [
     "knowledge",
@@ -86,7 +89,22 @@
       "**/node_modules/better-sqlite3/**/*",
       "**/node_modules/@node-rs/jieba/**/*",
       "**/node_modules/bindings/**/*"
-    ]
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64"
+          ]
+        }
+      ],
+      "icon": "client/src/assets/icon.ico",
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "identity": null
+    }
   },
   "workspaces": [
     "client",

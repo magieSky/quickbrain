@@ -2,15 +2,12 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import Database from 'better-sqlite3'
 import fs from 'fs'
 import path from 'path'
-import { searchNotes, addNote } from '../../main/db/search.js'
+import { searchNotes, addNote } from '../../client/src/main/db/search.js'
 
 function freshDb() {
   const db = new Database(':memory:')
-  const schema = fs.readFileSync(
-    path.join(__dirname, '..', '..', 'main', 'db', 'schema.sql'),
-    'utf8'
-  )
-  db.exec(schema)
+  const { applyAll } = require('@quickbrain/shared/schema/sqlite/migrations')
+  applyAll(db)
   return db
 }
 

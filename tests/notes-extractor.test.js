@@ -6,18 +6,19 @@ import path from 'path'
 let db
 beforeEach(() => {
   db = new Database(':memory:')
-  db.exec(fs.readFileSync(path.join(__dirname, '..', 'main', 'db', 'schema.sql'), 'utf8'))
-  const { migrate } = require('../main/db-init.js')
-  migrate(db)
-  require.cache[require.resolve('../main/db-init.js')].exports.getDB = () => db
+  const { applyAll } = require('@quickbrain/shared/schema/sqlite/migrations')
+  applyAll(db)
+  // Prime the require cache so the getDB override below targets the loaded module
+  require('../client/src/main/db-init.js')
+  require.cache[require.resolve('../client/src/main/db-init.js')].exports.getDB = () => db
 })
 afterEach(() => { db.close() })
 
 describe('extractAtomsForSource', () => {
   it('returns ai-not-configured when no service', async () => {
-    const { setExtractorAIService, extractAtomsForSource } = require('../main/notes-extractor.js')
+    const { setExtractorAIService, extractAtomsForSource } = require('../client/src/main/notes-extractor.js')
     setExtractorAIService(null)
-    const { addNote } = require('../main/db/search.js')
+    const { addNote } = require('../client/src/main/db/search.js')
     const id = addNote(db, { title: 't', content: 'c' })
     const r = await extractAtomsForSource(id)
     expect(r.ok).toBe(false)
@@ -25,13 +26,13 @@ describe('extractAtomsForSource', () => {
   })
 
   it('happy path inserts atoms and stamps extracted_at', async () => {
-    const { setExtractorAIService, extractAtomsForSource } = require('../main/notes-extractor.js')
+    const { setExtractorAIService, extractAtomsForSource } = require('../client/src/main/notes-extractor.js')
     const fakeAi = { extractAtoms: vi.fn().mockResolvedValue([
       { title: 'A', content: 'a', source_range: { start: 0, end: 1 } },
       { title: 'B', content: 'b', source_range: { start: 1, end: 2 } }
     ]) }
     setExtractorAIService(fakeAi)
-    const { addNote, getSourceNotes } = require('../main/db/search.js')
+    const { addNote, getSourceNotes } = require('../client/src/main/db/search.js')
     const id = addNote(db, { title: 't', content: 'content here' })
     const r = await extractAtomsForSource(id)
     expect(r.ok).toBe(true)
@@ -43,9 +44,9 @@ describe('extractAtomsForSource', () => {
   })
 
   it('marks source as failed on AI error', async () => {
-    const { setExtractorAIService, extractAtomsForSource } = require('../main/notes-extractor.js')
+    const { setExtractorAIService, extractAtomsForSource } = require('../client/src/main/notes-extractor.js')
     setExtractorAIService({ extractAtoms: vi.fn().mockRejectedValue(new Error('boom')) })
-    const { addNote } = require('../main/db/search.js')
+    const { addNote } = require('../client/src/main/db/search.js')
     const id = addNote(db, { title: 't', content: 'c' })
     const r = await extractAtomsForSource(id)
     expect(r.ok).toBe(false)
@@ -54,10 +55,10 @@ describe('extractAtomsForSource', () => {
   })
 
   it('skips when source already extracted (no force)', async () => {
-    const { setExtractorAIService, extractAtomsForSource } = require('../main/notes-extractor.js')
+    const { setExtractorAIService, extractAtomsForSource } = require('../client/src/main/notes-extractor.js')
     const fakeAi = { extractAtoms: vi.fn() }
     setExtractorAIService(fakeAi)
-    const { addNote } = require('../main/db/search.js')
+    const { addNote } = require('../client/src/main/db/search.js')
     const id = addNote(db, { title: 't', content: 'c' })
     db.prepare('UPDATE notes SET extracted_at = ? WHERE id = ?').run(Date.now(), id)
     const r = await extractAtomsForSource(id)
@@ -67,12 +68,12 @@ describe('extractAtomsForSource', () => {
   })
 
   it('force=true re-extracts and deletes existing atoms', async () => {
-    const { setExtractorAIService, extractAtomsForSource } = require('../main/notes-extractor.js')
+    const { setExtractorAIService, extractAtomsForSource } = require('../client/src/main/notes-extractor.js')
     const fakeAi = { extractAtoms: vi.fn().mockResolvedValue([
       { title: 'New', content: 'n', source_range: { start: 0, end: 1 } }
     ]) }
     setExtractorAIService(fakeAi)
-    const { addNote, addAtomNote } = require('../main/db/search.js')
+    const { addNote, addAtomNote } = require('../client/src/main/db/search.js')
     const id = addNote(db, { title: 't', content: 'c' })
     addAtomNote(db, { parentId: id, title: 'Old', content: 'o', sourceRange: {} })
     expect(db.prepare('SELECT count(*) c FROM notes WHERE is_atom=1').get().c).toBe(1)
@@ -85,7 +86,7 @@ describe('extractAtomsForSource', () => {
   })
 
   it('returns not-found for missing source id', async () => {
-    const { setExtractorAIService, extractAtomsForSource } = require('../main/notes-extractor.js')
+    const { setExtractorAIService, extractAtomsForSource } = require('../client/src/main/notes-extractor.js')
     setExtractorAIService({ extractAtoms: vi.fn() })
     const r = await extractAtomsForSource(99999)
     expect(r.ok).toBe(false)

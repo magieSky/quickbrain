@@ -26,11 +26,14 @@ async function req({ serverUrl, bearer, deviceId, path, body }) {
 function getProxyContext() {
   const c = cfg.read()
   const ai = c.ai || {}
-  if (!ai.serverUrl || !ai.serverToken) return null
-  const deviceId = ai.deviceId || cfg.ensureAIDeviceId()
-  const bearer = cfg.buildBearer({ deviceId, token: ai.serverToken })
+  const sync = c.sync || {}
+  if (ai.mode !== 'server') return null
+  if (!sync.enabled) return null
+  if (!sync.serverUrl || !sync.token) return null
+  const deviceId = sync.deviceId || (function () { sync.deviceId = cfg.ensureDeviceId(); return sync.deviceId })()
+  const bearer = cfg.buildBearer({ deviceId, token: sync.token })
   if (!bearer) return null
-  return { serverUrl: ai.serverUrl, bearer, deviceId }
+  return { serverUrl: sync.serverUrl, bearer, deviceId }
 }
 
 async function formatViaServer({ content, style }) {

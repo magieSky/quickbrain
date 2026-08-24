@@ -1,14 +1,54 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
-  <h1>QuickBrain</h1>
-  <button id="save-selection">📋 保存选中</button>
-  <button id="save-page">📄 保存整页</button>
-  <p id="status"></p>
+  <main id="view-main" class="view view-active">
+    <header class="head">
+      <h1>速脑</h1>
+      <button id="open-settings" class="icon-btn" title="设置">⚙</button>
+    </header>
+    <div id="status" class="status">连接中…</div>
+    <div class="actions">
+      <button id="save-selection" class="btn">保存选中到速脑</button>
+      <button id="save-page" class="btn">保存整页到速脑</button>
+    </div>
+    <footer class="hint">
+      <span>右键菜单 / <span class="kbd">Alt+Shift+S</span> / <span class="kbd">Alt+Shift+P</span></span>
+    </footer>
+  </main>
+
+  <section id="view-settings" class="view">
+    <header class="head">
+      <button id="back-main" class="icon-btn" title="返回">←</button>
+      <h1>设置</h1>
+    </header>
+    <div class="form">
+      <label class="field">
+        <span class="label">后端地址</span>
+        <input id="endpoint-url" type="text" placeholder="http://127.0.0.1:7421 或 https://note.bjhzsk.cn">
+        <small class="hint-text">本地桌面 app 或自托管服务端地址</small>
+      </label>
+      <label class="field">
+        <span class="label">Token（云端模式需要）</span>
+        <input id="auth-token" type="password" placeholder="本地模式可留空">
+        <small class="hint-text">云端使用 OWNER_TOKEN（HMAC 鉴权）</small>
+      </label>
+      <label class="field">
+        <span class="label">设备 ID</span>
+        <input id="device-id" type="text" readonly>
+        <small class="hint-text">首次访问自动生成；同步需要保持一致</small>
+      </label>
+      <div class="row">
+        <button id="save-config" class="btn primary">保存</button>
+        <button id="reset-config" class="btn">恢复默认</button>
+      </div>
+      <div id="settings-status" class="status-mini"></div>
+    </div>
+  </section>
+
   <script src="popup.js"></script>
 </body>
 </html>

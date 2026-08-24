@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
@@ -326,6 +326,95 @@
       </div>
     </section>
 
+
+    <!-- CHROME EXTENSION -->
+    <section id="extension" class="section extension">
+      <div class="container">
+        <div class="download-card reveal">
+          <span class="kicker">Chrome 扩展 · v0.3.0</span>
+          <h2 class="section-title">网页内容 <span class="grad-text">一键入库</span></h2>
+          <p class="section-sub">选中文字右键保存片段，或右键整页入库，原文 + URL 一并存到速脑。本地默认，云端可选。</p>
+
+          <div class="download-row">
+            <a class="btn btn-primary btn-lg" href="https://note.bjhzsk.cn/downloads/quickbrain-extension-v0.3.0.zip" download>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/></svg>
+              下载 quickbrain-extension-v0.3.0.zip · 14 KB
+            </a>
+            <a class="btn btn-ghost btn-lg" href="#extension-install">
+              查看安装步骤
+            </a>
+          </div>
+
+          <div class="download-meta">
+            <span>✓ Chrome / Edge / Brave</span>
+            <span>✓ 本地 / 云端任选</span>
+            <span>✓ 右键 + 快捷键</span>
+            <span>✓ MIT 协议</span>
+          </div>
+
+          <div class="extension-install" id="extension-install">
+            <h3 class="section-sub">安装步骤</h3>
+            <ol class="how-steps">
+              <li class="how-step reveal">
+                <div class="how-num">01</div>
+                <div class="how-body">
+                  <h3>下载并解压</h3>
+                  <p>下载 <code>quickbrain-extension-v0.3.0.zip</code> 后解压到任意文件夹（路径不含中文更稳妥）。</p>
+                </div>
+              </li>
+              <li class="how-step reveal">
+                <div class="how-num">02</div>
+                <div class="how-body">
+                  <h3>打开扩展页</h3>
+                  <p>Chrome 地址栏输入 <code>chrome://extensions/</code> 并回车。</p>
+                </div>
+              </li>
+              <li class="how-step reveal">
+                <div class="how-num">03</div>
+                <div class="how-body">
+                  <h3>开启开发者模式</h3>
+                  <p>点击页面右上角的「开发者模式」开关（Developer mode）。</p>
+                </div>
+              </li>
+              <li class="how-step reveal">
+                <div class="how-num">04</div>
+                <div class="how-body">
+                  <h3>加载已解压的扩展</h3>
+                  <p>点击「加载已解压的扩展程序」按钮（Load unpacked），选择刚才解压的文件夹。</p>
+                </div>
+              </li>
+              <li class="how-step reveal">
+                <div class="how-num">05</div>
+                <div class="how-body">
+                  <h3>配置后端地址</h3>
+                  <p>点击工具栏扩展图标（拼图块 → 闪电图标）→ ⚙️ 设置：<br>
+                    · <strong>本地</strong>：Endpoint URL 留默认 <code>http://127.0.0.1:7421</code>，Auth Token 留空（需要桌面端已启动）；<br>
+                    · <strong>云端</strong>：Endpoint URL 填 <code>https://note.bjhzsk.cn</code>，Auth Token 填你的 <code>OWNER_TOKEN</code>。</p>
+                </div>
+              </li>
+              <li class="how-step reveal">
+                <div class="how-num">06</div>
+                <div class="how-body">
+                  <h3>开始使用</h3>
+                  <p>在任意网页选中文字 → 右键「保存选中到速脑」；或直接右键页面「保存整页到速脑」。笔记会出现在桌面端主面板。</p>
+                </div>
+              </li>
+            </ol>
+
+            <div class="extension-tips reveal">
+              <h4>小提示</h4>
+              <ul>
+                <li>扩展默认每次保存都会生成新的 <code>deviceId</code>（UUID），与服务端 HMAC 鉴权一一对应。</li>
+                <li>想在多台电脑共用同一账号？把同一台机器的 <code>Auth Token</code> 复制到另一台即可。</li>
+                <li>Edge / Brave 等 Chromium 内核浏览器操作一致；Firefox 需要单独打包（暂未提供）。</li>
+                <li>若右键菜单没出现，请确认扩展已启用、且已「固定到工具栏」。</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
   </main>
 
   <!-- FOOTER -->
@@ -348,3 +437,4 @@
   <script src="./app.js" defer></script>
 </body>
 </html>
+

@@ -4,6 +4,7 @@ const { loadConfig } = require('./config')
 const healthRoutes = require('./routes/health')
 const devicesRoutes = require('./routes/devices')
 const syncRoutes = require('./routes/sync')
+const extensionNotesRoutes = require('./routes/extension-notes')
 const extractionQueue = require('./queues/extraction')
 const { extractAtomsForSource } = require('./extractor')
 const aiRoutes = require('./routes/ai')
@@ -23,6 +24,7 @@ function build({ db = null } = {}) {
   if (db) {
     app.register(devicesRoutes, { db })
     app.register(syncRoutes, { db })
+    app.register(extensionNotesRoutes, { db })
     // Wire push -> queue
     syncRoutes.setEnqueueExtract(async (clientId, opts) => {
       try { await extractionQueue.enqueue(clientId, { redisUrl: cfg.redisUrl }) }
@@ -46,7 +48,7 @@ async function startExtractionWorker({ db, aiService, redisUrl }) {
 module.exports = { build, startExtractionWorker }
 
 if (require.main === module) {
-  build().then(async (app) => {
+  build({ db: require('./db/pool').createPool() }).then(async (app) => {
     const cfg = loadConfig()
     await app.listen({ port: cfg.port, host: '0.0.0.0' })
   }).catch(e => { console.error(e); process.exit(1) })

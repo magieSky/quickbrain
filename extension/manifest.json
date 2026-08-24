@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "QuickBrain Bridge",
-  "version": "0.2.0",
-  "description": "Save web pages and selections to QuickBrain via local HTTP",
+  "name": "速脑 Bridge",
+  "version": "0.3.0",
+  "description": "Save web pages and selections to QuickBrain (local desktop app or self-hosted server)",
   "icons": {
     "16": "icons/16.png",
     "32": "icons/32.png",
@@ -17,8 +17,8 @@
     "service_worker": "background.js",
     "type": "module"
   },
-  "permissions": ["contextMenus", "storage", "activeTab", "scripting"],
-  "host_permissions": ["<all_urls>", "http://127.0.0.1:7421/*"],
+  "permissions": ["contextMenus", "storage", "activeTab", "scripting", "alarms"],
+  "host_permissions": ["http://127.0.0.1:7421/*", "<all_urls>"],
   "commands": {
     "save-selection": { "suggested_key": { "default": "Alt+Shift+S" }, "description": "Save selection to QuickBrain" },
     "save-page": { "suggested_key": { "default": "Alt+Shift+P" }, "description": "Save page to QuickBrain" }

@@ -1,4 +1,4 @@
-const { verifyBearer } = require('../auth/hmac')
+﻿const { verifyBearer } = require('../auth/hmac')
 const { validatePull, validatePushOps } = require('@quickbrain/shared/sync/protocol')
 const notes = require('../services/notes')
 
@@ -35,7 +35,6 @@ async function applyOps(db, ops) {
 module.exports = async function syncRoutes(fastify, opts) {
   const db = opts.db
 
-  fastify.get('/v1/sync/health', async () => ({ ok: true, server_time: Date.now() }))
 
   fastify.get('/v1/sync/cursor', async (req, reply) => {
     const v = verifyBearer(req.headers)

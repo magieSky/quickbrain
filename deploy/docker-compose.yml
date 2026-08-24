@@ -1,0 +1,59 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: qb-postgres
+    environment:
+      POSTGRES_USER: qb
+      POSTGRES_PASSWORD: qb
+      POSTGRES_DB: qb
+    volumes:
+      - qb-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U qb -d qb"]
+      interval: 5s
+      retries: 10
+      timeout: 5s
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: qb-redis
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - qb-redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 10
+      timeout: 3s
+    restart: unless-stopped
+
+  server:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: qb-server
+    environment:
+      MODE: ${QB_MODE:-byos}
+      PORT: ${QB_PORT:-7421}
+      DB_URL: postgres://qb:qb@postgres:5432/qb
+      REDIS_URL: redis://redis:6379
+      MASTER_KEY: ${MASTER_KEY:?MASTER_KEY required (32 bytes hex = 64 chars)}
+      OWNER_TOKEN: ${OWNER_TOKEN:?OWNER_TOKEN required}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:7421:7421"
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  qb-pgdata:
+  qb-redis:

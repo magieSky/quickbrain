@@ -1,1 +1,21 @@
-{"name":"@quickbrain/server","version":"1.0.0","main":"src/index.js","scripts":{"migrate":"node scripts/migrate.js"},"dependencies":{"@fastify/cors":"^9.0.0","@fastify/static":"^10.1.3","@quickbrain/shared":"*","bullmq":"^5.0.0","fastify":"^4.28.0","ioredis":"^5.4.0","kysely":"^0.27.0","pg":"^8.11.0"},"devDependencies":{"vitest":"^1.6.1"}}
+{
+  "name": "@quickbrain/server",
+  "version": "1.0.0",
+  "main": "src/index.js",
+  "scripts": {
+    "migrate": "node scripts/migrate.js"
+  },
+  "dependencies": {
+    "@fastify/cors": "^9.0.1",
+    "@fastify/static": "^7.0.4",
+    "@quickbrain/shared": "file:../shared",
+    "bullmq": "^5.0.0",
+    "fastify": "^4.28.0",
+    "ioredis": "^5.4.0",
+    "kysely": "^0.27.0",
+    "pg": "^8.11.0"
+  },
+  "devDependencies": {
+    "vitest": "^1.6.1"
+  }
+}

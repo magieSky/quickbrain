@@ -1,0 +1,15 @@
+client
+dist
+extension
+tests
+.git
+.github
+.vscode
+.idea
+node_modules
+*.md
+**/*.md
+**/*.log
+.DS_Store
+deploy/scripts
+deploy/secrets

@@ -10,7 +10,7 @@ vi.mock('openai', () => ({
   }))
 }))
 
-import { AIService } from '../../main/ai/service.mjs'
+import { AIService } from '../../client/src/main/ai/service.mjs'
 
 describe('ai service', () => {
   let service

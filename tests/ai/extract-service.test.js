@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 
 async function makeService(stubCreate) {
-  const { AIService } = await import('../../main/ai/service.mjs')
+  const { AIService } = await import('../../client/src/main/ai/service.mjs')
   const svc = new AIService({ provider: 'openai', apiKey: 'k', model: 'm' })
   svc.client = { chat: { completions: { create: stubCreate } } }
   return svc
@@ -9,7 +9,7 @@ async function makeService(stubCreate) {
 
 describe('AIService.extractAtoms', () => {
   it('throws when AI not configured', async () => {
-    const { AIService } = await import('../../main/ai/service.mjs')
+    const { AIService } = await import('../../client/src/main/ai/service.mjs')
     const svc = new AIService({})
     svc.client = null
     await expect(svc.extractAtoms({ title: 't', content: 'c' })).rejects.toThrow('AI not configured')

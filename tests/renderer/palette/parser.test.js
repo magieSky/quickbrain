@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseInput, COMMAND_NAMES, STYLE_MAP } from '../../../renderer/palette/commands/parser.js'
+import { parseInput, COMMAND_NAMES, STYLE_MAP } from '../../../client/src/renderer/palette/commands/parser.js'
 
 describe('parseInput', () => {
   it('returns empty type for empty input', () => {

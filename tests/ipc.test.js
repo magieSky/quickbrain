@@ -27,7 +27,7 @@ const searchStub = {
   searchNotes: (...args) => mockSearchNotes(...args),
   getNoteById: (...args) => mockGetNoteById(...args)
 }
-const searchResolved = req.resolve('../main/db/search.js')
+const searchResolved = req.resolve('../client/src/main/db/search.js')
 Module.default._cache[searchResolved] = { exports: searchStub, id: searchResolved, loaded: true, children: [], paths: [] }
 
 const mockGetDB = vi.fn().mockReturnValue({
@@ -38,14 +38,14 @@ const mockGetDB = vi.fn().mockReturnValue({
   })
 })
 const dbInitStub = { getDB: mockGetDB }
-const dbInitResolved = req.resolve('../main/db-init.js')
+const dbInitResolved = req.resolve('../client/src/main/db-init.js')
 Module.default._cache[dbInitResolved] = { exports: dbInitStub, id: dbInitResolved, loaded: true, children: [], paths: [] }
 
 describe('ipc', () => {
   beforeEach(async () => {
     Object.keys(mockHandlers).forEach(k => delete mockHandlers[k])
     vi.resetModules()
-    const ipcModule = await import('../main/ipc.js')
+    const ipcModule = await import('../client/src/main/ipc.js')
     ipcModule.registerIpcHandlers()
   })
 

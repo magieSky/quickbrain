@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildExtractPrompt, parseAtomJson, MAX_CONTENT_CHARS } from '../../main/ai/extract.js'
+import { buildExtractPrompt, parseAtomJson, MAX_CONTENT_CHARS } from '../../client/src/main/ai/extract.js'
 
 describe('extract prompt', () => {
   it('truncates content to MAX_CONTENT_CHARS', () => {

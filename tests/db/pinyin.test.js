@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { pinyinInitials, generatePinyinForNote } from '../../main/db/pinyin.js'
+import { pinyinInitials, generatePinyinForNote } from '../../client/src/main/db/pinyin.js'
 
 describe('pinyin', () => {
   it('pinyinInitials converts Chinese to initials', () => {

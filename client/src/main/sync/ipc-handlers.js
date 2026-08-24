@@ -42,6 +42,14 @@ async function registerWithServer({ serverUrl, username, password }) {
   sync.deviceId = sync.deviceId || cfg.ensureDeviceId()
   cur.sync = sync
   cfg.write(cur)
+  // Local mode -> SaaS switch: push any notes the user accumulated while
+  // running with sync disabled (they live in the outbox) and pull anything
+  // the server may have so the UI updates without waiting for the daemon's
+  // 5-second tick.
+  setImmediate(() => {
+    runtime.triggerPushNow().catch(e => console.error('[sync] post-register push failed:', e.message))
+    runtime.triggerPullNow().catch(e => console.error('[sync] post-register pull failed:', e.message))
+  })
   return { ok: true, username: body.username, user_id: body.user_id, secret: body.secret }
 }
 
@@ -76,6 +84,13 @@ async function signInWithToken({ serverUrl, token }) {
   sync.deviceId = deviceId
   cur.sync = sync
   cfg.write(cur)
+  // Sign-in merges a new device into an existing account: pull whatever
+  // the server already has, push any local notes so the device shows up
+  // immediately on other clients.
+  setImmediate(() => {
+    runtime.triggerPullNow().catch(e => console.error('[sync] post-signin pull failed:', e.message))
+    runtime.triggerPushNow().catch(e => console.error('[sync] post-signin push failed:', e.message))
+  })
   return { ok: true, username: body.username, user_id: body.user_id }
 }
 

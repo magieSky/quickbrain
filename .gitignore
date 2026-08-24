@@ -1,4 +1,4 @@
-node_modules/
+﻿node_modules/
 dist/
 *.log
 .DS_Store
@@ -7,3 +7,11 @@ dist/
 config.json
 docs/superpowers/plans/.drafts/extension/.key.txt
 extension/.key.txt
+
+# Local CDP / migration scripts: ad-hoc debugging tools that should never
+# be checked in. Living next to the repo root so they share node_modules
+# and the package version of `ws`, but they are throwaway.
+/cdp-*.js
+/fix-*.py
+/query-server.js
+/tmp.js

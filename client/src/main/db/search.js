@@ -6,13 +6,17 @@ function addNote(db, note) {
             original_content = '', source_path = '', source_type = '',
             parent_id = null, source_range = '', is_atom = 0 } = note
     const clientId = (typeof note.client_id === 'string' && note.client_id) || require('crypto').randomUUID()
+    // updated_at is stored as INTEGER ms epoch so the sync push protocol
+    // (which validates Number.isFinite(updated_at)) can ship it without
+    // string-to-number conversion at the boundary.
+    const now = Date.now()
     const stmt = db.prepare(`
       INSERT INTO notes (client_id, content, title, category, tags, original_content, source_path, source_type,
-                         parent_id, source_range, is_atom)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                         parent_id, source_range, is_atom, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
     const result = stmt.run(clientId, content, title, category, JSON.stringify(tags), original_content,
-      source_path, source_type, parent_id, source_range, is_atom)
+      source_path, source_type, parent_id, source_range, is_atom, now)
     const id = result.lastInsertRowid
     const py = generatePinyinForNote(title, content)
     db.prepare(`INSERT INTO notes_pinyin (id, pinyin_title, pinyin_content) VALUES (?, ?, ?)`)

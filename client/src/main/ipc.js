@@ -134,6 +134,13 @@ function registerIpcHandlers() {
       if (!sync.deviceId) return
       const row = db.prepare('SELECT client_id, content, title, category, tags, source_path, source_type, parent_id, source_range, is_atom, updated_at, rev, deleted_at FROM notes WHERE id = ?').get(noteId)
       if (!row || !row.client_id) return
+      // Normalize updated_at to INTEGER ms epoch. The push protocol
+      // validates Number.isFinite(updated_at); legacy rows created before
+      // search.js started writing Date.now() still hold a DATETIME string
+      // because the schema default is CURRENT_TIMESTAMP.
+      const updatedAt = typeof row.updated_at === 'string'
+        ? new Date(row.updated_at).getTime()
+        : (row.updated_at || Date.now())
       const payload = op === 'upsert' ? {
         client_id: row.client_id,
         content: row.content || '',
@@ -145,12 +152,12 @@ function registerIpcHandlers() {
         parent_id: row.parent_id || null,
         source_range: row.source_range || '',
         is_atom: row.is_atom || 0,
-        updated_at: row.updated_at,
+        updated_at: updatedAt,
         rev: row.rev || 1,
         deleted_at: row.deleted_at || null
       } : {
         client_id: row.client_id,
-        updated_at: row.updated_at,
+        updated_at: updatedAt,
         deleted_at: (extra && extra.deleted_at) || row.deleted_at || Date.now()
       }
       outbox.append(db, { op, noteId, payload })
@@ -257,8 +264,8 @@ return { success: true, ...result }
     const keys = Object.keys(updates)
     if (keys.length === 0) return
     const setClause = keys.map(k => `${k} = ?`).join(', ')
-    db.prepare(`UPDATE notes SET ${setClause}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`)
-      .run(...keys.map(k => typeof updates[k] === 'object' ? JSON.stringify(updates[k]) : updates[k]), id)
+    db.prepare(`UPDATE notes SET ${setClause}, updated_at = ? WHERE id = ?`)
+      .run(...keys.map(k => typeof updates[k] === 'object' ? JSON.stringify(updates[k]) : updates[k]), Date.now(), id)
     enqueueNoteOutbox(db, id, 'upsert')
   })
 
@@ -267,7 +274,7 @@ return { success: true, ...result }
     const row = db.prepare('SELECT client_id FROM notes WHERE id = ?').get(id)
     if (row) {
       const ts = Date.now()
-      db.prepare('UPDATE notes SET deleted_at = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(ts, id)
+      db.prepare('UPDATE notes SET deleted_at = ?, updated_at = ? WHERE id = ?').run(ts, Date.now(), id)
       enqueueNoteOutbox(db, id, 'delete', { deleted_at: ts })
     } else {
       db.prepare('DELETE FROM notes WHERE id = ?').run(id)

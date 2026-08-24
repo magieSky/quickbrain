@@ -53,7 +53,8 @@ const els = {
   syncFeedbackSignin: document.getElementById('sync-feedback-signin'),
   syncCancel: document.getElementById('sync-cancel'),
   syncSubmitSignup: document.getElementById('sync-submit-signup'),
-  syncSubmitSignin: document.getElementById('sync-submit-signin')
+  syncSubmitSignin: document.getElementById('sync-submit-signin'),
+  syncOpenAiSettings: document.getElementById('sync-open-ai-settings')
 }
 
 let allNotes = []
@@ -377,8 +378,7 @@ els.filters.addEventListener('click', (e) => {
   render()
 })
 
-els.aiBtn.onclick = () => {
-  api.notify({ title: 'AI 格式化', body: '请使用 Ctrl+K 唤起命令面板，输入 "ai 摘要 关键字" 使用' })
+els.aiBtn.onclick = () => openAISettings()
 }
 
 async function refreshAutoLaunch() {
@@ -407,11 +407,7 @@ els.autoLaunchBtn.onclick = async () => {
 }
 
 refreshAutoLaunch()
-
-els.settingsBtn.onclick = () => {
-  openAISettings()
-}
-
+
 let aiProviders = []
 let aiSelectedProvider = null
 let aiCurrentConfig = {}
@@ -598,6 +594,11 @@ els.syncTabSignup.onclick = () => switchSyncTab('signup')
 els.syncTabSignin.onclick = () => switchSyncTab('signin')
 
 els.syncCancel.onclick = closeSyncSettings
+els.syncOpenAiSettings.onclick = (e) => {
+  e.preventDefault()
+  closeSyncSettings()
+  openAISettings()
+}
 els.syncModal.addEventListener('click', (e) => {
   if (e.target === els.syncModal) closeSyncSettings()
 })
@@ -714,6 +715,10 @@ if (api.onNotesUpdated) {
 }
 
 if (api.onLocateNote) {
+  api.onOpenAISettings(() => {
+    openAISettings()
+  })
+
   api.onLocateNote(({ id, range }) => {
     const note = allNotes.find(n => n.id === id)
     if (!note) return

@@ -55,7 +55,7 @@ jobs:
           NO_UPDATE_NOTIFIER: "1"
         run: |
           set -eo pipefail
-          npx electron-builder --mac --arm64 2>&1 | tail -120
+          npx electron-builder --mac --arm64 --publish never 2>&1 | tail -120
 
       - name: List dist artifacts
         run: |

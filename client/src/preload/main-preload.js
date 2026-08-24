@@ -34,6 +34,7 @@ contextBridge.exposeInMainWorld('quickbrain', {
 
   // Sync operations
   getSyncConfig: () => ipcRenderer.invoke('get-sync-config'),
+  getDefaultSyncServerUrl: () => ipcRenderer.invoke('get-default-sync-server-url'),
   setSyncConfig: (payload) => ipcRenderer.invoke('set-sync-config', payload),
   syncStatus: () => ipcRenderer.invoke('sync-status'),
   pushLocal: () => ipcRenderer.invoke('push-local'),

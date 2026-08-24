@@ -555,22 +555,38 @@ function closeSyncSettings() {
 }
 
 async function refreshSyncStatus() {
+  let c
   try {
-    const c = await api.getSyncConfig()
-    if (c.enabled && c.serverUrl) {
-      els.syncStatusBox.className = 'sync-status connected'
-      els.syncStatusLine.textContent = 'Connected to ' + c.serverUrl + (c.hasToken ? ' (token saved)' : '')
-      els.syncDisconnect.style.display = ''
-      els.syncServerUrl.value = c.serverUrl
-      els.syncTokenServerUrl.value = c.serverUrl
-    } else {
-      els.syncStatusBox.className = 'sync-status disconnected'
-      els.syncStatusLine.textContent = 'Not connected to any server'
-      els.syncDisconnect.style.display = 'none'
-    }
+    c = await api.getSyncConfig()
   } catch (e) {
     els.syncStatusBox.className = 'sync-status disconnected'
     els.syncStatusLine.textContent = 'Sync config unavailable'
+    els.syncDisconnect.style.display = 'none'
+    return
+  }
+  // Always pre-fill both URL inputs so a fresh install opens Settings with
+  // the bundled SaaS URL ready to go instead of two empty text boxes.
+  if (c.serverUrl) {
+    els.syncServerUrl.value = c.serverUrl
+    els.syncTokenServerUrl.value = c.serverUrl
+  } else {
+    try {
+      const d = await api.getDefaultSyncServerUrl()
+      if (d && d.serverUrl) {
+        els.syncServerUrl.value = d.serverUrl
+        els.syncTokenServerUrl.value = d.serverUrl
+      }
+    } catch (_) { /* fall through to whatever the input HTML default is */ }
+  }
+  if (c.enabled && c.serverUrl && !c.serverUrlIsDefault) {
+    els.syncStatusBox.className = 'sync-status connected'
+    els.syncStatusLine.textContent = 'Connected to ' + c.serverUrl + (c.hasToken ? ' (token saved)' : '')
+    els.syncDisconnect.style.display = ''
+  } else {
+    els.syncStatusBox.className = 'sync-status disconnected'
+    els.syncStatusLine.textContent = c.serverUrlIsDefault
+      ? 'Not connected. Default server pre-filled - create an account or sign in to connect.'
+      : 'Not connected to any server'
     els.syncDisconnect.style.display = 'none'
   }
 }

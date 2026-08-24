@@ -2,6 +2,15 @@ const fs = require('fs')
 const path = require('path')
 const crypto = require('crypto')
 
+// Production default. Tests and dev runs can override via env so a freshly
+// installed client always opens Settings pointing at a real server instead
+// of an empty input.
+const DEFAULT_SYNC_SERVER_URL = process.env.QB_SYNC_DEFAULT_URL || 'https://api.quickbrain.app'
+
+function defaultSyncServerUrl() {
+  return DEFAULT_SYNC_SERVER_URL
+}
+
 function configPath() {
   const { app } = require('electron')
   return path.join(app.getPath('userData'), 'config.json')
@@ -50,4 +59,4 @@ function ensureAIDeviceId() {
   return id
 }
 
-module.exports = { read, write, ensureDeviceId, ensureAIDeviceId, buildBearer, configPath }
+module.exports = { read, write, ensureDeviceId, ensureAIDeviceId, buildBearer, configPath, defaultSyncServerUrl }

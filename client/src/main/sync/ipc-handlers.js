@@ -82,7 +82,12 @@ async function signInWithToken({ serverUrl, token }) {
 function registerSyncHandlers(getDB) {
   ipcMain.handle('get-sync-config', () => {
     const c = cfg.read().sync || {}
-    return { enabled: !!c.enabled, serverUrl: c.serverUrl || '', hasToken: !!c.token, deviceId: c.deviceId || cfg.ensureDeviceId() }
+    const serverUrl = c.serverUrl || cfg.defaultSyncServerUrl()
+    return { enabled: !!c.enabled, serverUrl, serverUrlIsDefault: !c.serverUrl, hasToken: !!c.token, deviceId: c.deviceId || cfg.ensureDeviceId() }
+  })
+
+  ipcMain.handle('get-default-sync-server-url', () => {
+    return { serverUrl: cfg.defaultSyncServerUrl() }
   })
 
   ipcMain.handle('set-sync-config', (_e, payload) => {

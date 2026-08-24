@@ -35,7 +35,25 @@ const els = {
   modalCancel: document.getElementById('modal-cancel'),
   importBtn: document.getElementById('import-btn'),
   importFile: document.getElementById('import-file'),
-  dropOverlay: document.getElementById('drop-overlay')
+  dropOverlay: document.getElementById('drop-overlay'),
+  syncModal: document.getElementById('sync-modal'),
+  syncStatusBox: document.getElementById('sync-status-box'),
+  syncStatusLine: document.getElementById('sync-status-line'),
+  syncDisconnect: document.getElementById('sync-disconnect'),
+  syncTabSignup: document.getElementById('sync-tab-signup'),
+  syncTabSignin: document.getElementById('sync-tab-signin'),
+  syncPaneSignup: document.getElementById('sync-pane-signup'),
+  syncPaneSignin: document.getElementById('sync-pane-signin'),
+  syncServerUrl: document.getElementById('sync-server-url'),
+  syncUsername: document.getElementById('sync-username'),
+  syncPassword: document.getElementById('sync-password'),
+  syncTokenServerUrl: document.getElementById('sync-token-server-url'),
+  syncToken: document.getElementById('sync-token'),
+  syncFeedbackSignup: document.getElementById('sync-feedback-signup'),
+  syncFeedbackSignin: document.getElementById('sync-feedback-signin'),
+  syncCancel: document.getElementById('sync-cancel'),
+  syncSubmitSignup: document.getElementById('sync-submit-signup'),
+  syncSubmitSignin: document.getElementById('sync-submit-signin')
 }
 
 let allNotes = []
@@ -524,6 +542,127 @@ els.aiSave.onclick = async () => {
 els.aiCancel.onclick = () => {
   els.aiModal.classList.remove('show')
 }
+// ---- Sync / Server Settings modal ----
+
+async function openSyncSettings() {
+  els.syncFeedbackSignup.className = 'sync-feedback'
+  els.syncFeedbackSignup.textContent = ''
+  els.syncFeedbackSignin.className = 'sync-feedback'
+  els.syncFeedbackSignin.textContent = ''
+  els.syncModal.classList.add('show')
+  switchSyncTab('signup')
+  await refreshSyncStatus()
+}
+
+function closeSyncSettings() {
+  els.syncModal.classList.remove('show')
+}
+
+async function refreshSyncStatus() {
+  try {
+    const c = await api.getSyncConfig()
+    if (c.enabled && c.serverUrl) {
+      els.syncStatusBox.className = 'sync-status connected'
+      els.syncStatusLine.textContent = 'Connected to ' + c.serverUrl + (c.hasToken ? ' (token saved)' : '')
+      els.syncDisconnect.style.display = ''
+      els.syncServerUrl.value = c.serverUrl
+      els.syncTokenServerUrl.value = c.serverUrl
+    } else {
+      els.syncStatusBox.className = 'sync-status disconnected'
+      els.syncStatusLine.textContent = 'Not connected to any server'
+      els.syncDisconnect.style.display = 'none'
+    }
+  } catch (e) {
+    els.syncStatusBox.className = 'sync-status disconnected'
+    els.syncStatusLine.textContent = 'Sync config unavailable'
+    els.syncDisconnect.style.display = 'none'
+  }
+}
+
+function switchSyncTab(name) {
+  const isSignup = name === 'signup'
+  els.syncTabSignup.classList.toggle('active', isSignup)
+  els.syncTabSignin.classList.toggle('active', !isSignup)
+  els.syncPaneSignup.style.display = isSignup ? '' : 'none'
+  els.syncPaneSignin.style.display = isSignup ? 'none' : ''
+  els.syncSubmitSignup.style.display = isSignup ? '' : 'none'
+  els.syncSubmitSignin.style.display = isSignup ? 'none' : ''
+}
+
+function showSyncFeedback(el, msg, ok) {
+  el.className = 'sync-feedback show ' + (ok ? 'success' : 'error')
+  el.textContent = msg
+}
+
+els.syncTabSignup.onclick = () => switchSyncTab('signup')
+els.syncTabSignin.onclick = () => switchSyncTab('signin')
+
+els.syncCancel.onclick = closeSyncSettings
+els.syncModal.addEventListener('click', (e) => {
+  if (e.target === els.syncModal) closeSyncSettings()
+})
+
+els.syncSubmitSignup.onclick = async () => {
+  const serverUrl = els.syncServerUrl.value.trim()
+  const username = els.syncUsername.value.trim()
+  const password = els.syncPassword.value
+  if (!serverUrl || !username || !password) {
+    showSyncFeedback(els.syncFeedbackSignup, 'Server URL, username and password are all required', false)
+    return
+  }
+  els.syncSubmitSignup.disabled = true
+  showSyncFeedback(els.syncFeedbackSignup, 'Creating account...', true)
+  try {
+    const r = await api.registerWithServer({ serverUrl, username, password })
+    if (r.ok) {
+      showSyncFeedback(els.syncFeedbackSignup, 'Account created and connected as ' + r.username, true)
+      await refreshSyncStatus()
+      setTimeout(closeSyncSettings, 1200)
+    } else {
+      showSyncFeedback(els.syncFeedbackSignup, 'Failed: ' + (r.error || 'unknown'), false)
+    }
+  } catch (e) {
+    showSyncFeedback(els.syncFeedbackSignup, 'Network error: ' + e.message, false)
+  }
+  els.syncSubmitSignup.disabled = false
+}
+
+els.syncSubmitSignin.onclick = async () => {
+  const serverUrl = els.syncTokenServerUrl.value.trim()
+  const token = els.syncToken.value.trim()
+  if (!serverUrl || !token) {
+    showSyncFeedback(els.syncFeedbackSignin, 'Server URL and token are both required', false)
+    return
+  }
+  els.syncSubmitSignin.disabled = true
+  showSyncFeedback(els.syncFeedbackSignin, 'Signing in...', true)
+  try {
+    const r = await api.signInWithToken({ serverUrl, token })
+    if (r.ok) {
+      showSyncFeedback(els.syncFeedbackSignin, 'Signed in as ' + (r.username || 'user'), true)
+      await refreshSyncStatus()
+      setTimeout(closeSyncSettings, 1200)
+    } else {
+      showSyncFeedback(els.syncFeedbackSignin, 'Failed: ' + (r.error || 'unknown'), false)
+    }
+  } catch (e) {
+    showSyncFeedback(els.syncFeedbackSignin, 'Network error: ' + e.message, false)
+  }
+  els.syncSubmitSignin.disabled = false
+}
+
+els.syncDisconnect.onclick = async () => {
+  try {
+    await api.setSyncConfig({ enabled: false })
+    await refreshSyncStatus()
+  } catch (e) {
+    api.log('error', ['[sync-disconnect]', e.message])
+  }
+}
+
+// Wire the settings (gear) button to open the sync modal.
+els.settingsBtn.onclick = openSyncSettings
+
 
 els.aiModal.addEventListener('click', (e) => {
   if (e.target === els.aiModal) els.aiModal.classList.remove('show')

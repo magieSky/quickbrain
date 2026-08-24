@@ -11,7 +11,7 @@ const { extractAtomsForSource } = require('./extractor')
 const aiRoutes = require('./routes/ai')
 const aiSvc = require('./services/ai')
 const { applyAll } = require('@quickbrain/shared/schema/pg/migrations')
-const { ensureOwnerUser, enforceNotesUserNotNull } = require('./db/bootstrap')
+const { enforceNotesUserNotNull } = require('./db/bootstrap')
 
 function build({ db = null } = {}) {
   const cfg = loadConfig()
@@ -25,7 +25,7 @@ function build({ db = null } = {}) {
     app.get('/admin', async (_req, reply) => reply.redirect('/admin/'))
   } catch (e) { console.warn('[server] admin static not available:', e.message) }
   if (db) {
-    app.register(authRoutes, { db })
+    app.register(authRoutes, { db, adminBootstrapToken: cfg.adminBootstrapToken })
     app.register(devicesRoutes, { db })
     app.register(syncRoutes, { db })
     app.register(extensionNotesRoutes, { db })
@@ -35,7 +35,7 @@ function build({ db = null } = {}) {
       catch (e) { console.error('[sync] enqueue extract failed:', e.message) }
     })
   }
-  app.get('/', async () => ({ name: 'quickbrain-server', mode: cfg.mode, port: cfg.port }))
+  app.get('/', async () => ({ name: 'quickbrain-server', port: cfg.port }))
   return app
 }
 
@@ -50,8 +50,10 @@ async function startExtractionWorker({ db, aiService, redisUrl }) {
 }
 
 async function bootstrapDb(db) {
+  // SaaS bootstrap: just run schema migrations + enforce per-user scoping.
+  // The first admin user is created out-of-band via POST /v1/auth/register-admin
+  // (gated by ADMIN_BOOTSTRAP_TOKEN env). No more auto-seeded owner.
   await applyAll(db)
-  await ensureOwnerUser(db)
   await enforceNotesUserNotNull(db)
 }
 

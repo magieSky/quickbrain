@@ -197,6 +197,13 @@
     .ai-status.success { background: rgba(80,200,120,0.15); color: #7ed99a; }
     .ai-status.error { background: rgba(255,80,80,0.15); color: #ff9a9a; }
     .ai-current { font-size: 11px; color: rgba(255,255,255,0.4); margin-bottom: 12px; padding: 8px 12px; background: rgba(255,255,255,0.03); border-radius: 6px; }
+    .ai-mode-section { margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+    .ai-mode-section .form-group { margin-bottom: 0; }
+    .ai-mode-section .form-label { font-size: 12px; color: rgba(255,255,255,0.85); }
+    .ai-mode-section .form-hint { font-size: 10px; color: rgba(255,255,255,0.4); margin-top: 6px; }
+    .mode-row { display: flex; gap: 16px; margin-top: 6px; }
+    .mode-option { display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12px; color: #fff; }
+    .mode-option input { cursor: pointer; margin: 0; }
 
     /* === 拖拽导入 overlay === */
     .drop-overlay { position: fixed; inset: 0; background: rgba(20,30,60,0.85); display: none; align-items: center; justify-content: center; z-index: 9999; pointer-events: none; }
@@ -343,6 +350,16 @@
     <div class="modal ai-modal">
       <h2>🤖 AI 设置</h2>
       <div class="ai-current" id="ai-current">未配置</div>
+      <div class="ai-mode-section">
+        <div class="form-group">
+          <label class="form-label">AI 来源</label>
+          <div class="mode-row">
+            <label class="mode-option"><input type="radio" name="aiMode" value="direct" id="ai-mode-direct" checked> 本地 (Direct)</label>
+            <label class="mode-option"><input type="radio" name="aiMode" value="server" id="ai-mode-server"> 服务端 (Server)</label>
+          </div>
+          <div class="form-hint" id="ai-server-status"></div>
+        </div>
+      </div>
       <div class="provider-list" id="provider-list"></div>
       <div class="ai-form" id="ai-form">
         <div class="form-group">

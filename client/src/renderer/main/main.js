@@ -26,6 +26,9 @@ const els = {
   aiCancel: document.getElementById('ai-cancel'),
   aiTest: document.getElementById('ai-test'),
   aiSave: document.getElementById('ai-save'),
+  aiModeDirect: document.getElementById('ai-mode-direct'),
+  aiModeServer: document.getElementById('ai-mode-server'),
+  aiServerStatus: document.getElementById('ai-server-status'),
   modalContent: document.getElementById('modal-content'),
   modalCategory: document.getElementById('modal-category'),
   modalSave: document.getElementById('modal-save'),
@@ -399,9 +402,11 @@ async function openAISettings() {
   els.aiModal.classList.add('show')
   els.aiStatus.className = 'ai-status'
   els.aiStatus.textContent = ''
+  let aiModeInfo = { mode: 'direct', serverConfigured: false }
   try {
     aiProviders = await api.getProviders()
     aiCurrentConfig = await api.getAIConfig()
+    aiModeInfo = await api.getAIMode()
   } catch (e) {
     api.log('error', ['[openAISettings]', e.message])
     return
@@ -411,6 +416,15 @@ async function openAISettings() {
     els.aiCurrent.textContent = '当前使用: ' + (p ? p.icon + ' ' + p.name : aiCurrentConfig.provider) + ' · ' + (aiCurrentConfig.model || '')
   } else {
     els.aiCurrent.textContent = '未配置 AI 服务'
+  }
+  els.aiModeDirect.checked = aiModeInfo.mode !== 'server'
+  els.aiModeServer.checked = aiModeInfo.mode === 'server'
+  if (aiModeInfo.serverConfigured) {
+    els.aiServerStatus.textContent = 'Server configured. Server mode routes AI calls to /v1/ai/*.'
+    els.aiServerStatus.style.color = 'rgba(126,217,154,0.85)'
+  } else {
+    els.aiServerStatus.textContent = 'Server NOT configured. Enable sync in Sync Settings first to use server mode.'
+    els.aiServerStatus.style.color = 'rgba(255,180,120,0.7)'
   }
   renderProviders()
   const initial = aiCurrentConfig.provider || (aiProviders[0] && aiProviders[0].id)
@@ -492,8 +506,15 @@ els.aiTest.onclick = async () => {
 els.aiSave.onclick = async () => {
   const cfg = buildConfigFromForm()
   if (cfg.apiKey === '__KEEP__') cfg.apiKey = ''  // 保存时也不传，让 main 保留原 key
+  const aiMode = els.aiModeServer.checked ? 'server' : 'direct'
   els.aiSave.disabled = true
   try {
+    const modeR = await api.setAIMode(aiMode)
+    if (!modeR || !modeR.ok) {
+      showAIStatus('❌ ' + ('设置 AI 模式失败' + (modeR && modeR.error ? ': ' + modeR.error : '')), false)
+      els.aiSave.disabled = false
+      return
+    }
     const r = await api.saveAIConfig(cfg)
     if (r.success) {
       els.aiModal.classList.remove('show')

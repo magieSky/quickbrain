@@ -100,7 +100,7 @@
           ]
         }
       ],
-      "icon": "client/src/assets/icon.ico",
+      "icon": "client/src/assets/icon@6x.png",
       "hardenedRuntime": false,
       "gatekeeperAssess": false,
       "identity": null

@@ -1,4 +1,4 @@
-const api = window.quickbrain
+﻿const api = window.quickbrain
 
 const els = {
   search: document.getElementById('search-input'),
@@ -379,7 +379,6 @@ els.filters.addEventListener('click', (e) => {
 })
 
 els.aiBtn.onclick = () => openAISettings()
-}
 
 async function refreshAutoLaunch() {
   try {
@@ -407,7 +406,8 @@ els.autoLaunchBtn.onclick = async () => {
 }
 
 refreshAutoLaunch()
-
+
+
 let aiProviders = []
 let aiSelectedProvider = null
 let aiCurrentConfig = {}
@@ -594,11 +594,7 @@ els.syncTabSignup.onclick = () => switchSyncTab('signup')
 els.syncTabSignin.onclick = () => switchSyncTab('signin')
 
 els.syncCancel.onclick = closeSyncSettings
-els.syncOpenAiSettings.onclick = (e) => {
-  e.preventDefault()
-  closeSyncSettings()
-  openAISettings()
-}
+els.syncOpenAiSettings.onclick = (e) => { e.preventDefault(); closeSyncSettings(); openAISettings() }
 els.syncModal.addEventListener('click', (e) => {
   if (e.target === els.syncModal) closeSyncSettings()
 })
@@ -715,10 +711,6 @@ if (api.onNotesUpdated) {
 }
 
 if (api.onLocateNote) {
-  api.onOpenAISettings(() => {
-    openAISettings()
-  })
-
   api.onLocateNote(({ id, range }) => {
     const note = allNotes.find(n => n.id === id)
     if (!note) return
@@ -738,6 +730,12 @@ if (api.onLocateNote) {
     } else {
       setStatus('定位到笔记 #' + id)
     }
+  })
+}
+
+if (api.onOpenAISettings) {
+  api.onOpenAISettings(() => {
+    openAISettings()
   })
 }
 

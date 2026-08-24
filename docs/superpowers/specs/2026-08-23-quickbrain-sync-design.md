@@ -31,52 +31,41 @@ Success criteria:
 - Server-side search ranking (server returns candidates; client does final ranking with AI).
 - File/snapshot upload of source binaries. Notes reference URLs/paths; the server does not store the original document.
 
-## 3. Deployment modes
+## 3. Product modes (local vs SaaS)
 
-QuickBrain is shipped as **one client binary + one optional server binary**, with a deployment choice the user makes in Settings. There is **no separate SaaS build**; the same server code runs as a local BYOS instance or (later) a hosted multi-tenant service. The user picks which one to point at; switching is just changing `server.url` + `server.token` in client Settings.
+QuickBrain ships in exactly two product modes. The user picks one in Settings; switching is just toggling `sync.enabled` and re-pointing `sync.serverUrl` to the SaaS endpoint.
 
-### 3.1 Two independent client switches
+| Mode | Server needed? | AI key | Data location | Multi-device sync |
+|---|---|---|---|---|
+| **Local** | No | User configures their own LLM key (`ai.mode = direct`) | The user's machine only | No (one desktop instance, no sync) |
+| **SaaS** | Yes (we operate it) | Shared, billed per usage (`ai.mode = server`) | Our managed Postgres | Yes, via the server |
 
-The client has **two orthogonal toggles**, both defaulting to off / direct:
+There is **no BYOS** ("bring your own server") mode. The server binary exists only to run our SaaS. Users who want multi-device sync must use the SaaS. Users who want full local control accept single-device usage.
 
-| Client setting | Values | Default | Meaning |
-|---|---|---|---|
-| `sync.enabled` | `true` / `false` | `false` | When true, the daemon pulls/pushes notes to the configured server. When false, the app is fully local (no network). |
-| `ai.mode` | `direct` / `server` | `direct` | `direct` = client calls OpenAI/Deepseek/etc. directly using its own `apiKey`. `server` = client posts to the server's `/v1/ai/*` proxy (server-side API key, shared quota). |
+### 3.1 What "local mode" actually is
 
-These are independent. A user can have `sync.enabled = false` and still use `ai.mode = server` (only meaningful with a server running); or `sync.enabled = true` and `ai.mode = direct` (sync notes, run AI locally). The four cells are all supported.
+- The client runs with `sync.enabled = false` and `ai.mode = direct`.
+- No server process starts. The client uses its own local SQLite + IPC + browser extension bridge. This is the pre-sync QuickBrain behaviour, preserved.
+- The user pastes their own OpenAI / DeepSeek / etc. API key into Settings. Calls go directly from the client to the LLM provider. No data leaves the machine except to the LLM endpoint.
 
-### 3.2 Server `MODE` env var
+### 3.2 What "SaaS mode" actually is
 
-The server is one Fastify app. Its behaviour is selected by `MODE` at startup (`server/src/config.js:11`):
+- The client is configured with `sync.enabled = true` and `sync.serverUrl = https://api.quickbrain.app` (or our staging URL during development).
+- The user registers an account via `POST /v1/auth/register` (email + password) and gets a JWT.
+- All notes / atoms / tags sync through the server. AI calls are proxied through `/v1/ai/*` so the user pays per usage instead of bringing their own key.
+- Multi-device: install the client on phone, second PC, etc. Sign in with the same account; everything syncs.
 
-| `MODE` | Meaning | Users | Notes |
-|---|---|---|---|
-| `byos` (default) | Bring Your Own Server — user runs it on NAS / Docker / PC | 1 owner by default; can register more via `POST /v1/auth/register` | `OWNER_TOKEN` is auto-seeded from env or generated + logged on first boot. |
-| `local` | Same Fastify app, but DB + Redis bound to localhost only | 1 owner | Equivalent to `byos` with `host=127.0.0.1`; kept as an explicit knob for clarity. |
-| `saas` (later) | Hosted multi-tenant QuickBrain service | N users, each registered with email + password | The code path is identical to `byos`; only the bootstrap differs (no auto owner, registration is the only entry). |
+### 3.3 What we explicitly do NOT offer
 
-`local` / `byos` / `saas` are **not separate code forks**. The server reads `MODE` once at startup and switches the bootstrap policy (auto-seed owner vs require registration) and the bind address. All sync / AI / auth routes are shared.
+- **BYOS / self-hosted server.** The server code is not packaged for end-user self-hosting. It only runs our SaaS.
+- **Local sync.** No LAN peer-to-peer, no shared SQLite, no "two desktops on the same machine" sync. Multi-device sync requires the SaaS.
+- **Local AI proxy without sync.** If `sync.enabled = false`, there is no server to proxy through; the user must run AI direct with their own key.
 
-### 3.3 What the user actually picks
+### 3.4 Server-side: one mode, no env switching
 
-The user's real-world decision is **"do I run a server, and if so, where?"**:
+The server is single-purpose. It only runs as the SaaS. There is no `MODE` env var, no `byos` / `local` / `saas` branch. The first user is created via an internal admin bootstrap endpoint (`POST /v1/auth/register-admin`, gated by a server-side `ADMIN_BOOTSTRAP_TOKEN`); every subsequent user signs up via the public register endpoint. Per-user data isolation (Phase 9) still applies: every sync / AI route is scoped by the authenticated userId.
 
-1. **Pure local.** Install client only. `sync.enabled = false`, `ai.mode = direct`, paste own API key. No server, no network. Identical to pre-sync QuickBrain.
-2. **Self-hosted (BYOS).** Run `quickbrain-server` on a NAS / Docker host with `MODE=byos`. Copy the printed `OWNER_TOKEN` into the client's Server settings on every device that should sync. `ai.mode = server` optional — lets multiple devices share one AI key.
-3. **Hosted SaaS (later).** Sign up at `quickbrain.app`. Set `sync.enabled = true`, `server.url = https://api.quickbrain.app`, `server.token = <JWT from login>`. Same client binary, same sync protocol, same AI proxy.
-4. **Mixed.** `sync.enabled = true` + `ai.mode = direct` — sync notes to BYOS/SaaS but run AI on each device with its own key.
-
-The client does not know whether the server is local or remote; it speaks the sync protocol over HTTPS (or LAN HTTP) and the AI proxy over the same connection.
-
-### 3.4 Multi-tenant safety (Phase 9)
-
-Regardless of which `MODE` is active, **data is always scoped per user**:
-
-- `notes.user_id` is `NOT NULL`; the server enforces this on bootstrap (`enforceNotesUserNotNull`).
-- Every sync / AI / extension-notes route filters by the authenticated userId from the bearer.
-- A leaked token from user A cannot read user B's notes, even within the same `byos` deployment.
-- The first user in a fresh BYOS deployment is the `owner` row seeded from `OWNER_TOKEN`; subsequent users are added via `POST /v1/auth/register`.
+---
 
 ## 4. Repository layout (monorepo)
 
@@ -252,14 +241,18 @@ Admin UI sets provider, apiKey, model, baseURL. Server never returns decrypted k
 
 ## 9. Auth
 
-### 9.1 First-run BYOS bootstrap
+### 9.1 First-run admin bootstrap
 
-Server MODE=byos start:
-1. Generates a master key if not in env.
-2. Creates the single user owner with a random 32-byte token printed to stdout.
-3. Server refuses to start if OWNER_TOKEN env var already set; uses that instead.
+Server start (single-mode SaaS deployment):
+1. Generates `MASTER_KEY` (32 bytes) if not in env. Used for AES-GCM at-rest encryption of AI config.
+2. Requires `ADMIN_BOOTSTRAP_TOKEN` in env. The operator sets this once during deploy; it is the one-time secret that lets the first admin user be created.
+3. Server runs schema migrations and refuses to start if there are already users in the DB (idempotent guard: "already bootstrapped, register more users via /v1/auth/register").
 
-Operator copies the token, pastes into clients Settings -> Server -> Connect, done.
+To create the first admin:
+- Operator calls `POST /v1/auth/register-admin` with header `X-QB-Bootstrap: <ADMIN_BOOTSTRAP_TOKEN>` and body `{username, password}`. Server hashes the password, generates a per-user `secret` (random 32 bytes, HMAC key for client bearers), inserts the row with `is_owner = 1`, returns the username.
+- After the first user exists, `POST /v1/auth/register-admin` always returns 403 ("already bootstrapped"). The bootstrap token is no longer needed and can be removed from env.
+
+Subsequent users sign up via `POST /v1/auth/register` (public, no bootstrap token).
 
 ### 9.2 Device registry
 
@@ -291,17 +284,20 @@ No React, no build step. Loads shared/types/providers.ts at build time via esbui
 
 ## 11. Configuration
 
-### 11.1 Server env
+### 11.1 Server env (SaaS)
+
+The server runs in a single mode (SaaS). There is no `MODE` env var. The first admin user is bootstrapped via `POST /v1/auth/register-admin` (see 9.1).
 
 ```
-MODE=byos                       # local | byos | saas
 PORT=7422
-DB_URL=postgres://qb:qb@localhost:5432/qb
-REDIS_URL=redis://localhost:6379
-MASTER_KEY=<64-hex-chars>       # generated if missing (server logs it once)
-OWNER_TOKEN=<base64url>         # generated if missing (server logs it once)
+DB_URL=postgres://qb:qb@db.internal:5432/qb
+REDIS_URL=redis://redis.internal:6379
+MASTER_KEY=<64-hex-chars>            # generated if missing (server logs it once; required for AES-GCM)
+ADMIN_BOOTSTRAP_TOKEN=<base64url>    # required at first deploy; one-time secret for /v1/auth/register-admin
 LOG_LEVEL=info
 ```
+
+After the first admin is created, `ADMIN_BOOTSTRAP_TOKEN` is no longer consulted and may be removed from env.
 
 ### 11.2 Client config (local JSON)
 

@@ -83,7 +83,7 @@ async function changePassword(db, userId, { oldPassword, newPassword }) {
   if (!u) return { ok: false, error: 'no-such-user' }
   if (!bcrypt.compareSync(oldPassword, u.password_hash)) return { ok: false, error: 'wrong-password' }
   const newHash = bcrypt.hashSync(newPassword, 10)
-  const newSecret = newSecret()
+  const newSecret = (function () { return crypto.randomBytes(32).toString('base64url') })()
   await db.updateTable('users')
     .set({ password_hash: newHash, secret: newSecret, updated_at: Date.now() })
     .where('id', '=', userId)

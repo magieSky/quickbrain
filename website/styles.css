@@ -574,6 +574,8 @@ strong { color: var(--text); font-weight: 600; }
   box-shadow: var(--shadow-lg);
 }
 .download-row { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; margin: 32px 0 24px; }
+.download-note { font-size: 12px; color: var(--text-4); margin: 0 auto 20px; max-width: 620px; line-height: 1.6; }
+.download-note code { font-size: 11px; background: rgba(124,158,255,0.12); color: #b8c7ff; padding: 1px 5px; border-radius: 3px; }
 .download-meta {
   display: flex;
   gap: 18px;

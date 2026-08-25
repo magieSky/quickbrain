@@ -109,6 +109,64 @@ async function doSearch(input) {
     return
   }
 
+  if (parsed.type === 'ai-extract') {
+    currentResults = []
+    setStatus('AI 抽取中…')
+    render()
+    const summaryList = await fetchTopSummaries(50, parsed.query)
+    log('doSearch:extract:summaryList', summaryList.length + ' items')
+    let extract = null
+    try {
+      extract = await api.aiExtract({ query: parsed.query, candidateSummaries: summaryList })
+      log('doSearch:extract:result', JSON.stringify(extract))
+    } catch (e) {
+      log('doSearch:extract:error', e.message)
+    }
+    const hit = extract && extract.value && String(extract.value).trim()
+    if (hit) {
+      // 找到字段值：尝试定位源笔记
+      let sourceNote = null
+      if (extract.sourceId) {
+        const pool = await api.getRecentNotes(200).catch(() => [])
+        sourceNote = pool.find(n => n.id === extract.sourceId) || null
+      }
+      const item = {
+        type: 'extract',
+        field: parsed.query,
+        value: hit,
+        confidence: extract.confidence || 0,
+        sourceId: extract.sourceId || null,
+        sourceNote: sourceNote
+      }
+      currentResults = [item]
+      if (sourceNote) currentResults.push({ type: 'note', note: sourceNote })
+      const srcTitle = sourceNote ? sourceNote.title : '未定位笔记'
+      setStatus('AI 抽取 · Enter 复制 · 来自「' + srcTitle + '」')
+    } else {
+      // 未抽取到值 → 回退到 ai-search，再回退到关键词搜索
+      log('doSearch:extract:fallback-ai-search', parsed.query)
+      const ai = await api.semanticSearch({ query: parsed.query, candidateSummaries: summaryList }).catch(() => null)
+      log('doSearch:extract:fallback-ai-search:result', JSON.stringify(ai))
+      if (ai && ai.matchedIds && ai.matchedIds.length) {
+        currentResults = await fetchNotesByIds(ai.matchedIds)
+        setStatus('AI 未抽取到值 · 召回 ' + currentResults.length + ' 条')
+      } else {
+        const kwResults = await api.searchNotes(parsed.query).catch(() => [])
+        log('doSearch:extract:fallback-kw:results', kwResults.length)
+        if (kwResults.length) {
+          currentResults = kwResults.map(n => ({ type: 'note', note: n }))
+          currentResults.push({ type: 'new-content', content: parsed.query })
+          setStatus('AI 未抽取 · 关键词找到 ' + kwResults.length + ' 条 · 按 Enter 添加')
+        } else {
+          currentResults = [{ type: 'new-content', content: parsed.query }]
+          setStatus('AI 未抽取 · 按 Enter 添加为新笔记')
+        }
+      }
+    }
+    render()
+    return
+  }
+
   if (parsed.type === 'command') {
     const cmd = _findCommand(parsed.command)
     log('doSearch:command', parsed.command, cmd ? cmd.name : 'NOT_FOUND')
@@ -216,6 +274,12 @@ function render() {
     } else if (item.type === 'new-content') {
       div.innerHTML = `<span class="item-icon">✚</span><span class="item-text">添加: ${escapeHTML(item.content.substring(0, 60))}</span>`
       div.onclick = () => { selectedIndex = idx; triggerAction('enter') }
+    } else if (item.type === 'extract') {
+      const confPct = Math.round((item.confidence || 0) * 100)
+      const srcTitle = item.sourceNote ? (item.sourceNote.title || '(无标题)') : '未定位'
+      const valShort = String(item.value).substring(0, 80)
+      div.innerHTML = `<span class="item-icon">⭐</span><span class="item-text">${escapeHTML(item.field)}: <b>${escapeHTML(valShort)}</b></span><span class="item-meta">抽取 · 来自「${escapeHTML(srcTitle)}」· ${confPct}%</span>`
+      div.onclick = () => { selectedIndex = idx; triggerAction('enter') }
     }
     els.results.appendChild(div)
   })
@@ -241,6 +305,13 @@ async function triggerAction(mode) {
     // 触发"添加笔记"命令
     const addCmd = _findCommand('添加笔记')
     await addCmd.execute(ctx, item.content)
+    return
+  }
+  if (item.type === 'extract') {
+    // Enter 复制抽取的字段值到剪贴板
+    api.writeClipboard(String(item.value || ''))
+    setStatus('已复制抽取值: ' + String(item.value || '').substring(0, 40))
+    setTimeout(() => window.close(), 300)
     return
   }
   if (item.type === 'note') {

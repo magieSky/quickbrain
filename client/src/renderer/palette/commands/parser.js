@@ -39,7 +39,13 @@ function parseInput(input) {
 
   const trimmed = input.trim()
 
-  // 1. ? 前缀 → AI 语义搜索（支持全角 ?）
+  // 1. !? 前缀 → AI 字段抽取（找不到回退到 ai-search）
+  if (trimmed.startsWith('!?') || trimmed.startsWith('！？')) {
+    const query = trimmed.replace(/^[!?！？]+\s*/, '').trim()
+    return { type: 'ai-extract', query }
+  }
+
+  // 2. ? 前缀 → AI 语义搜索（支持全角 ?）
   if (trimmed.startsWith('?') || trimmed.startsWith('？')) {
     const query = trimmed.replace(/^[?？]\s*/, '').trim()
     return { type: 'ai-search', query }

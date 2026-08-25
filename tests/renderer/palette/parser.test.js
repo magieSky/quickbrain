@@ -57,6 +57,29 @@ describe('parseInput', () => {
     expect(r.type).toBe('new-content')
     expect(r.content).toBe('这是一段全新的笔记内容...')
   })
+  it('parses !? prefix as ai-extract', () => {
+    const r = parseInput('!?服务器ip')
+    expect(r.type).toBe('ai-extract')
+    expect(r.query).toBe('服务器ip')
+  })
+
+  it('parses !? with leading space as ai-extract', () => {
+    const r = parseInput('!?  deepseek密钥')
+    expect(r.type).toBe('ai-extract')
+    expect(r.query).toBe('deepseek密钥')
+  })
+
+  it('parses full-width !？ prefix as ai-extract', () => {
+    const r = parseInput('！？密码')
+    expect(r.type).toBe('ai-extract')
+    expect(r.query).toBe('密码')
+  })
+
+  it('still treats plain ! (without ?) as new-content', () => {
+    const r = parseInput('!cmd')
+    expect(r.type).toBe('new-content')
+  })
+
 
   it('exports 19 command names', () => {
     expect(COMMAND_NAMES.length).toBe(19)

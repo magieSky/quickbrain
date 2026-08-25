@@ -24,6 +24,7 @@ const els = {
   reportMeta: document.getElementById('report-meta'),
   reportSourceCount: document.getElementById('report-source-count'),
   reportSourceList: document.getElementById('report-source-list'),
+  reportNoteSearch: document.getElementById('report-note-search'),
   reportUrls: document.getElementById('report-urls'),
   reportPrompt: document.getElementById('report-prompt'),
   reportFiles: document.getElementById('report-files'),
@@ -242,7 +243,7 @@ function render() {
 
   // Multi-select checkbox: clicking the box toggles this id in/out of the
   // selected set and re-renders only the batch bar (cheaper than render()).
-  els.list.querySelectorAll('.note-select-box input').forEach(cb => {
+  els.list.querySelectorAll('.note-card-checkbox input').forEach(cb => {
     cb.onclick = (e) => { e.stopPropagation() }
     cb.onchange = (e) => {
       const id = parseInt(cb.dataset.id, 10)
@@ -1041,17 +1042,55 @@ let reportFilePaths = []
 function escapeHTML(s) {
   return (s || "").replace(/[&<>"']/g, function (c) { return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" })[c] })
 }
-function showReportModal() {
-  const ids = Array.from(selectedIds)
-  els.reportSourceCount.textContent = ids.length
+function renderReportNotePicker(query) {
+  const q = (query || '').trim().toLowerCase()
+  const notes = (allNotes || []).filter(function (n) { return !n.is_atom })
   els.reportSourceList.innerHTML = ""
-  const notes = window.__QB_LAST_NOTES__ || []
-  for (const n of notes.filter(function (x) { return ids.indexOf(x.id) >= 0 })) {
-    const div = document.createElement("div")
-    div.className = "report-source-item"
-    div.innerHTML = '<span class="src-title">📝 ' + escapeHTML(n.title || '(无标题)') + '</span>'
-    els.reportSourceList.appendChild(div)
+  const matched = notes.filter(function (n) {
+    if (!q) return true
+    return (n.title || '').toLowerCase().includes(q) || (n.content || '').toLowerCase().includes(q)
+  })
+  if (matched.length === 0) {
+    const empty = document.createElement("div")
+    empty.textContent = notes.length === 0 ? "暂无笔记" : "无匹配"
+    els.reportSourceList.appendChild(empty)
+    updateReportCount()
+    return
   }
+  matched.forEach(function (n) {
+    const label = document.createElement("label")
+    label.className = "report-pick-item"
+    const cb = document.createElement("input")
+    cb.type = "checkbox"
+    cb.checked = selectedIds.has(n.id)
+    cb.onchange = function () {
+      if (cb.checked) selectedIds.add(n.id)
+      else selectedIds.delete(n.id)
+      updateReportCount()
+    }
+    const span = document.createElement("span")
+    span.textContent = (n.title || '无标题')
+    span.title = (n.title || '无标题')
+    label.appendChild(cb)
+    label.appendChild(span)
+    els.reportSourceList.appendChild(label)
+  })
+  updateReportCount()
+}
+
+function updateReportCount() {
+  if (els.reportSourceCount) els.reportSourceCount.textContent = String(selectedIds.size)
+}
+
+if (els.reportNoteSearch) {
+  els.reportNoteSearch.addEventListener("input", function () {
+    renderReportNotePicker(els.reportNoteSearch.value)
+  })
+}
+
+function showReportModal() {
+  renderReportNotePicker()
+  updateReportCount()
   els.reportUrls.value = ""
   els.reportPrompt.value = ""
   els.reportFiles.value = ""
@@ -1090,12 +1129,12 @@ els.reportGenerate.onclick = async function () {
   const urls = els.reportUrls.value.split("\n").map(function (s) { return s.trim() }).filter(Boolean)
   if (!prompt) {
     els.reportPrompt.focus()
-    setStatus("请填写提示词")
+    els.reportStats.textContent = "⚠ 请填写提示词"
     return
   }
   const noteIds = Array.from(selectedIds)
   if (noteIds.length === 0 && urls.length === 0 && reportFilePaths.length === 0) {
-    setStatus("请至少选一条笔记、填一个 URL 或上传一个文件")
+    els.reportStats.textContent = "⚠ 请至少勾选一条笔记、填一个 URL 或上传一个文件"
     return
   }
   els.reportGenerate.disabled = true

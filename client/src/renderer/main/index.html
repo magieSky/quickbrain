@@ -352,6 +352,8 @@
   background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
   border-radius: 6px; color: rgba(255,255,255,0.85);
   font-size: 12px; cursor: pointer;
+  white-space: nowrap;
+  flex: 0 0 auto;
 }
 .float-batch button:hover { background: rgba(255,255,255,0.12); }
 .float-batch button:disabled { opacity: 0.4; cursor: not-allowed; }
@@ -400,13 +402,6 @@
     .ai-status.success { background: rgba(80,200,120,0.15); color: #7ed99a; }
     .ai-status.error { background: rgba(255,80,80,0.15); color: #ff9a9a; }
     .ai-current { font-size: 11px; color: rgba(255,255,255,0.4); margin-bottom: 12px; padding: 8px 12px; background: rgba(255,255,255,0.03); border-radius: 6px; }
-    .ai-server-section { margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid rgba(255,255,255,0.08); }
-    .ai-server-section .form-label { font-size: 12px; color: rgba(255,255,255,0.85); }
-    .ai-server-section .form-hint { font-size: 10px; color: rgba(255,255,255,0.4); margin-top: 4px; }
-    .ai-server-section .form-input { font-family: ui-monospace; font-size: 12px; }
-    .ai-server-section .key-row { display: flex; gap: 6px; align-items: center; }
-    .ai-server-section .key-row input { flex: 1; font-family: ui-monospace; font-size: 12px; }
-
     /* === 拖拽导入 overlay === */
     .drop-overlay { position: fixed; inset: 0; background: rgba(20,30,60,0.85); display: none; align-items: center; justify-content: center; z-index: 9999; pointer-events: none; }
     .drop-overlay.active { display: flex; }
@@ -499,6 +494,19 @@
     .source-link { color: #7c9cff; cursor: pointer; text-decoration: underline; }
     .source-link:hover { color: #a8c0ff; }
     .note-source { padding: 2px 6px; background: rgba(255,255,255,0.08); border-radius: 3px; color: #88aaff; }
+
+    /* Report composer modal */
+    .report-modal { max-width: 720px; max-height: 88vh; overflow-y: auto; }
+    .report-meta { font-size: 12px; color: rgba(255,255,255,0.6); padding: 8px 10px; background: rgba(255,255,255,0.04); border-radius: 6px; margin-bottom: 12px; }
+    .report-source-list { max-height: 120px; overflow-y: auto; padding: 8px; background: rgba(255,255,255,0.04); border-radius: 6px; border: 1px solid rgba(255,255,255,0.06); }
+    .report-source-list:empty::before { content: "(无)"; color: rgba(255,255,255,0.4); font-size: 12px; }
+    .report-source-item { display: flex; align-items: center; gap: 6px; padding: 3px 0; font-size: 12px; color: rgba(255,255,255,0.85); }
+    .report-source-item .src-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .report-file-list { margin-top: 6px; }
+    .report-file-item { display: inline-block; padding: 2px 8px; margin: 2px 4px 2px 0; background: rgba(120,150,255,0.15); border-radius: 10px; font-size: 11px; color: #c8d4ff; }
+    .report-stream { min-height: 200px; max-height: 360px; overflow-y: auto; padding: 10px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; font-family: ui-monospace, Consolas, monospace; font-size: 12px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; color: rgba(255,255,255,0.92); }
+    .report-stream:empty::before { content: "(生成中…)"; color: rgba(255,255,255,0.35); font-style: italic; }
+    .report-stats { margin-top: 4px; font-size: 11px; color: rgba(255,180,120,0.85); }
   </style>
 </head>
 <body>
@@ -544,6 +552,8 @@
     <button id="fb-select-all">全选可见</button>
     <span class="fb-sep"></span>
     <button class="primary" id="fb-set-public">☁︎ 公开同步</button>
+    <span class="fb-sep"></span>
+    <button class="primary" id="fb-report">📄 生成报告</button>
     <button class="danger" id="fb-set-private">🔒 设为仅本机</button>
     <span class="fb-sep"></span>
     <button id="fb-exit">× 取消多选</button>
@@ -598,20 +608,6 @@
     <div class="modal ai-modal">
       <h2>🤖 AI 设置</h2>
       <div class="ai-current" id="ai-current">未配置</div>
-      <div class="ai-server-section">
-        <div class="form-group">
-          <label class="form-label">服务端代理（可选，留空走本地）</label>
-          <input type="text" class="form-input" id="ai-server-url" placeholder="https://你的quickbrain服务器">
-          <div class="form-hint" id="ai-server-url-hint">填了就用服务端 AI（format / categorize / semantic-search）。</div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Server Token（可选）</label>
-          <div class="key-row">
-            <input type="password" class="form-input" id="ai-server-token" placeholder="服务端令牌">
-            <button class="btn" id="ai-toggle-server-token" style="flex: 0 0 auto; padding: 8px 12px;">👁</button>
-          </div>
-        </div>
-      </div>
       <div class="provider-list" id="provider-list"></div>
       <div class="ai-form" id="ai-form">
         <div class="form-group">
@@ -622,11 +618,13 @@
           </div>
           <div class="form-hint" id="ai-key-hint"></div>
         </div>
-        <div class="form-row" id="ai-extra-row" style="display: none;">
+        <div class="form-row" id="ai-baseurl-row" style="display: none;">
           <div class="form-group">
             <label class="form-label">Base URL（接口地址）</label>
             <input type="text" class="form-input" id="ai-baseurl" placeholder="http://localhost:11434/v1">
           </div>
+        </div>
+        <div class="form-row" id="ai-model-row" style="display: none;">
           <div class="form-group">
             <label class="form-label">模型</label>
             <input type="text" class="form-input" id="ai-model" placeholder="例如 qwen2.5:7b">
@@ -701,6 +699,42 @@
         <button class="btn" id="sync-cancel">取消</button>
         <button class="btn primary" id="sync-submit-signup">创建账号</button>
         <button class="btn primary" id="sync-submit-signin" style="display: none;">登录</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 报告生成器弹窗 -->
+  <div class="modal-overlay" id="report-modal">
+    <div class="modal report-modal">
+      <h2>📄 生成报告</h2>
+      <div class="report-meta" id="report-meta">基于已选笔记，按你的提示词整合成结构化报告</div>
+      <div class="form-group">
+        <label class="form-label">已选笔记 (<span id="report-source-count">0</span>)</label>
+        <div class="report-source-list" id="report-source-list"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">URL 源（每行一个，可选）</label>
+        <textarea class="form-textarea" id="report-urls" rows="3" placeholder="https://example.com/docs"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">提示词（怎么整理这些材料）</label>
+        <textarea class="form-textarea" id="report-prompt" rows="4" placeholder="例：请按时间线整理这些材料，提取关键命令和注意事项。"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">上传文件（拖入或点击，可选）</label>
+        <input type="file" class="form-input" id="report-files" multiple accept=".md,.txt,.pdf,.docx,.xlsx,.pptx,.csv,.html">
+        <div class="report-file-list" id="report-file-list"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">实时输出</label>
+        <div class="report-stream" id="report-stream"></div>
+        <div class="report-stats" id="report-stats"></div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" id="report-cancel">取消</button>
+        <button class="btn" id="report-copy" style="display:none;">复制</button>
+        <button class="btn" id="report-save" style="display:none;">保存为笔记</button>
+        <button class="btn primary" id="report-generate">生成</button>
       </div>
     </div>
   </div>

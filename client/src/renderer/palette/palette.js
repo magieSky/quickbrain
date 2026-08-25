@@ -23,10 +23,12 @@ const els = {
 }
 
 let debounceTimer = null
+let searchEpoch = 0  // bumps on every input; stale results from old epochs are dropped
 
 els.input.addEventListener('input', () => {
   log('input', 'value=' + JSON.stringify(els.input.value))
   clearTimeout(debounceTimer)
+  searchEpoch++  // any in-flight doSearch from a previous input is now stale
   debounceTimer = setTimeout(() => doSearch(els.input.value), 100)
 })
 
@@ -68,8 +70,8 @@ function moveSelection(delta) {
   render()
 }
 
-async function doSearch(input) {
-  log('doSearch:start', JSON.stringify(input))
+async function doSearch(input, epoch = searchEpoch) {
+  log('doSearch:start', JSON.stringify(input), 'epoch=' + epoch)
   const parsed = _parseInput(input)
   log('doSearch:parsed', parsed.type, parsed)
   if (parsed.type === 'empty') {
@@ -79,6 +81,9 @@ async function doSearch(input) {
     return
   }
 
+  // helper: bail out if a newer input has superseded this search
+  const isStale = () => epoch !== searchEpoch
+
   if (parsed.type === 'ai-search') {
     currentResults = []
     setStatus('AI 召回中…')
@@ -86,8 +91,10 @@ async function doSearch(input) {
     const summaryList = await fetchTopSummaries(50, parsed.query)
     log('doSearch:ai:summaryList', summaryList.length + ' items:')
     for (const s of summaryList) log('doSearch:ai:summary', s)
+    if (isStale()) { log('doSearch:stale', 'ai-search pre-llm'); return }
     const result = await api.semanticSearch({ query: parsed.query, candidateSummaries: summaryList })
     log('doSearch:ai:result', JSON.stringify(result))
+    if (isStale()) { log('doSearch:stale', 'ai-search post-llm'); return }
     if (result && result.matchedIds && result.matchedIds.length) {
       currentResults = await fetchNotesByIds(result.matchedIds)
       setStatus(`AI 召回 ${currentResults.length} 条`)
@@ -96,6 +103,7 @@ async function doSearch(input) {
       log('doSearch:ai:fallback-keyword', parsed.query)
       const kwResults = await api.searchNotes(parsed.query).catch(() => [])
       log('doSearch:ai:fallback-keyword:results', kwResults.length)
+      if (isStale()) { log('doSearch:stale', 'ai-search fallback-kw'); return }
       if (kwResults.length) {
         currentResults = kwResults.map(n => ({ type: 'note', note: n }))
         currentResults.push({ type: 'new-content', content: parsed.query })
@@ -115,6 +123,7 @@ async function doSearch(input) {
     render()
     const summaryList = await fetchTopSummaries(50, parsed.query)
     log('doSearch:extract:summaryList', summaryList.length + ' items')
+    if (isStale()) { log('doSearch:stale', 'extract pre-llm'); return }
     let extract = null
     try {
       extract = await api.aiExtract({ query: parsed.query, candidateSummaries: summaryList })
@@ -122,6 +131,7 @@ async function doSearch(input) {
     } catch (e) {
       log('doSearch:extract:error', e.message)
     }
+    if (isStale()) { log('doSearch:stale', 'extract post-llm'); return }
     const hit = extract && extract.value && String(extract.value).trim()
     if (hit) {
       // 找到字段值：尝试定位源笔记
@@ -147,12 +157,15 @@ async function doSearch(input) {
       log('doSearch:extract:fallback-ai-search', parsed.query)
       const ai = await api.semanticSearch({ query: parsed.query, candidateSummaries: summaryList }).catch(() => null)
       log('doSearch:extract:fallback-ai-search:result', JSON.stringify(ai))
+      if (isStale()) { log('doSearch:stale', 'extract fallback-ai'); return }
       if (ai && ai.matchedIds && ai.matchedIds.length) {
+        if (isStale()) { log('doSearch:stale', 'extract fallback-ai pre-fetch'); return }
         currentResults = await fetchNotesByIds(ai.matchedIds)
         setStatus('AI 未抽取到值 · 召回 ' + currentResults.length + ' 条')
       } else {
         const kwResults = await api.searchNotes(parsed.query).catch(() => [])
         log('doSearch:extract:fallback-kw:results', kwResults.length)
+        if (isStale()) { log('doSearch:stale', 'extract fallback-kw'); return }
         if (kwResults.length) {
           currentResults = kwResults.map(n => ({ type: 'note', note: n }))
           currentResults.push({ type: 'new-content', content: parsed.query })
@@ -179,6 +192,7 @@ async function doSearch(input) {
   if (parsed.type === 'ai-format') {
     const results = await api.searchNotes(parsed.keyword || '')
     log('doSearch:ai-format:results', results.length)
+    if (isStale()) { log('doSearch:stale', 'ai-format'); return }
     if (results.length === 0) { setStatus('未找到匹配'); render(); return }
     currentResults = [{ type: 'note', note: results[0] }]
     setStatus(`按 Enter AI ${parsed.style}`)
@@ -191,6 +205,7 @@ async function doSearch(input) {
     log('doSearch:new-content:searching', parsed.content)
     const results = await api.searchNotes(parsed.content)
     log('doSearch:new-content:results', results.length, results.slice(0, 2).map(r => r.id))
+    if (isStale()) { log('doSearch:stale', 'new-content'); return }
     currentResults = results.map(n => ({ type: 'note', note: n }))
     currentResults.push({ type: 'new-content', content: parsed.content })
     setStatus(results.length > 0

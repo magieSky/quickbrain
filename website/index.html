@@ -181,6 +181,113 @@
       </div>
     </section>
 
+
+    <!-- HOW IT WORKS (animated demo) -->
+    <section id="demo" class="section demo">
+      <div class="container">
+        <div class="section-head">
+          <span class="kicker reveal">60 秒看懂</span>
+          <h2 class="section-title reveal">四步上手 <span class="grad-text">速脑</span></h2>
+          <p class="section-sub reveal">从唤起到同步，整套交互一次跑通。</p>
+        </div>
+
+        <div class="demo-grid">
+          <div class="demo-step" data-step="1">
+            <div class="demo-stage">
+              <div class="demo-window demo-window-floating" id="demo-floating-1">
+                <div class="demo-search">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                  <span class="demo-search-text">搜索笔记…</span>
+                  <span class="demo-cursor-blink">|</span>
+                </div>
+                <ul class="demo-results">
+                  <li class="demo-result-active"><span class="demo-result-ico">📌</span><div><div class="demo-result-title">服务器连接信息摘要</div><div class="demo-result-meta">2026-08-25 · 1 分钟前</div></div></li>
+                  <li><span class="demo-result-ico">🌐</span><div><div class="demo-result-title">DeepSeek API 调用最佳实践</div><div class="demo-result-meta">网页 · 今天</div></div></li>
+                  <li><span class="demo-result-ico">📝</span><div><div class="demo-result-title">kubectl 常用命令备忘</div><div class="demo-result-meta">2026-08-20</div></div></li>
+                </ul>
+              </div>
+              <span class="demo-kbd-hint"><kbd>Alt</kbd> + <kbd>K</kbd> 唤起</span>
+            </div>
+            <div class="demo-cap">
+              <span class="demo-num">01</span>
+              <h3>全局唤起</h3>
+              <p>任何应用中按 <span class="kbd">Alt + K</span>，搜索面板秒出。</p>
+            </div>
+          </div>
+
+          <div class="demo-step" data-step="2">
+            <div class="demo-stage">
+              <div class="demo-window">
+                <div class="demo-search">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                  <span class="demo-search-text" data-typed="? 给一份 deepseek 接入教程"></span>
+                </div>
+                <ul class="demo-results">
+                  <li class="demo-result-ai"><span class="demo-result-ico">✨</span><div><div class="demo-result-title">AI 总结 · 3 步走完接入</div><div class="demo-result-meta">① pip install openai · ② base_url 指向 deepseek · ③ 设置 API Key</div></div></li>
+                  <li><span class="demo-result-ico">📌</span><div><div class="demo-result-title">DeepSeek API key 配置</div><div class="demo-result-meta">本地 · 5 天前</div></div></li>
+                  <li><span class="demo-result-ico">🌐</span><div><div class="demo-result-title">DeepSeek 官方文档</div><div class="demo-result-meta">网页 · 今天</div></div></li>
+                </ul>
+              </div>
+              <span class="demo-kbd-hint"><kbd>?</kbd> 触发 AI 搜索</span>
+            </div>
+            <div class="demo-cap">
+              <span class="demo-num">02</span>
+              <h3>AI 搜索</h3>
+              <p>输入 <span class="kbd">?</span> 即触发 AI 语义召回，秒出结构化答案。</p>
+            </div>
+          </div>
+
+          <div class="demo-step" data-step="3">
+            <div class="demo-stage">
+              <div class="demo-window demo-window-browser">
+                <div class="demo-browser-bar">
+                  <span class="demo-browser-dot demo-browser-dot-r"></span><span class="demo-browser-dot demo-browser-dot-y"></span><span class="demo-browser-dot demo-browser-dot-g"></span>
+                  <span class="demo-browser-url">docs.deepseek.com/getting-started</span>
+                </div>
+                <div class="demo-browser-body">
+                  <h4>快速开始 DeepSeek API 集成</h4>
+                  <p class="demo-selection">导入 SDK：<code>pip install openai</code>；配置 <code>base_url=https://api.deepseek.com/v1</code>，填入 API Key 即可调用。</p>
+                  <p class="demo-faded">支持 OpenAI 兼容协议，所有 SDK 直接接入…</p>
+                  <div class="demo-context-menu">
+                    <div class="demo-ctx-item demo-ctx-item-active">📥 保存选中到速脑</div>
+                    <div class="demo-ctx-item">📄 保存整页到速脑</div>
+                  </div>
+                </div>
+              </div>
+              <span class="demo-kbd-hint"><kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>S</kbd></span>
+            </div>
+            <div class="demo-cap">
+              <span class="demo-num">03</span>
+              <h3>网页一键入库</h3>
+              <p>Chrome 扩展选中文字 → 右键 → 入库，URL 一并存。</p>
+            </div>
+          </div>
+
+          <div class="demo-step" data-step="4">
+            <div class="demo-stage">
+              <div class="demo-window">
+                <div class="demo-sync-status">
+                  <span class="demo-status-dot" id="demo-status-dot"></span>
+                  <span class="demo-status-text" id="demo-status-text">未连接</span>
+                  <span class="demo-status-spacer"></span>
+                  <span class="demo-status-action" id="demo-status-action">立即同步</span>
+                </div>
+                <ul class="demo-results demo-sync-info">
+                  <li><span class="demo-info-ico">☁️</span><div><div class="demo-result-title" id="demo-server">note.bjhzsk.cn</div><div class="demo-result-meta">SaaS 云端</div></div></li>
+                  <li><span class="demo-info-ico">📊</span><div><div class="demo-result-title" id="demo-sync-count">同步 0 条</div><div class="demo-result-meta" id="demo-last-sync">等待连接…</div></div></li>
+                </ul>
+              </div>
+              <span class="demo-kbd-hint">⚙ 设置 → 同步</span>
+            </div>
+            <div class="demo-cap">
+              <span class="demo-num">04</span>
+              <h3>多设备同步</h3>
+              <p>一键开启 SaaS 云端，多设备无缝衔接。</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
     <!-- PAIN POINTS -->
     <section class="section pain">
       <div class="container">

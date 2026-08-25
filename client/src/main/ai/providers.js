@@ -72,6 +72,19 @@ const PROVIDERS = [
     customModel: true,
     keyHint: 'Ollama \u9ED8\u8BA4\u4E0D\u9700\u8981 key\uFF0C\u4EFB\u610F\u5B57\u7B26\u4E32\u5373\u53EF',
     keyUrl: 'https://ollama.com'
+  },
+  {
+    id: 'openrouter',
+    name: 'OpenRouter',
+    icon: '\u{1F310}',
+    description: '\u805A\u5408 OpenAI / Claude / Gemini \u7B49\u4E0A\u5343\u6A21\u578B\uFF0C\u7EDF\u4E00 OpenAI \u517C\u5BB9\u63A5\u53E3',
+    baseURL: 'https://openrouter.ai/api/v1',
+    defaultModel: 'openrouter/free',
+    models: ['openrouter/free'],
+    requiresApiKey: true,
+    customModel: true,
+    keyHint: '\u4ECE openrouter.ai/keys \u83B7\u53D6 API Key',
+    keyUrl: 'https://openrouter.ai/keys'
   }
 ]
 

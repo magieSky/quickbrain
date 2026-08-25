@@ -528,6 +528,24 @@ return { success: true, ...result }
     }
   })
 
+  ipcMain.handle('compose-report-start', async (event, params) => {
+    if (!aiService) return { ok: false, error: 'ai-not-configured' }
+    const jobId = 'rep_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8)
+    activeReportJobs.set(jobId, { cancelled: false })
+    runReportJob(event.sender, jobId, params || {}).catch(e => {
+      console.error('[ipc compose-report] job crashed:', e.message)
+      if (!event.sender.isDestroyed()) event.sender.send('compose-report-error', jobId, e.message)
+      activeReportJobs.delete(jobId)
+    })
+    return { ok: true, jobId }
+  })
+
+  ipcMain.handle('compose-report-cancel', (_event, jobId) => {
+    const job = activeReportJobs.get(jobId)
+    if (job) { job.cancelled = true; return { ok: true } }
+    return { ok: false, error: 'job-not-found' }
+  })
+
   ipcMain.on('locate-note', (event, id) => {
     const win = BrowserWindow.fromWebContents(event.sender)
     if (win) {
@@ -547,6 +565,47 @@ function safeParse(str, fallback) {
   try { return JSON.parse(str) } catch { return fallback }
 }
 
+
+// ===== Report composer (streaming) =====
+const activeReportJobs = new Map()  // jobId -> { cancelled: boolean }
+
+async function runReportJob(webContents, jobId, params) {
+  const job = activeReportJobs.get(jobId)
+  if (!job) return
+  const { collectSources } = require('./fetch/sources')
+  const { composeReport } = require('./compose/strategy')
+  try {
+    const sources = await collectSources({
+      noteIds: (params.noteIds || []).map(Number).filter(Boolean),
+      urls: params.urls || [],
+      filePaths: params.filePaths || []
+    })
+    if (job.cancelled) { webContents.send('compose-report-error', jobId, 'cancelled'); return }
+    const prompt = (params.prompt || '').trim() || '请基于以上材料整理一份结构化报告。'
+    const totalTokens = sources.reduce((s, x) => s + (x.tokens || 0), 0)
+    const { pickStrategy } = require('./compose/strategy')
+    const strategy = pickStrategy(totalTokens)
+    webContents.send('compose-report-meta', jobId, {
+      sources: sources.length,
+      tokens: totalTokens,
+      strategy: strategy
+    })
+    const result = await composeReport(
+      aiService,
+      sources,
+      prompt,
+      (chunk) => { if (!job.cancelled) webContents.send('compose-report-chunk', jobId, chunk) },
+      (log) => { if (!job.cancelled) webContents.send('compose-report-log', jobId, log) }
+    )
+    if (job.cancelled) { webContents.send('compose-report-error', jobId, 'cancelled'); return }
+    webContents.send('compose-report-done', jobId, { strategy: result.strategy, tokens: totalTokens, error: result.error || null })
+  } catch (e) {
+    console.error('[ipc compose-report] failed:', e.message)
+    if (!webContents.isDestroyed()) webContents.send('compose-report-error', jobId, e.message)
+  } finally {
+    activeReportJobs.delete(jobId)
+  }
+}
 
 function broadcastNotesUpdated(detail) {
   try {

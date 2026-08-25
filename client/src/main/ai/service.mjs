@@ -171,6 +171,34 @@ export class AIService {
     }
   }
 
+  /**
+   * Stream chat completion tokens via async generator.
+   * Caller iterates and forwards chunks to UI for live preview.
+   */
+  async *chatStream({ system, user, temperature = 0.3, maxTokens = 4000 } = {}) {
+    console.log('[ai chatStream] provider=' + this.providerId + ' model=' + this.defaultModel + ' maxTokens=' + maxTokens)
+    try {
+      const stream = await this.client.chat.completions.create({
+        model: this.defaultModel,
+        stream: true,
+        messages: [
+          ...(system ? [{ role: 'system', content: system }] : []),
+          { role: 'user', content: user }
+        ],
+        temperature,
+        max_tokens: maxTokens
+      })
+      for await (const chunk of stream) {
+        const delta = chunk && chunk.choices && chunk.choices[0] && chunk.choices[0].delta
+        const content = delta && delta.content
+        if (content) yield content
+      }
+    } catch (error) {
+      console.error('[ai chatStream] error:' + error.message)
+      throw error
+    }
+  }
+
   async testConnection() {
     try {
       const response = await this.client.chat.completions.create({

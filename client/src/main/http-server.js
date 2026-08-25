@@ -80,6 +80,41 @@ function start({ getDB, onNotesUpdated }) {
         return send(res, 200, { ok: true, port: PORT, ts: Date.now() })
       }
 
+      // SaaS-style health for extension ping
+      if (route === 'GET /v1/sync/health') {
+        return send(res, 200, { ok: true, port: PORT, ts: Date.now(), local: true })
+      }
+
+      // SaaS-style note write for extension
+      if (route === 'POST /v1/notes') {
+        const body = await readJson(req)
+        console.log('[http-server] POST /v1/notes url=' + (body.source_path || ''))
+        if (!body || typeof body.content !== 'string' || !body.content.trim()) {
+          return send(res, 400, { error: 'content-required' })
+        }
+        const db = getDB()
+        const noteTitle = (body.title || body.content.split('\n')[0] || '').slice(0, 80)
+        const id = addNote(db, {
+          content: body.content,
+          title: noteTitle,
+          tags: Array.isArray(body.tags) ? body.tags : ['web'],
+          source_path: body.source_path || '',
+          source_type: body.source_type || 'web',
+          original_content: body.original_content || ''
+        })
+        if (onNotesUpdated) onNotesUpdated({ type: body.source_type === 'web' ? 'save-page' : 'save-selection', id })
+        // Fire-and-forget extraction (matches local /notes behavior)
+        try {
+          const { extractAtomsForSource } = require('./notes-extractor')
+          setImmediate(() => {
+            extractAtomsForSource(id).catch(err =>
+              console.error('[http-server] extract failed:', err.message))
+          })
+        } catch (e) { console.error('[http-server] extract setup failed:', e.message) }
+        // SaaS-style response shape so the extension is happy
+        return send(res, 200, { client_id: 'local-' + id, id, local: true })
+      }
+
       if (route === 'GET /notes') {
         const q = url.searchParams.get('q') || ''
         const limit = Math.max(1, Math.min(parseInt(url.searchParams.get('limit'), 10) || 20, 200))

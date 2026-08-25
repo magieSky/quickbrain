@@ -70,6 +70,15 @@ contextBridge.exposeInMainWorld('quickbrain', {
     ipcRenderer.on('show-add-dialog', () => callback())
   },
 
+  // Report composer (streaming)
+  startReport: (params) => ipcRenderer.invoke('compose-report-start', params),
+  cancelReport: (jobId) => ipcRenderer.invoke('compose-report-cancel', jobId),
+  onReportMeta: (cb) => { ipcRenderer.on('compose-report-meta', (_e, jobId, meta) => cb(jobId, meta)) },
+  onReportChunk: (cb) => { ipcRenderer.on('compose-report-chunk', (_e, jobId, chunk) => cb(jobId, chunk)) },
+  onReportLog: (cb) => { ipcRenderer.on('compose-report-log', (_e, jobId, log) => cb(jobId, log)) },
+  onReportDone: (cb) => { ipcRenderer.on('compose-report-done', (_e, jobId, info) => cb(jobId, info)) },
+  onReportError: (cb) => { ipcRenderer.on('compose-report-error', (_e, jobId, err) => cb(jobId, err)) },
+
   // Listen for notes-updated event (broadcast when notes change from anywhere)
   onNotesUpdated: (callback) => {
     ipcRenderer.on('notes-updated', (event, detail) => callback(detail))

@@ -19,6 +19,21 @@ const els = {
   fbSetPublic: document.getElementById('fb-set-public'),
   fbSetPrivate: document.getElementById('fb-set-private'),
   fbExit: document.getElementById('fb-exit'),
+  fbReport: document.getElementById('fb-report'),
+  reportModal: document.getElementById('report-modal'),
+  reportMeta: document.getElementById('report-meta'),
+  reportSourceCount: document.getElementById('report-source-count'),
+  reportSourceList: document.getElementById('report-source-list'),
+  reportUrls: document.getElementById('report-urls'),
+  reportPrompt: document.getElementById('report-prompt'),
+  reportFiles: document.getElementById('report-files'),
+  reportFileList: document.getElementById('report-file-list'),
+  reportStream: document.getElementById('report-stream'),
+  reportStats: document.getElementById('report-stats'),
+  reportCancel: document.getElementById('report-cancel'),
+  reportCopy: document.getElementById('report-copy'),
+  reportSave: document.getElementById('report-save'),
+  reportGenerate: document.getElementById('report-generate'),
   addBtn: document.getElementById('add-btn'),
   aiBtn: document.getElementById('ai-btn'),
   autoLaunchBtn: document.getElementById('auto-launch-btn'),
@@ -30,7 +45,8 @@ const els = {
   aiApiKey: document.getElementById('ai-apikey'),
   aiToggleKey: document.getElementById('ai-toggle-key'),
   aiKeyHint: document.getElementById('ai-key-hint'),
-  aiExtraRow: document.getElementById('ai-extra-row'),
+  aiBaseUrlRow: document.getElementById('ai-baseurl-row'),
+  aiModelRow: document.getElementById('ai-model-row'),
   aiBaseURL: document.getElementById('ai-baseurl'),
   aiModel: document.getElementById('ai-model'),
   aiStatus: document.getElementById('ai-status'),
@@ -38,9 +54,6 @@ const els = {
   aiCancel: document.getElementById('ai-cancel'),
   aiTest: document.getElementById('ai-test'),
   aiSave: document.getElementById('ai-save'),
-  aiServerUrl: document.getElementById('ai-server-url'),
-  aiServerToken: document.getElementById('ai-server-token'),
-  aiToggleServerToken: document.getElementById('ai-toggle-server-token'),
   modalContent: document.getElementById('modal-content'),
   modalCategory: document.getElementById('modal-category'),
   modalSave: document.getElementById('modal-save'),
@@ -88,6 +101,7 @@ async function loadNotes() {
   setStatus('加载中...')
   try {
     allNotes = await api.getAllNotes()
+    window.__QB_LAST_NOTES__ = allNotes
     try { const cfg = await api.getAIConfig(); aiReady = !!(cfg && cfg.provider && cfg.hasApiKey) } catch (_) {}
     setStatus('就绪')
   } catch (e) {
@@ -234,7 +248,11 @@ function render() {
       const id = parseInt(cb.dataset.id, 10)
       if (cb.checked) selectedIds.add(id)
       else selectedIds.delete(id)
+      console.log("[qb] cb.onchange id=" + id + " checked=" + cb.checked + " size=" + selectedIds.size + " selectionMode=" + selectionMode + " statusBefore=" + JSON.stringify(els.status && els.status.textContent))
+      if (els.status && els.status.textContent ==="请先选择至少一条笔记") els.status.textContent ="就绪"
+      console.log("[qb] statusAfter=" + JSON.stringify(els.status && els.status.textContent))
       renderFloatBatch()
+      console.log("[qb] after renderFloatBatch floatBatch.show=" + (els.floatBatch && els.floatBatch.classList.contains("show")) + " size=" + selectedIds.size)
     }
   })
   els.list.querySelectorAll('.note-card-format').forEach(btn => {
@@ -391,7 +409,8 @@ async function saveModal() {
     els.modalContent.focus()
     return
   }
-  const title = content.split('\n')[0].trim().substring(0, 50) || '(无标题)'
+  const firstLine = content.split('\n').find(l => l.trim()) || ''
+  const title = firstLine.trim().substring(0, 50) || '(无标题)'
   const category = els.modalCategory.value
   els.modalSave.disabled = true
   els.modalSave.textContent = '保存中...'
@@ -416,6 +435,7 @@ function setSelectionMode(on) {
   els.batchToggleBtn.classList.toggle('active', on)
   updateToolbarDisabled()
   render()
+  renderFloatBatch()
 }
 
 function updateToolbarDisabled() {
@@ -677,8 +697,6 @@ async function openAISettings() {
   } else {
     els.aiCurrent.textContent = '未配置 AI 服务'
   }
-  els.aiServerUrl.value = aiCurrentConfig.serverUrl || ''
-  els.aiServerToken.value = ''
   renderProviders()
   const initial = aiCurrentConfig.provider || (aiProviders[0] && aiProviders[0].id)
   selectProvider(initial)
@@ -708,13 +726,10 @@ function selectProvider(id) {
     const link = document.getElementById('key-link')
     if (link) link.onclick = (e) => { e.preventDefault(); api.openExternal(p.keyUrl) }
   }
-  if (p.customBaseURL || p.customModel) {
-    els.aiExtraRow.style.display = 'flex'
-    els.aiBaseURL.value = aiCurrentConfig.baseURL || p.baseURL || ''
-    els.aiModel.value = aiCurrentConfig.model || p.defaultModel || ''
-  } else {
-    els.aiExtraRow.style.display = 'none'
-  }
+  els.aiBaseUrlRow.style.display = p.customBaseURL ? 'flex' : 'none'
+  els.aiModelRow.style.display = p.customModel ? 'flex' : 'none'
+  els.aiBaseURL.value = aiCurrentConfig.baseURL || p.baseURL || ''
+  els.aiModel.value = aiCurrentConfig.model || p.defaultModel || ''
   els.aiApiKey.value = ''
   els.aiStatus.className = 'ai-status'
   els.aiStatus.textContent = ''
@@ -734,10 +749,6 @@ function buildConfigFromForm() {
   if (p && p.customBaseURL) cfg.baseURL = els.aiBaseURL.value.trim()
   if (p && p.customModel) cfg.model = els.aiModel.value.trim()
   else if (p) cfg.model = p.defaultModel
-  const serverUrl = els.aiServerUrl.value.trim()
-  const serverToken = els.aiServerToken.value.trim()
-  cfg.serverUrl = serverUrl || null
-  cfg.serverToken = serverToken ? (serverToken === (aiCurrentConfig.serverTokenPreview || '') ? '__KEEP__' : serverToken) : null
   return cfg
 }
 
@@ -745,11 +756,7 @@ els.aiToggleKey.onclick = () => {
   els.aiApiKey.type = els.aiApiKey.type === 'password' ? 'text' : 'password'
 }
 
-els.aiToggleServerToken.onclick = () => {
-  els.aiServerToken.type = els.aiServerToken.type === 'password' ? 'text' : 'password'
-}
-
-els.aiTest.onclick = async () => {
+  els.aiTest.onclick = async () => {
   const cfg = buildConfigFromForm()
   if (cfg.apiKey === '__KEEP__') cfg.apiKey = ''  // 测试时不能保留，让服务器报错
   els.aiTest.disabled = true
@@ -977,7 +984,8 @@ async function editNote(note) {
   const newContent = await promptModal('编辑内容:', note.content, { multiline: true })
   if (newContent === null) return
   try {
-    await api.updateNote({ id: note.id, content: newContent, title: newContent.split('\n')[0].trim().substring(0, 50) || '(无标题)' })
+    const editFirstLine = newContent.split('\n').find(l => l.trim()) || ''
+    await api.updateNote({ id: note.id, content: newContent, title: editFirstLine.trim().substring(0, 50) || '(无标题)' })
     await loadNotes()
     setStatus('已更新')
   } catch (e) {
@@ -1026,4 +1034,154 @@ if (api.onShowAddDialog) {
 
 loadNotes()
 
+// ===== Report composer =====
+let reportJobId = null
+let reportFullText = ""
+let reportFilePaths = []
+function escapeHTML(s) {
+  return (s || "").replace(/[&<>"']/g, function (c) { return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" })[c] })
+}
+function showReportModal() {
+  const ids = Array.from(selectedIds)
+  els.reportSourceCount.textContent = ids.length
+  els.reportSourceList.innerHTML = ""
+  const notes = window.__QB_LAST_NOTES__ || []
+  for (const n of notes.filter(function (x) { return ids.indexOf(x.id) >= 0 })) {
+    const div = document.createElement("div")
+    div.className = "report-source-item"
+    div.innerHTML = '<span class="src-title">📝 ' + escapeHTML(n.title || '(无标题)') + '</span>'
+    els.reportSourceList.appendChild(div)
+  }
+  els.reportUrls.value = ""
+  els.reportPrompt.value = ""
+  els.reportFiles.value = ""
+  els.reportFileList.innerHTML = ""
+  reportFilePaths = []
+  els.reportStream.textContent = ""
+  els.reportStats.textContent = ""
+  els.reportGenerate.disabled = false
+  els.reportGenerate.textContent = "生成"
+  els.reportCopy.style.display = "none"
+  els.reportSave.style.display = "none"
+  els.reportModal.classList.add("show")
+  setTimeout(function () { els.reportPrompt.focus() }, 50)
+}
+function hideReportModal() {
+  els.reportModal.classList.remove("show")
+  if (reportJobId) { api.cancelReport(reportJobId); reportJobId = null }
+}
+els.reportCancel.onclick = hideReportModal
+els.reportFiles.addEventListener("change", function () {
+  els.reportFileList.innerHTML = ""
+  reportFilePaths = []
+  const files = els.reportFiles.files || []
+  for (let i = 0; i < files.length; i++) {
+    const f = files[i]
+    const fp = api.getPathForFile(f)
+    reportFilePaths.push(fp)
+    const span = document.createElement("span")
+    span.className = "report-file-item"
+    span.textContent = "📎 " + f.name
+    els.reportFileList.appendChild(span)
+  }
+})
+els.reportGenerate.onclick = async function () {
+  const prompt = els.reportPrompt.value.trim()
+  const urls = els.reportUrls.value.split("\n").map(function (s) { return s.trim() }).filter(Boolean)
+  if (!prompt) {
+    els.reportPrompt.focus()
+    setStatus("请填写提示词")
+    return
+  }
+  const noteIds = Array.from(selectedIds)
+  if (noteIds.length === 0 && urls.length === 0 && reportFilePaths.length === 0) {
+    setStatus("请至少选一条笔记、填一个 URL 或上传一个文件")
+    return
+  }
+  els.reportGenerate.disabled = true
+  els.reportGenerate.textContent = "生成中…"
+  els.reportStream.textContent = ""
+  els.reportStats.textContent = ""
+  els.reportCopy.style.display = "none"
+  els.reportSave.style.display = "none"
+  reportFullText = ""
+  try {
+    const r = await api.startReport({ noteIds: noteIds, urls: urls, filePaths: reportFilePaths, prompt: prompt })
+    if (!r || !r.ok) {
+      els.reportGenerate.disabled = false
+      els.reportGenerate.textContent = "生成"
+      setStatus("生成失败: " + (r && r.error))
+      return
+    }
+    reportJobId = r.jobId
+  } catch (e) {
+    els.reportGenerate.disabled = false
+    els.reportGenerate.textContent = "生成"
+    setStatus("生成失败: " + e.message)
+  }
+}
+els.reportCopy.onclick = function () {
+  api.writeClipboard(reportFullText)
+  setStatus("已复制到剪贴板")
+}
+els.reportSave.onclick = async function () {
+  if (!reportFullText) return
+  const firstLine = reportFullText.split("\n")[0].replace(/^#+\s*/, "").trim() || "报告"
+  const title = "[报告] " + firstLine.substring(0, 50)
+  try {
+    await api.addNote({ content: reportFullText, title: title, category: "其他", tags: ["report"], is_private: 0 })
+    setStatus("已保存为笔记")
+    hideReportModal()
+    setSelectionMode(false)
+    await loadNotes()
+  } catch (e) {
+    setStatus("保存失败: " + e.message)
+  }
+}
+if (els.fbReport) {
+  els.fbReport.onclick = function () {
+    showReportModal()
+  }
+}
+
+if (api.onReportMeta) {
+  api.onReportMeta(function (jobId, meta) {
+    if (jobId !== reportJobId) return
+    els.reportStats.textContent = "策略=" + meta.strategy + " · 材料 " + meta.sources + " 份 · 约 " + meta.tokens + " tokens"
+  })
+}
+if (api.onReportChunk) {
+  api.onReportChunk(function (jobId, chunk) {
+    if (jobId !== reportJobId) return
+    reportFullText += chunk
+    els.reportStream.textContent = reportFullText
+    els.reportStream.scrollTop = els.reportStream.scrollHeight
+  })
+}
+if (api.onReportLog) {
+  api.onReportLog(function (jobId, log) {
+    console.log("[report]", log)
+  })
+}
+if (api.onReportDone) {
+  api.onReportDone(function (jobId, info) {
+    if (jobId !== reportJobId) return
+    reportJobId = null
+    els.reportGenerate.disabled = false
+    els.reportGenerate.textContent = "再次生成"
+    els.reportCopy.style.display = ""
+    els.reportSave.style.display = ""
+    els.reportStats.textContent = (els.reportStats.textContent || "") + " · 完成" + (info.error ? "（部分失败）" : "")
+  })
+}
+if (api.onReportError) {
+  api.onReportError(function (jobId, err) {
+    if (jobId !== reportJobId) return
+    reportJobId = null
+    els.reportGenerate.disabled = false
+    els.reportGenerate.textContent = "生成"
+    if (err === "cancelled") { els.reportStats.textContent = "已取消"; return }
+    els.reportStats.textContent = "失败: " + err
+  })
+}
 els.settingsBtnMain.onclick = openSyncSettings

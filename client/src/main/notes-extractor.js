@@ -10,6 +10,13 @@ function getAIService() { return _aiService }
 function safeParse(s, fallback) { try { return JSON.parse(s) } catch { return fallback } }
 
 async function extractAtomsForSource(sourceId, { force = false } = {}) {
+  // Atom extraction disabled by product decision: do not split saved pages.
+  // Kept as a no-op so callers (http-server, ipc handlers) keep working.
+  console.log('[notes-extractor] disabled; skipping source', sourceId)
+  return { ok: true, count: 0, skipped: 'disabled' }
+}
+
+async function _extractAtomsForSourceImpl(sourceId, { force = false } = {}) {
   const db = getDB()
   const source = getNoteById(db, sourceId)
   if (!source) { console.log('[notes-extractor] source not found', sourceId); return { ok: false, error: 'not-found' } }

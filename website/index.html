@@ -1,12 +1,12 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0b0e1a">
   <title>速脑 — 你的信息，触手可及</title>
-  <meta name="description" content="速脑 (QuickBrain) 是一款桌面常驻应用。快捷键唤起，关键字秒搜，快捷键秒记。AI 自动格式化，让碎片知识井然有序。本地优先，可选同步。">
-  <meta name="keywords" content="速脑,QuickBrain,知识管理,笔记,本地优先,AI,快捷键,Chrome 扩展,自托管">
+  <meta name="description" content="速脑是一款桌面常驻的个人知识中枢。全局快捷键唤起，毫秒级全文检索，AI 一键格式化碎片。本地优先、开箱即用；多设备协同可一键开启 SaaS 云端，敏感笔记单独加锁。">
+  <meta name="keywords" content="速脑,QuickBrain,知识管理,笔记,本地优先,SaaS,自托管,私密笔记,AI,快捷键,Chrome 扩展">
   <link rel="icon" type="image/svg+xml" href="./assets/favicon.svg">
   
   <meta property="og:title" content="速脑 (QuickBrain) — 你的信息，触手可及">
@@ -58,8 +58,7 @@
             <span class="grad-text">触手可及</span>
           </h1>
           <p class="subtitle">
-            「速脑」是一款桌面常驻的<strong>个人知识中枢</strong>。全局快捷键唤起，毫秒级全文检索，AI 一键格式化碎片。
-            本地优先存储，可选自托管同步。
+            「速脑」是一款桌面常驻的<strong>个人知识中枢</strong>。全局快捷键唤起，毫秒级全文检索，AI 一键格式化碎片。本地优先、开箱即用；多设备协同可一键开启 <strong>SaaS 云端</strong>，敏感笔记单独加锁。
           </p>
           <div class="cta-row">
             <a class="btn btn-primary btn-lg" href="#download">
@@ -121,6 +120,52 @@
                     </div>
                   </li>
                 </ul>
+              </div>
+            </div>
+          </div>
+
+          <div class="window mock-window mock-window-secondary">
+            <div class="window-bar">
+              <span class="dot red"></span><span class="dot amber"></span><span class="dot green"></span>
+              <span class="window-title">速脑 · 主面板</span>
+            </div>
+            <div class="window-body mock-app mock-main">
+              <div class="mock-toolbar">
+                <span class="mock-tb-brand">⚡ 速脑</span>
+                <span class="mock-tb-stat">42 笔记</span>
+                <span class="mock-tb-spacer"></span>
+                <span class="mock-tb-btn mock-tb-btn-primary">＋ 添加</span>
+                <span class="mock-tb-btn">⚙</span>
+              </div>
+              <div class="mock-search"><span class="placeholder">搜索笔记、命令、URL…</span></div>
+              <div class="mock-chips">
+                <span class="mock-chip active">全部</span>
+                <span class="mock-chip">🔒 私密</span>
+                <span class="mock-chip">☁️ 云端</span>
+                <span class="mock-chip">📅 最近</span>
+              </div>
+              <ul class="mock-notes">
+                <li class="mock-note mock-note-selected">
+                  <span class="mock-note-icon">🔒</span>
+                  <div class="mock-note-body">
+                    <div class="mock-note-title">deepseek llm 密钥</div>
+                    <div class="mock-note-meta">私密 · 本地 · 刚刚</div>
+                  </div>
+                  <span class="mock-note-lock">🔒</span>
+                </li>
+                <li class="mock-note">
+                  <span class="mock-note-icon">📌</span>
+                  <div class="mock-note-body">
+                    <div class="mock-note-title">deepseek-harness 启动命令</div>
+                    <div class="mock-note-meta">公开 · 云端 · 今天</div>
+                  </div>
+                </li>
+              </ul>
+              <div class="mock-batch">
+                <span class="mock-batch-count">已选 1</span>
+                <span class="mock-batch-btn">🔒 私密</span>
+                <span class="mock-batch-btn">☁️ 同步</span>
+                <span class="mock-batch-btn danger">🗑️</span>
               </div>
             </div>
           </div>
@@ -206,8 +251,13 @@
           </div>
           <div class="feature-card reveal">
             <div class="feat-icon icon-bg-6">☁️</div>
-            <h3>可选多端同步</h3>
-            <p>本地默认；需要时自托管服务端（Fastify + Postgres），HMAC 鉴权、数据自主可控。</p>
+            <h3>本地 + SaaS 双模式</h3>
+            <p>本地默认零依赖；多设备协同可一键开启 <strong>SaaS 云端</strong>（note.bjhzsk.cn），或自托管服务端（Fastify + Postgres），HMAC 鉴权。</p>
+          </div>
+          <div class="feature-card reveal">
+            <div class="feat-icon icon-bg-7">🔒</div>
+            <h3>私密笔记</h3>
+            <p>单条笔记一键加锁，仅本地可见；批量选择可统一切到「私密」。查询时自动合并本地与云端公开笔记。</p>
           </div>
         </div>
       </div>
@@ -226,7 +276,7 @@
             <div class="how-num">01</div>
             <div class="how-body">
               <h3>下载安装</h3>
-              <p>下载 <code>QuickBrain Setup 1.0.0.exe</code>，双击安装。Windows 10 / 11 (x64)，约 90 MB。</p>
+              <p>下载 <code>速脑 Setup 1.0.0.exe</code>，双击安装。Windows 10 / 11 (x64)，约 110 MB。</p>
             </div>
           </li>
           <li class="how-step reveal">
@@ -268,13 +318,13 @@
           </div>
           <div class="tech-card reveal">
             <div class="tech-num">03</div>
-            <h3>自托管同步</h3>
-            <p>服务端 50 MB 镜像一键起，HMAC 鉴权，端到端加密通道（设计中），数据完全可控。</p>
+            <h3>SaaS + 自托管</h3>
+            <p>开箱即用 SaaS（note.bjhzsk.cn）；有数据顾虑可一键部署自托管服务端，HMAC 鉴权 + 账号隔离，笔记权限由你掌控。</p>
           </div>
           <div class="tech-card reveal">
             <div class="tech-num">04</div>
             <h3>原生应用体验</h3>
-            <p>基于 Electron + Native Messaging，无浏览器开销；快捷键不抢系统焦点冲突。</p>
+            <p>基于 Electron + Native Messaging；全局快捷键不抢系统焦点冲突，托盘常驻、随开随用。</p>
           </div>
         </div>
       </div>
@@ -291,7 +341,7 @@
           <div class="download-row">
             <a class="btn btn-primary btn-lg" href="https://note.bjhzsk.cn/downloads/desktop/QuickBrain-Setup-1.0.0.exe" download>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              Windows 10/11 · x64 · 106 MB
+              Windows 10/11 · x64 · 110 MB
             </a>
             <a class="btn btn-ghost btn-lg" href="#how">
               查看安装步骤
@@ -389,7 +439,7 @@
                   <h3>配置后端地址</h3>
                   <p>点击工具栏扩展图标（拼图块 → 闪电图标）→ ⚙️ 设置：<br>
                     · <strong>本地</strong>：Endpoint URL 留默认 <code>http://127.0.0.1:7421</code>，Auth Token 留空（需要桌面端已启动）；<br>
-                    · <strong>云端</strong>：Endpoint URL 填 <code>https://note.bjhzsk.cn</code>，Auth Token 填你的 <code>OWNER_TOKEN</code>。</p>
+                    · <strong>SaaS 云端</strong>：Endpoint URL 填 <code>https://note.bjhzsk.cn</code>，先在桌面端「设置 → 同步」注册账号并把 Auth Token 复制过来。</p>
                 </div>
               </li>
               <li class="how-step reveal">
@@ -425,7 +475,7 @@
         <span class="brand-name">速脑</span>
       </div>
       <div class="footer-meta">
-        <span>© 2026 速脑 · QuickBrain</span>
+        <span>© 2026 速脑</span>
         <span class="sep">·</span>
         <span>MIT 协议</span>
         <span class="sep">·</span>

@@ -33,7 +33,7 @@ Module.default._cache[searchResolved] = { exports: searchStub, id: searchResolve
 const mockGetDB = vi.fn().mockReturnValue({
   prepare: vi.fn().mockReturnValue({
     run: vi.fn(),
-    get: vi.fn().mockReturnValue({ id: 1 }),
+    get: vi.fn((id) => (id === 1 ? { id: 1, title: 'test', content: 'x', is_private: 0, tags: '[]' } : null)),
     all: vi.fn().mockReturnValue([])
   })
 })
@@ -88,5 +88,31 @@ describe('ipc', () => {
   it('registers relaunch and quit handlers', () => {
     expect(mockHandlers['relaunch']).toBeDefined()
     expect(mockHandlers['quit']).toBeDefined()
+  })
+
+  it('registers open-editor handler', () => {
+    expect(mockHandlers['open-editor']).toBeDefined()
+  })
+
+  it('registers editor-save handler', () => {
+    expect(mockHandlers['editor-save']).toBeDefined()
+  })
+
+  it('open-editor returns missing-id when id is null', async () => {
+    const r = await mockHandlers['open-editor'](null, null)
+    expect(r.ok).toBe(false)
+    expect(r.error).toBe('missing-id')
+  })
+
+  it('open-editor returns not-found for unknown id', async () => {
+    const r = await mockHandlers['open-editor'](null, 99999)
+    expect(r.ok).toBe(false)
+    expect(r.error).toBe('not-found')
+  })
+
+  it('editor-save returns missing-id when id is null', async () => {
+    const r = await mockHandlers['editor-save'](null, { id: null, title: 'x', content: 'y' })
+    expect(r.ok).toBe(false)
+    expect(r.error).toBe('missing-id')
   })
 })

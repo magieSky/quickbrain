@@ -327,6 +327,22 @@ function render() {
       fn.then(r => { if (r && !r.success) setStatus('打开失败: ' + r.error) }).catch(err => setStatus('打开失败: ' + err.message))
     }
   })
+// Double-click card to open editor; single-click flashes a brief highlight.
+// Action buttons and checkboxes call stopPropagation so they are not affected.
+els.list.querySelectorAll('.note-card').forEach(card => {
+  card.ondblclick = (e) => {
+    if (e.target.closest('.note-card-actions, .note-card-checkbox')) return
+    const id = parseInt(card.dataset.id, 10)
+    const note = allNotes.find(n => n.id === id)
+    if (note) editNote(note)
+  }
+  card.onclick = () => {
+    card.classList.remove('card-flash')
+    void card.offsetWidth
+    card.classList.add('card-flash')
+    setTimeout(() => card.classList.remove('card-flash'), 1200)
+  }
+})
 }
 
 function escapeHtml(s) {

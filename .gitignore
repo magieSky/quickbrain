@@ -15,3 +15,14 @@ extension/.key.txt
 /fix-*.py
 /query-server.js
 /tmp.js
+
+# Ad-hoc debugging / throwaway scripts not meant for the repo
+/tmp-*.js
+/shot-*.png
+
+# Promo / marketing assets (kept locally, not in the app source tree)
+/promo/
+
+# Editor bundle: built from editor.js + TipTap deps via esbuild.
+# Generated automatically by the prebuild hook (npm run build:editor).
+/client/src/renderer/editor/editor.bundle.js

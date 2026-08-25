@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld('quickbrain', {
   searchNotes: (filters) => ipcRenderer.invoke('search-notes', filters),
   addNote: (noteData) => ipcRenderer.invoke('add-note', noteData),
   updateNote: (data) => ipcRenderer.invoke('update-note', data),
+  openEditor: (id) => ipcRenderer.invoke('open-editor', id),
   deleteNote: (id) => ipcRenderer.invoke('delete-note', id),
 
   // Document import

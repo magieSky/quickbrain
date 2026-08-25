@@ -8,6 +8,7 @@ const { importDocument } = require('./import/store')
 const autoLaunch = require('./auto-launch-service')
 const cfg = require('./config')
 const pipeBridge = require('./named-pipe-bridge')
+const { createNoteEditorWindow } = require('./windows')
 
 let aiService = null
 
@@ -331,6 +332,39 @@ return { success: true, ...result }
     db.prepare(`UPDATE notes SET ${setClause}, updated_at = ? WHERE id = ?`)
       .run(...keys.map(k => typeof updates[k] === 'object' ? JSON.stringify(updates[k]) : updates[k]), Date.now(), id)
     enqueueNoteOutbox(db, id, 'upsert')
+  })
+
+
+  // Standalone editor window: open a dedicated window for editing one note.
+  ipcMain.handle('open-editor', async (_e, id) => {
+    if (id == null) return { ok: false, error: 'missing-id' }
+    const db = getDB()
+    const row = db.prepare('SELECT * FROM notes WHERE id = ? AND deleted_at IS NULL').get(id)
+    if (!row) return { ok: false, error: 'not-found' }
+    const note = { ...row, tags: typeof row.tags === 'string' ? safeParse(row.tags, []) : (row.tags || []) }
+    createNoteEditorWindow(note)
+    return { ok: true }
+  })
+
+  // Save handler used by the standalone editor window. Mirrors update-note
+  // behavior and broadcasts so the main panel can refresh.
+  ipcMain.handle('editor-save', async (_e, { id, title, content, is_private }) => {
+    if (id == null) return { ok: false, error: 'missing-id' }
+    const db = getDB()
+    const dbRow = db.prepare('SELECT * FROM notes WHERE id = ?').get(id)
+    if (!dbRow) return { ok: false, error: 'not-found' }
+    const nextPrivate = typeof is_private === 'boolean' ? (is_private ? 1 : 0) : (dbRow.is_private ? 1 : 0)
+    const nextTitle = (typeof title === 'string' && title.trim()) ? title.trim() : dbRow.title
+    db.prepare('UPDATE notes SET title = ?, content = ?, is_private = ?, updated_at = ? WHERE id = ?')
+      .run(nextTitle, content == null ? dbRow.content : content, nextPrivate, Date.now(), id)
+    enqueueNoteOutbox(db, id, nextPrivate ? 'delete' : 'upsert')
+    try {
+      const { BrowserWindow } = require('electron')
+      for (const w of BrowserWindow.getAllWindows()) {
+        if (!w.isDestroyed()) w.webContents.send('notes-updated', { type: 'editor-save', id, is_private: nextPrivate })
+      }
+    } catch (_) {}
+    return { ok: true, id }
   })
 
   ipcMain.handle('delete-note', async (event, id) => {

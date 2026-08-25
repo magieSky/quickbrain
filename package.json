@@ -17,7 +17,10 @@
     "start:fresh": "npm run rebuild:electron && electron .",
     "build:mac": "electron-builder --mac --arm64",
     "build:mac:universal": "electron-builder --mac --arm64 --x64",
-    "build:mac:intel": "electron-builder --mac --x64"
+    "build:mac:intel": "electron-builder --mac --x64",
+    "build:editor": "node client/scripts/build-editor.js",
+    "prebuild:win": "npm run build:editor",
+    "prebuild": "npm run build:editor"
   },
   "keywords": [
     "knowledge",
@@ -30,16 +33,17 @@
   "devDependencies": {
     "electron": "^28.0.0",
     "electron-builder": "^24.9.1",
-    "vitest": "^1.6.1"
+    "vitest": "^1.6.1",
+    "ws": "^8.21.3"
   },
   "dependencies": {
     "@node-rs/jieba": "^0.4.0",
+    "@quickbrain/shared": "file:./shared",
     "auto-launch": "^5.0.6",
     "better-sqlite3": "^11.10.0",
     "openai": "^4.104.0",
     "pinyin-pro": "^3.29.3",
-    "sql.js": "^1.10.3",
-    "@quickbrain/shared": "file:./shared"
+    "sql.js": "^1.10.3"
   },
   "build": {
     "appId": "com.quickbrain.app",

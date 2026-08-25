@@ -205,10 +205,49 @@ function locateNoteInMain(id) {
 }
 
 function getMainWindow() { return mainWindow }
+
+// Track open editor windows so the same note opens in one window at a time.
+const editorWindows = new Map() // noteId -> BrowserWindow
+
+function createNoteEditorWindow(note, preloadPath) {
+  if (!note || note.id == null) return null
+  if (preloadPath) preloadPathCache = preloadPath
+  const existing = editorWindows.get(note.id)
+  if (existing && !existing.isDestroyed()) { existing.focus(); return existing }
+  const editor = new BrowserWindow({
+    width: 880,
+    height: 640,
+    minWidth: 480,
+    minHeight: 320,
+    backgroundColor: '#0e1118',
+    title: (note.title ? '速脑 ·  ' + note.title : '速脑 · 笔记编辑'),
+    show: false,
+    webPreferences: {
+      preload: path.join(__dirname, '..', 'preload', 'editor-preload.js'),
+      nodeIntegration: false,
+      contextIsolation: true,
+      webSecurity: true
+    }
+  })
+  editor.loadFile(path.join(__dirname, '..', 'renderer', 'editor', 'index.html'))
+  editorWindows.set(note.id, editor)
+  editor.once('ready-to-show', function () { editor.show() })
+  editor.webContents.on('did-finish-load', function () {
+    editor.webContents.send('editor-load', {
+      id: note.id,
+      title: note.title || '',
+      content: note.content || '',
+      is_private: !!note.is_private
+    })
+    console.log('[editor] loaded note #' + note.id)
+  })
+  editor.on('closed', function () { editorWindows.delete(note.id); console.log('[editor] window closed for #' + note.id) })
+  return editor
+}
 function getPaletteWindow() { return paletteWindow }
 
 module.exports = {
-  createPaletteWindow, createMainWindow,
+  createPaletteWindow, createMainWindow, createNoteEditorWindow,
   showPalette, hidePalette, togglePalette,
   toggleMainWindow, showMainWindow, locateNoteInMain,
   getMainWindow, getPaletteWindow

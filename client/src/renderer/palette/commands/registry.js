@@ -5,12 +5,15 @@ const registry = [
     name: '添加笔记', icon: '✚',
     keywords: ['add', 'new'],
     execute: async (ctx, content) => {
+      const text = content || ''
+      const firstLine = text.split('\n').find(l => l.trim()) || ''
+      const title = firstLine.trim().substring(0, 50) || '(无标题)'
       const id = await ctx.api.addNote({
-        title: '',
-        content: content || '',
+        title,
+        content: text,
         tags: [],
         category: 'uncategorized',
-        original_content: content || ''
+        original_content: text
       })
       ctx.notify('已添加', 'AI 格式化中…')
       ctx.scheduleAIFormat(id, content || '')

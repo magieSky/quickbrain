@@ -20,7 +20,15 @@
       background: #14181f;
       border-bottom: 1px solid rgba(255,255,255,0.06);
       flex: 0 0 auto;
+      -webkit-app-region: drag;
+      user-select: none;
     }
+    .editor-bar .title-input,
+    .editor-bar .status,
+    .editor-bar .lock-toggle,
+    .editor-bar .save-btn,
+    .editor-bar .win-ctrl,
+    .editor-bar .win-ctrl-group { -webkit-app-region: no-drag; }
     .editor-bar .id-tag {
       font-size: 11px; color: rgba(255,255,255,0.35);
       padding: 2px 8px; border-radius: 10px;
@@ -59,6 +67,15 @@
       font-size: 12px; cursor: pointer;
     }
     .editor-bar .cancel-btn:hover { background: rgba(255,255,255,0.06); color: #fff; }
+    .editor-bar .win-ctrl-group { display: inline-flex; align-items: center; gap: 2px; margin-left: 4px; }
+    .editor-bar .win-ctrl {
+      width: 30px; height: 28px;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: transparent; border: none; color: rgba(255,255,255,0.7);
+      font-size: 13px; cursor: pointer; border-radius: 6px;
+    }
+    .editor-bar .win-ctrl:hover { background: rgba(255,255,255,0.1); color: #fff; }
+    .editor-bar .win-ctrl.win-close:hover { background: rgba(232,80,80,0.85); color: #fff; }
     .editor-bar .status {
       font-size: 11px; color: rgba(255,255,255,0.4);
       margin-right: 4px; min-width: 60px; text-align: right;
@@ -159,8 +176,12 @@
       <input class="title-input" id="title" placeholder="标题（首行将作为笔记标题）" autocomplete="off">
       <span class="status" id="status">就绪</span>
       <button class="lock-toggle" id="lock-toggle" title="仅本机保存">🔒 仅本机</button>
-      <button class="cancel-btn" id="cancel-btn">取消</button>
       <button class="save-btn" id="save-btn">保存</button>
+      <span class="win-ctrl-group">
+        <button class="win-ctrl" id="win-min" title="最小化">—</button>
+        <button class="win-ctrl" id="win-max" title="最大化">□</button>
+        <button class="win-ctrl win-close" id="win-close" title="关闭">✕</button>
+      </span>
     </div>
     <div class="editor-toolbar" id="toolbar">
       <button data-cmd="bold" title="粗体 (Ctrl+B)"><b>B</b></button>

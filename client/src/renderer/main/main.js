@@ -998,15 +998,11 @@ async function formatNoteInline(id) {
 }
 
 async function editNote(note) {
-  const newContent = await promptModal('编辑内容:', note.content, { multiline: true })
-  if (newContent === null) return
+  if (!note) return
   try {
-    const editFirstLine = newContent.split('\n').find(l => l.trim()) || ''
-    await api.updateNote({ id: note.id, content: newContent, title: editFirstLine.trim().substring(0, 50) || '(无标题)' })
-    await loadNotes()
-    setStatus('已更新')
+    await api.openEditor(note.id)
   } catch (e) {
-    setStatus('更新失败: ' + e.message)
+    setStatus('打开编辑器失败: ' + e.message)
   }
 }
 
@@ -1240,3 +1236,22 @@ if (api.onReportError) {
   })
 }
 els.settingsBtnMain.onclick = openSyncSettings
+
+// Custom frameless-window controls (minimize / toggle maximize / hide to tray).
+function initWindowControls() {
+  const min = document.getElementById('win-min')
+  const max = document.getElementById('win-max')
+  const close = document.getElementById('win-close')
+  if (min) min.onclick = () => { if (api.windowControl) api.windowControl('minimize') }
+  if (max) max.onclick = () => { if (api.windowControl) api.windowControl('toggle-max') }
+  if (close) close.onclick = () => { if (api.hideWindow) api.hideWindow() }
+  if (api.onWindowState) {
+    api.onWindowState((maximized) => {
+      if (!max) return
+      max.textContent = maximized ? '❐' : '□'
+      max.title = maximized ? '还原' : '最大化'
+      max.classList.toggle('is-max', !!maximized)
+    })
+  }
+}
+initWindowControls()

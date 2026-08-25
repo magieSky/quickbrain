@@ -11,13 +11,15 @@ import { Markdown } from 'tiptap-markdown'
 const $idTag = document.getElementById('id-tag')
 const $title = document.getElementById('title')
 const $save = document.getElementById('save-btn')
-const $cancel = document.getElementById('cancel-btn')
 const $status = document.getElementById('status')
 const $lock = document.getElementById('lock-toggle')
 const $counter = document.getElementById('counter')
 const $dirtyFlag = document.getElementById('dirty-flag')
 const $content = document.getElementById('content')
 const $toolbar = document.getElementById('toolbar')
+const $winMin = document.getElementById('win-min')
+const $winMax = document.getElementById('win-max')
+const $winClose = document.getElementById('win-close')
 
 let noteId = null
 let originalTitle = ''
@@ -182,7 +184,9 @@ async function save() {
 
 $title.addEventListener('input', markDirty)
 $save.addEventListener('click', save)
-$cancel.addEventListener('click', tryClose)
+if ($winMin) $winMin.addEventListener('click', () => { if (window.editorAPI && window.editorAPI.windowControl) window.editorAPI.windowControl('minimize') })
+if ($winMax) $winMax.addEventListener('click', () => { if (window.editorAPI && window.editorAPI.windowControl) window.editorAPI.windowControl('toggle-max') })
+if ($winClose) $winClose.addEventListener('click', tryClose)
 $lock.addEventListener('click', () => {
   applyLockUI(!$lock.classList.contains('on'))
   markDirty()
@@ -213,9 +217,20 @@ if (window.editorAPI && window.editorAPI.onLoad) {
     updateCounter()
     refreshToolbarState()
     // Focus at end of title if empty, otherwise into editor body.
-    setTimeout(() => {
-      if (!$title.value) $title.focus()
-      else editor.commands.focus('end')
-    }, 80)
+      setTimeout(() => {
+        if (!$title.value) $title.focus()
+        else editor.commands.focus('end')
+      }, 80)
+    })
+  }
+
+
+// Reflect native maximize/unmaximize state on the custom button.
+if (window.editorAPI && window.editorAPI.onWindowState) {
+  window.editorAPI.onWindowState((maximized) => {
+    if (!$winMax) return
+    $winMax.textContent = maximized ? '❐' : '□'
+    $winMax.title = maximized ? '还原' : '最大化'
+    $winMax.classList.toggle('is-max', !!maximized)
   })
 }

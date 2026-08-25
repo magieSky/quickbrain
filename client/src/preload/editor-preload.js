@@ -4,5 +4,7 @@ const { contextBridge, ipcRenderer } = require('electron')
 
 contextBridge.exposeInMainWorld('editorAPI', {
   save: (note) => ipcRenderer.invoke('editor-save', note),
-  onLoad: (cb) => { ipcRenderer.on('editor-load', (_e, note) => cb(note)) }
+  onLoad: (cb) => { ipcRenderer.on('editor-load', (_e, note) => cb(note)) },
+  windowControl: (action) => ipcRenderer.send('window-control', action),
+  onWindowState: (cb) => { ipcRenderer.on('window-state', (_e, maximized) => cb(maximized)) }
 })

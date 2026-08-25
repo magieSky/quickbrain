@@ -10,6 +10,10 @@ contextBridge.exposeInMainWorld('quickbrain', {
   openEditor: (id) => ipcRenderer.invoke('open-editor', id),
   deleteNote: (id) => ipcRenderer.invoke('delete-note', id),
 
+  // Custom window controls (frameless main window: minimize / toggle maximize / hide)
+  windowControl: (action) => ipcRenderer.send('window-control', action),
+  onWindowState: (cb) => { ipcRenderer.on('window-state', (_e, maximized) => cb(maximized)) },
+
   // Document import
   importDocument: (filePath) => ipcRenderer.invoke('import-document', filePath),
   revealInFolder: (filePath) => ipcRenderer.invoke('reveal-in-folder', filePath),

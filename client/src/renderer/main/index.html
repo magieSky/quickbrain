@@ -62,6 +62,15 @@
     }
     .titlebar .ti-primary:hover { filter: brightness(1.12); }
     .titlebar .ti-primary:active { filter: brightness(0.92); }
+    .titlebar .win-ctrl-group { display: inline-flex; align-items: center; gap: 2px; margin-left: 4px; }
+    .titlebar .win-ctrl {
+      width: 30px; height: 28px;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: transparent; border: none; color: rgba(255,255,255,0.7);
+      font-size: 13px; cursor: pointer; border-radius: 6px;
+    }
+    .titlebar .win-ctrl:hover { background: rgba(255,255,255,0.1); color: #fff; }
+    .titlebar .win-ctrl.win-close:hover { background: rgba(232,80,80,0.85); color: #fff; }
     .titlebar .ti-primary .ti-plus { font-weight: 400; opacity: 0.85; }
     .search-wrap { padding: 16px; }
     .search {
@@ -525,6 +534,11 @@
       <button class="ti-btn" id="auto-launch-btn" title="开机自启">⚡</button>
       <button class="ti-btn" id="settings-btn-main" title="设置">⚙</button>
       <button class="ti-primary" id="add-btn" title="添加笔记"><span class="ti-plus">+</span><span class="ti-label">添加笔记</span></button>
+      <span class="win-ctrl-group">
+        <button class="win-ctrl" id="win-min" title="最小化">—</button>
+        <button class="win-ctrl" id="win-max" title="最大化">□</button>
+        <button class="win-ctrl win-close" id="win-close" title="关闭">✕</button>
+      </span>
     </div>
   </div>
 

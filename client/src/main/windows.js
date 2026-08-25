@@ -113,6 +113,8 @@ function createMainWindow(preloadPath) {
   mainWindow.on('show', () => console.log('[windows] main show'))
   mainWindow.on('hide', () => console.log('[windows] main hide'))
   mainWindow.on('closed', () => { console.log('[windows] main closed'); mainWindow = null })
+  mainWindow.on('maximize', () => { if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('window-state', true) })
+  mainWindow.on('unmaximize', () => { if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('window-state', false) })
 
   return mainWindow
 }
@@ -222,6 +224,7 @@ function createNoteEditorWindow(note, preloadPath) {
     backgroundColor: '#0e1118',
     title: (note.title ? '速脑 ·  ' + note.title : '速脑 · 笔记编辑'),
     show: false,
+    frame: false,
     webPreferences: {
       preload: path.join(__dirname, '..', 'preload', 'editor-preload.js'),
       nodeIntegration: false,
@@ -242,6 +245,8 @@ function createNoteEditorWindow(note, preloadPath) {
     console.log('[editor] loaded note #' + note.id)
   })
   editor.on('closed', function () { editorWindows.delete(note.id); console.log('[editor] window closed for #' + note.id) })
+  editor.on('maximize', function () { if (!editor.isDestroyed()) editor.webContents.send('window-state', true) })
+  editor.on('unmaximize', function () { if (!editor.isDestroyed()) editor.webContents.send('window-state', false) })
   return editor
 }
 function getPaletteWindow() { return paletteWindow }

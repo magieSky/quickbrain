@@ -367,6 +367,17 @@ return { success: true, ...result }
     return { ok: true, id }
   })
 
+  // Custom window controls for frameless windows (main board + editor).
+  ipcMain.on('window-control', (event, action) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win) return
+    if (action === 'minimize') win.minimize()
+    else if (action === 'toggle-max') {
+      if (win.isMaximized()) win.unmaximize()
+      else win.maximize()
+    } else if (action === 'close') win.close()
+  })
+
   ipcMain.handle('delete-note', async (event, id) => {
     const db = getDB()
     const row = db.prepare('SELECT client_id FROM notes WHERE id = ?').get(id)

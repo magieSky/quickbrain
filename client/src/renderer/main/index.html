@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:">
-  <title>QuickBrain</title>
+  <title>速脑</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -20,15 +20,49 @@
     .titlebar {
       display: flex;
       align-items: center;
-      padding: 12px 16px;
+      padding: 10px 12px;
       background: rgba(255, 255, 255, 0.04);
       border-bottom: 1px solid rgba(255, 255, 255, 0.06);
       -webkit-app-region: drag;
       user-select: none;
     }
-    .titlebar .logo { font-size: 16px; margin-right: 8px; }
-    .titlebar .title { font-size: 13px; font-weight: 500; color: rgba(255,255,255,0.85); }
-    .titlebar .stats { margin-left: auto; font-size: 11px; color: rgba(255,255,255,0.4); -webkit-app-region: no-drag; }
+    .titlebar .brand { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 500; color: rgba(255,255,255,0.9); white-space: nowrap; }
+    .titlebar .brand .logo { font-size: 16px; color: #b8aaff; }
+    .titlebar .right { margin-left: auto; display: flex; align-items: center; gap: 8px; -webkit-app-region: no-drag; }
+    .titlebar .titlebar-status { font-size: 11px; color: rgba(255,255,255,0.35); margin-right: 4px; min-width: 60px; text-align: right; white-space: nowrap; }
+    .titlebar .ti-btn {
+      background: transparent;
+      border: 1px solid transparent;
+      color: rgba(255,255,255,0.65);
+      width: 30px; height: 30px;
+      display: inline-flex; align-items: center; justify-content: center;
+      border-radius: 6px;
+      cursor: pointer; font-size: 15px;
+      padding: 0; line-height: 1;
+      transition: background 0.12s, color 0.12s, border-color 0.12s;
+    }
+    .titlebar .ti-btn:hover {
+      background: rgba(255,255,255,0.08);
+      color: rgba(255,255,255,0.95);
+    }
+    .titlebar .ti-btn.active {
+      background: rgba(120,200,140,0.18);
+      color: #b8f0c4;
+    }
+    .titlebar .ti-primary {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 6px 14px;
+      background: linear-gradient(135deg, #5082ff 0%, #7c5cff 100%);
+      border: none; border-radius: 6px;
+      color: #fff;
+      font-size: 13px; font-weight: 500;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: filter 0.12s;
+    }
+    .titlebar .ti-primary:hover { filter: brightness(1.12); }
+    .titlebar .ti-primary:active { filter: brightness(0.92); }
+    .titlebar .ti-primary .ti-plus { font-weight: 400; opacity: 0.85; }
     .search-wrap { padding: 16px; }
     .search {
       width: 100%;
@@ -102,28 +136,8 @@
     .empty .icon { font-size: 48px; margin-bottom: 12px; opacity: 0.6; }
     .empty .hint { font-size: 12px; color: rgba(255,255,255,0.3); margin-top: 8px; }
     .empty kbd { padding: 2px 6px; background: rgba(255,255,255,0.1); border-radius: 3px; font-family: ui-monospace; font-size: 10px; }
-    .statusbar {
-      padding: 8px 16px;
-      background: rgba(0, 0, 0, 0.2);
-      border-top: 1px solid rgba(255, 255, 255, 0.06);
-      font-size: 10px;
-      color: rgba(255, 255, 255, 0.4);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    .statusbar .actions { display: flex; gap: 6px; -webkit-app-region: no-drag; }
-    .icon-btn {
-      background: none;
-      border: none;
-      color: rgba(255,255,255,0.5);
-      cursor: pointer;
-      font-size: 13px;
-      padding: 2px 6px;
-      border-radius: 3px;
-    }
-    .icon-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
-    .icon-btn.active { background: rgba(120, 200, 140, 0.25); color: #b8f0c4; }
+
+
     /* ====== 添加笔记弹窗 ====== */
     .modal-overlay {
       position: fixed;
@@ -189,14 +203,19 @@
     .note-card-act.note-card-private { color: rgba(255,200,120,0.85); }
     /* ====== Redesigned main panel ====== */
 .main-toolbar {
-  display: flex; align-items: center; gap: 8px;
-  padding: 10px 16px;
+  display: flex; align-items: center; gap: 6px;
+  padding: 8px 12px;
   border-bottom: 1px solid rgba(255,255,255,0.08);
-  background: rgba(20,20,24,0.4);
   position: relative; z-index: 5;
+  -webkit-app-region: drag;
+  user-select: none;
 }
+.main-toolbar button, .main-toolbar input, .main-toolbar .tb-spacer { -webkit-app-region: no-drag; }
+.tb-spacer { flex: 1; }
+.tb-btn.icon-btn { padding: 4px 8px; min-width: 28px; justify-content: center; font-size: 14px; }
 .main-toolbar .tb-search {
-  flex: 1; min-width: 0;
+  flex: 1 1 0;
+  min-width: 0;
   padding: 6px 12px;
   background: rgba(255,255,255,0.06);
   border: 1px solid rgba(255,255,255,0.08);
@@ -208,7 +227,7 @@
 .main-toolbar .tb-search::placeholder { color: rgba(255,255,255,0.35); }
 .main-toolbar .tb-btn {
   display: inline-flex; align-items: center; gap: 4px;
-  padding: 6px 12px;
+  padding: 5px 10px;
   background: rgba(255,255,255,0.05);
   border: 1px solid rgba(255,255,255,0.1);
   border-radius: 6px;
@@ -413,6 +432,36 @@
       transition: all 0.15s;
     }
     .note-card-del:hover { background: rgba(255, 80, 80, 0.25); color: #ff8888; }
+    .note-card-del.confirm-delete {
+      position: relative;
+      background: rgba(255, 80, 80, 0.3);
+      color: #ff8888;
+    }
+    .note-card-del.confirm-delete::before {
+      content: "再按一次删除";
+      position: absolute;
+      top: calc(100% + 6px);
+      right: 0;
+      background: #ff5555;
+      color: #fff;
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 4px;
+      white-space: nowrap;
+      pointer-events: none;
+      z-index: 100;
+      box-shadow: 0 2px 8px rgba(255, 85, 85, 0.4);
+    }
+    .note-card-del.confirm-delete::after {
+      content: "";
+      position: absolute;
+      top: 100%;
+      right: 10px;
+      border: 5px solid transparent;
+      border-bottom-color: #ff5555;
+      pointer-events: none;
+      z-index: 100;
+    }
     .note-content h1 { font-size: 14px; font-weight: 600; margin: 4px 0 2px; color: #fff; }
     .note-content h2 { font-size: 13px; font-weight: 600; margin: 4px 0 2px; color: #fff; }
     .note-content h3 { font-size: 12px; font-weight: 600; margin: 4px 0 2px; color: #fff; }
@@ -454,14 +503,18 @@
 </head>
 <body>
   <div class="titlebar">
-    <span class="logo">⚡</span>
-    <span class="title">QuickBrain</span>
-    <span class="stats" id="stats">0 条笔记</span>
+    <div class="brand"><span class="logo">⚡</span><span class="title">速脑</span></div>
+    <div class="right">
+      <span id="status" class="titlebar-status">就绪</span>
+      <button class="ti-btn" id="auto-launch-btn" title="开机自启">⚡</button>
+      <button class="ti-btn" id="settings-btn-main" title="设置">⚙</button>
+      <button class="ti-primary" id="add-btn" title="添加笔记"><span class="ti-plus">+</span><span class="ti-label">添加笔记</span></button>
+    </div>
   </div>
 
   <div class="main-toolbar">
-    <button class="tb-btn primary" id="add-btn" title="添加笔记">+ 添加笔记</button>
     <input type="text" class="tb-search" id="search-input" placeholder="搜索笔记内容...">
+    <span class="tb-spacer"></span>
     <div style="position: relative;">
       <button class="tb-btn" id="filter-btn" title="筛选">筛选 <span class="tb-badge" id="filter-badge" style="display:none;">0</span></button>
       <div class="filter-popover hidden" id="filter-popover">
@@ -484,7 +537,6 @@
     <button class="tb-btn" id="ai-btn" title="AI 格式化">✨ AI</button>
     <button class="tb-btn" id="import-btn" title="导入文件">📥 导入</button>
     <input type="file" id="import-file" style="display:none" accept=".pdf,.docx,.pptx,.xlsx,.csv,.txt,.html,.htm,.md,.epub,.png,.jpg,.jpeg,.gif,.bmp,.mp3,.wav,.mp4,.avi,.xls">
-    <button class="tb-btn" id="settings-btn-main" title="设置">⚙</button>
   </div>
 
   <div class="float-batch" id="float-batch">
@@ -503,13 +555,6 @@
       <div class="icon">📝</div>
       <div>还没有记录</div>
       <div class="hint">按 <kbd>Ctrl</kbd>+<kbd>A</kbd> 或点击上方按钮添加</div>
-    </div>
-  </div>
-
-  <div class="statusbar">
-    <span id="status">就绪</span>
-    <div class="actions">
-      <button class="icon-btn" id="auto-launch-btn" title="开机自启">⚡</button><button class="icon-btn" id="settings-btn" title="设置">⚙️</button>
     </div>
   </div>
 
@@ -600,7 +645,7 @@
   <!-- Sync / Server Settings modal -->
   <div class="modal-overlay" id="sync-modal">
     <div class="modal sync-modal">
-      <h2>同步到 QuickBrain 云</h2>
+      <h2>同步到 速脑 云</h2>
       <div class="sync-status" id="sync-status-box">
         <div class="sync-status-line" id="sync-status-line"></div>
         <button class="btn" id="sync-disconnect" style="display: none;">断开连接</button>
@@ -619,7 +664,7 @@
       </div>
 
       <div class="sync-pane" id="sync-pane-signup">
-        <div class="form-hint" style="margin-bottom: 12px;">在 QuickBrain 云创建一个新账号。密码用于保护你的笔记，服务器只能看到属于你账号的数据。</div>
+        <div class="form-hint" style="margin-bottom: 12px;">在 速脑 云创建一个新账号。密码用于保护你的笔记，服务器只能看到属于你账号的数据。</div>
         <div class="form-group">
           <label class="form-label">服务器地址</label>
           <div style="position: relative;">

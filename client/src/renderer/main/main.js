@@ -3,7 +3,6 @@
 const els = {
   search: document.getElementById('search-input'),
   list: document.getElementById('note-list'),
-  stats: document.getElementById('stats'),
   status: document.getElementById('status'),
   filterBtn: document.getElementById('filter-btn'),
   filterBadge: document.getElementById('filter-badge'),
@@ -22,7 +21,6 @@ const els = {
   fbExit: document.getElementById('fb-exit'),
   addBtn: document.getElementById('add-btn'),
   aiBtn: document.getElementById('ai-btn'),
-  settingsBtn: document.getElementById('settings-btn'),
   autoLaunchBtn: document.getElementById('auto-launch-btn'),
   modal: document.getElementById('add-modal'),
   aiModal: document.getElementById('ai-modal'),
@@ -127,7 +125,6 @@ function getFiltered() {
 
 function render() {
   const filtered = getFiltered()
-  const sources = allNotes.filter(n => !n.is_atom).length; const atoms = allNotes.filter(n => n.is_atom).length; els.stats.textContent = sources + ' 源 / ' + atoms + ' 原子'
 
   if (allNotes.length === 0) {
     els.list.innerHTML =
@@ -294,11 +291,9 @@ function render() {
         return
       }
       btn.classList.add('confirm-delete')
-      btn.textContent = '确认删除?'
       if (armedTimer) clearTimeout(armedTimer)
       armedTimer = setTimeout(() => {
         btn.classList.remove('confirm-delete')
-        btn.textContent = '\u{1F5D1}'
         armedTimer = null
       }, 3000)
     }
@@ -948,10 +943,7 @@ els.syncDisconnect.onclick = async () => {
   }
 }
 
-// Wire the settings (gear) button to open the sync modal.
-els.settingsBtn.onclick = openSyncSettings
-
-
+// Wire the titlebar gear button to open the sync modal.
 els.aiModal.addEventListener('click', (e) => {
   if (e.target === els.aiModal) els.aiModal.classList.remove('show')
 })
@@ -1034,4 +1026,4 @@ if (api.onShowAddDialog) {
 
 loadNotes()
 
-els.settingsBtnMain.onclick = () => { if (els.settingsBtn) els.settingsBtn.click() }
+els.settingsBtnMain.onclick = openSyncSettings

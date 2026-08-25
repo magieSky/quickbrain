@@ -31,7 +31,7 @@
   </g>
 
   <!-- Brand text -->
-  <text x="220" y="170" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="48" font-weight="700" fill="#f3f5fb">QuickBrain</text>
+  <text x="220" y="170" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="48" font-weight="700" fill="#f3f5fb">速脑</text>
 
   <!-- Title -->
   <text x="96" y="340" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="88" font-weight="800" fill="url(#brand)">你的信息</text>

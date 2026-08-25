@@ -799,8 +799,8 @@ strong { color: var(--text); font-weight: 600; }
 /* ---- Demo / How it works ---- */
 .demo-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 20px;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
   margin-top: 48px;
 }
 .demo-step {
@@ -809,7 +809,7 @@ strong { color: var(--text); font-weight: 600; }
 }
 .demo-stage {
   position: relative;
-  height: 220px;
+  height: 280px;
   border-radius: var(--radius-lg);
   background: linear-gradient(180deg, rgba(20, 26, 50, 0.5), rgba(10, 13, 24, 0.5));
   border: 1px solid var(--border);
@@ -823,7 +823,7 @@ strong { color: var(--text); font-weight: 600; }
   border: 1px solid var(--border-2);
   border-radius: 10px;
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
-  font-size: 11px;
+  font-size: 12.5px;
   overflow: hidden;
 }
 .demo-window-browser { padding-bottom: 4px; }
@@ -875,7 +875,7 @@ strong { color: var(--text); font-weight: 600; }
 }
 .demo-result-ico { font-size: 13px; }
 .demo-result-title { font-size: 11px; color: var(--text); font-weight: 500; }
-.demo-result-meta { font-size: 10px; color: var(--text-4); margin-top: 1px; }
+.demo-result-meta { font-size: 11px; color: var(--text-4); margin-top: 2px; line-height: 1.4; }
 
 /* Step 1: floating slide-in */
 .demo-window-floating {
@@ -1025,3 +1025,41 @@ strong { color: var(--text); font-weight: 600; }
 @media (max-width: 600px) {
   .demo-grid { grid-template-columns: 1fr; }
 }
+/* === Animations & micro-interactions (Phase 2) === */
+/* Background floating gradient blobs */
+.bg-blobs { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+.bg-blob { position: absolute; border-radius: 50%; filter: blur(80px); opacity: 0.35; mix-blend-mode: screen; }
+.bg-blob-1 { width: 480px; height: 480px; background: radial-gradient(circle, rgba(124,158,255,0.45), transparent 70%); top: -120px; left: -120px; animation: blob-drift-a 18s ease-in-out infinite; }
+.bg-blob-2 { width: 540px; height: 540px; background: radial-gradient(circle, rgba(94,234,212,0.32), transparent 70%); top: 40%; right: -160px; animation: blob-drift-b 22s ease-in-out infinite; }
+.bg-blob-3 { width: 420px; height: 420px; background: radial-gradient(circle, rgba(167,139,250,0.28), transparent 70%); bottom: -120px; left: 30%; animation: blob-drift-c 26s ease-in-out infinite; }
+@keyframes blob-drift-a { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(60px,40px) scale(1.08); } }
+@keyframes blob-drift-b { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(-50px,30px) scale(0.95); } }
+@keyframes blob-drift-c { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(40px,-50px) scale(1.1); } }
+section, header, footer { position: relative; z-index: 1; }
+
+/* Feature card 3D tilt on hover */
+.feature-card { transform-style: preserve-3d; will-change: transform; }
+.feature-card .feat-icon { transition: transform 0.3s cubic-bezier(0.2,0.8,0.2,1); }
+.feature-card:hover .feat-icon { transform: rotate(-8deg) scale(1.08); }
+
+/* Reveal stagger - delay by index via inline style var */
+.reveal { transition-delay: var(--reveal-delay, 0ms); }
+
+/* Hero title typewriter (chars wrap in spans via JS, fade in by index) */
+.title .ch { display: inline-block; opacity: 0; transform: translateY(8px); transition: opacity 0.4s ease-out, transform 0.4s ease-out; }
+.title .ch.in { opacity: 1; transform: translateY(0); }
+.title .grad-text .ch { background: linear-gradient(135deg, var(--brand), var(--brand-2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.title .cursor { display: inline-block; width: 1px; height: 0.9em; background: var(--brand); vertical-align: -2px; margin-left: 2px; animation: blink 1s infinite; }
+.title .cursor.out { animation: none; opacity: 0; }
+
+/* Demo step hover - breathing glow */
+.demo-step { transition: transform 0.35s cubic-bezier(0.2,0.8,0.2,1), box-shadow 0.35s; border-radius: var(--radius); padding: 14px; margin: -14px; }
+.demo-step:hover { transform: translateY(-6px); box-shadow: 0 20px 50px rgba(124, 158, 255, 0.18); }
+.demo-step:hover .demo-window { border-color: rgba(124, 158, 255, 0.45); box-shadow: 0 18px 45px rgba(124, 158, 255, 0.22); transition: border-color 0.35s, box-shadow 0.35s; }
+.demo-step:hover .demo-cap h3 { color: var(--brand); transition: color 0.35s; }
+
+/* Scroll progress bar at top */
+.scroll-progress { position: fixed; top: 0; left: 0; height: 3px; width: 0%; background: linear-gradient(90deg, var(--brand), var(--brand-2)); z-index: 100; transition: width 0.1s linear; box-shadow: 0 0 8px rgba(124, 158, 255, 0.5); }
+
+/* Feature card 3D tilt (transform set inline by JS) */
+.feature-card.tilt { transform-style: preserve-3d; transition: transform 0.15s ease-out, box-shadow 0.3s; }

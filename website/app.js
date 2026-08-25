@@ -5,6 +5,7 @@
   // Reveal on scroll using IntersectionObserver, with no-JS / headless fallback.
   function initReveal() {
     var els = Array.prototype.slice.call(document.querySelectorAll('.reveal'));
+    els.forEach(function (el, i) { el.style.setProperty('--reveal-delay', (i % 6) * 80 + 'ms'); });
     if (!('IntersectionObserver' in window)) {
       els.forEach(function (el) { el.classList.add('is-visible'); });
       return;
@@ -136,15 +137,93 @@
     }
   }
 
+  // Hero title typewriter
+  function initTypewriter() {
+    var h1 = document.querySelector('.title');
+    if (!h1) return;
+    // Wrap each character in spans; skip <br>
+    var html = '';
+    h1.childNodes.forEach(function (node) {
+      if (node.nodeType === 1 && node.tagName === 'BR') { html += '<br>'; return; }
+      if (node.nodeType === 1 && node.classList && node.classList.contains('grad-text')) {
+        html += '<span class="grad-text">';
+        for (var i = 0; i < node.textContent.length; i++) {
+          html += '<span class="ch">' + node.textContent.charAt(i) + '</span>';
+        }
+        html += '</span>';
+        return;
+      }
+      var text = node.textContent || '';
+      for (var i = 0; i < text.length; i++) {
+        html += '<span class="ch">' + text.charAt(i) + '</span>';
+      }
+    });
+    html += '<span class="cursor" id="hero-cursor"></span>';
+    h1.innerHTML = html;
+    var chars = h1.querySelectorAll('.ch');
+    var idx = 0;
+    var cursor = h1.querySelector('#hero-cursor');
+    function nextChar() {
+      if (idx >= chars.length) { if (cursor) cursor.classList.add('out'); return; }
+      chars[idx].classList.add('in');
+      if (cursor && idx < chars.length) {
+        var last = chars[idx];
+        var rect = last.getBoundingClientRect();
+        var hRect = h1.getBoundingClientRect();
+        cursor.style.transform = 'translate(' + (rect.right - hRect.left - 1) + 'px, ' + (rect.top - hRect.top - 1) + 'px)';
+      }
+      idx++;
+      setTimeout(nextChar, 90);
+    }
+    setTimeout(nextChar, 400);
+  }
+
+  // Feature card 3D tilt + reveal-on-hover highlight
+  function initTilt() {
+    document.querySelectorAll('.feature-card').forEach(function (card) {
+      card.classList.add('tilt');
+      card.addEventListener('mousemove', function (e) {
+        var rect = card.getBoundingClientRect();
+        var dx = (e.clientX - rect.left) / rect.width - 0.5;
+        var dy = (e.clientY - rect.top) / rect.height - 0.5;
+        card.style.transform = 'perspective(900px) rotateY(' + (dx * 8) + 'deg) rotateX(' + (-dy * 8) + 'deg) translateY(-3px)';
+      });
+      card.addEventListener('mouseleave', function () {
+        card.style.transform = '';
+      });
+    });
+  }
+
+  // Scroll progress bar (0% at top, 100% at bottom)
+  function initScrollProgress() {
+    var bar = document.getElementById('scroll-progress');
+    if (!bar) return;
+    function update() {
+      var doc = document.documentElement;
+      var max = doc.scrollHeight - window.innerHeight;
+      var pct = max > 0 ? Math.min(100, Math.max(0, (window.scrollY / max) * 100)) : 0;
+      bar.style.width = pct + '%';
+    }
+    window.addEventListener('scroll', update, { passive: true });
+    window.addEventListener('resize', update);
+    update();
+  }
+
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function () {
       initReveal();
       initAnchors();
       initDemo();
+      initTypewriter();
+      initTilt();
+      initScrollProgress();
     });
   } else {
     initReveal();
     initAnchors();
     initDemo();
+    initTypewriter();
+    initTilt();
+    initScrollProgress();
   }
 })();

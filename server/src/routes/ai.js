@@ -46,4 +46,19 @@ module.exports = async function aiRoutes(fastify, opts) {
       return reply.code(500).send({ error: 'semantic-search-failed', message: e.message })
     }
   })
+
+  fastify.post('/v1/ai/extract', async (req, reply) => {
+    const v = await verifyBearer(db, req.headers)
+    if (!v.ok) return reply.code(401).send({ error: 'unauthorized', reason: v.reason })
+    if (!aiSvc.hasService()) return reply.code(503).send({ error: 'ai-not-configured' })
+    const body = req.body || {}
+    if (typeof body.query !== 'string') return reply.code(400).send({ error: 'query-required' })
+    if (!Array.isArray(body.candidateSummaries)) return reply.code(400).send({ error: 'candidateSummaries-required' })
+    try {
+      const r = await aiSvc.get().aiExtract(body.query, body.candidateSummaries)
+      return r
+    } catch (e) {
+      return reply.code(500).send({ error: 'extract-failed', message: e.message })
+    }
+  })
 }

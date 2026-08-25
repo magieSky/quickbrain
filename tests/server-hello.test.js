@@ -15,7 +15,7 @@ const url = 'file:///' + path.resolve('server/src/index.js').replace(/\\/g, '/')
 describe('server hello', () => {
   it('GET /v1/sync/health returns ok', async () => {
     const mod = await import(url + '?t=' + Date.now())
-    const app = mod.build()
+    const app = await mod.build()
     const res = await app.inject({ method: 'GET', url: '/v1/sync/health' })
     expect(res.statusCode).toBe(200)
     expect(res.json().ok).toBe(true)
@@ -24,7 +24,7 @@ describe('server hello', () => {
 
   it('GET / returns server banner', async () => {
     const mod = await import(url + '?t=' + (Date.now() + 1))
-    const app = mod.build()
+    const app = await mod.build()
     const res = await app.inject({ method: 'GET', url: '/' })
     expect(res.statusCode).toBe(200)
     expect(res.json().name).toBe('quickbrain-server')

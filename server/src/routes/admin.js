@@ -20,7 +20,7 @@ module.exports = async function adminRoutes(fastify, opts) {
   const db = opts.db
   const masterKey = opts.masterKey
   const ownerToken = opts.ownerToken
-  configSvc.ensureSchema(db)
+  await configSvc.ensureSchema(db)
 
   // Owner-only middleware (separate from device bearer)
   async function requireOwner(req, reply) {
@@ -38,7 +38,7 @@ module.exports = async function adminRoutes(fastify, opts) {
     } catch (_) {}
     try { devicesCount = (await db.selectFrom('devices').select(db.fn.count('device_id').as('c')).executeTakeFirst()).c } catch (_) {}
     try { outboxCount = (await db.selectFrom('sync_outbox_shadow').select(db.fn.count('seq').as('c')).executeTakeFirst()).c } catch (_) {}
-    try { configCount = db.prepare('SELECT COUNT(*) AS c FROM config').get().c } catch (_) {}
+    try { configCount = (await db.selectFrom('config').select(db.fn.count('key').as('c')).executeTakeFirst()).c } catch (_) {}
     return {
       ok: true,
       server_time: Date.now(),
@@ -50,7 +50,7 @@ module.exports = async function adminRoutes(fastify, opts) {
   })
 
   fastify.get('/v1/admin/ai-config', { preHandler: requireOwner }, async () => {
-    const raw = configSvc.get(db, 'ai-config', masterKey)
+    const raw = await configSvc.get(db, 'ai-config', masterKey)
     const parsed = raw ? safeParse(raw, null) : null
     return { configured: !!parsed, config: redact(parsed || {}) }
   })
@@ -66,12 +66,12 @@ module.exports = async function adminRoutes(fastify, opts) {
       baseURL: (body.baseURL || '').toString(),
       updated_at: Date.now()
     }
-    configSvc.set(db, 'ai-config', JSON.stringify(next), masterKey)
+    await configSvc.set(db, 'ai-config', JSON.stringify(next), masterKey)
     return { ok: true, config: redact(next) }
   })
 
   fastify.delete('/v1/admin/ai-config', { preHandler: requireOwner }, async () => {
-    configSvc.remove(db, 'ai-config')
+    await configSvc.remove(db, 'ai-config')
     return { ok: true }
   })
 

@@ -13,7 +13,7 @@ const aiSvc = require('./services/ai')
 const { applyAll } = require('@quickbrain/shared/schema/pg/migrations')
 const { enforceNotesUserNotNull } = require('./db/bootstrap')
 
-function build({ db = null } = {}) {
+async function build({ db = null } = {}) {
   const cfg = loadConfig()
   const app = Fastify({ logger: { level: 'info' } })
   app.register(healthRoutes)
@@ -29,11 +29,19 @@ function build({ db = null } = {}) {
     app.register(devicesRoutes, { db })
     app.register(syncRoutes, { db })
     app.register(extensionNotesRoutes, { db })
+    app.register(aiRoutes, { db })
     // Wire push -> queue
     syncRoutes.setEnqueueExtract(async (clientId, opts) => {
       try { await extractionQueue.enqueue(clientId, { redisUrl: cfg.redisUrl }) }
       catch (e) { console.error('[sync] enqueue extract failed:', e.message) }
     })
+    // Load AI service config so /v1/ai/* routes can use it
+    try {
+      const masterKey = cfg.masterKey
+      await aiSvc.loadAIConfig(db, masterKey)
+      if (aiSvc.hasService()) console.log('[server] ai service loaded')
+      else console.log('[server] no ai service configured yet')
+    } catch (e) { console.warn('[server] ai service load failed:', e.message) }
   }
   app.get('/', async () => ({ name: 'quickbrain-server', port: cfg.port }))
   return app
@@ -68,8 +76,8 @@ if (require.main === module) {
       console.error('[bootstrap] failed:', e.message)
       process.exit(1)
     }
-    const app = build({ db })
     const cfg = loadConfig()
+    const app = await build({ db })
     await app.listen({ port: cfg.port, host: '0.0.0.0' })
   })().catch(e => { console.error(e); process.exit(1) })
 }

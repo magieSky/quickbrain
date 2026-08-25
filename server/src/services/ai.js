@@ -13,7 +13,7 @@ function safeParse(s, fallback) { try { return JSON.parse(s) } catch (_) { retur
 async function loadAIConfig(db, masterKey) {
   _db = db
   _masterKey = masterKey
-  const raw = configSvc.get(db, 'ai-config', masterKey)
+  const raw = await configSvc.get(db, 'ai-config', masterKey)
   const cfgRaw = raw ? safeParse(raw, null) : null
   globalThis[CONFIG_KEY] = cfgRaw
   if (!cfgRaw) { globalThis[GLOBAL_KEY] = null; return null }

@@ -5,7 +5,7 @@ const crypto = require('crypto')
 // Production default. Tests and dev runs can override via env so a freshly
 // installed client always opens Settings pointing at a real server instead
 // of an empty input.
-const DEFAULT_SYNC_SERVER_URL = process.env.QB_SYNC_DEFAULT_URL || 'https://api.quickbrain.app'
+const DEFAULT_SYNC_SERVER_URL = process.env.QB_SYNC_DEFAULT_URL || 'https://note.bjhzsk.cn'
 
 function defaultSyncServerUrl() {
   return DEFAULT_SYNC_SERVER_URL

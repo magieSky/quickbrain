@@ -20,9 +20,19 @@ concurrency:
 
 jobs:
   build-mac:
-    name: Build macOS (arm64)
-    runs-on: macos-latest
-    timeout-minutes: 30
+    name: Build macOS (${{ matrix.arch }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            arch: arm64
+            artifact: quickbrain-mac-arm64
+          - os: macos-13
+            arch: x64
+            artifact: quickbrain-mac-x64
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -41,8 +51,9 @@ jobs:
           uname -a || true
 
       - name: Install deps (workspaces)
-        # better-sqlite3 + @node-rs/jieba ship darwin-arm64 prebuilts via optionalDependencies;
-        # no manual @electron/rebuild needed (both use N-API / napi-rs prebuilt).
+        # better-sqlite3 + @node-rs/jieba ship per-arch darwin prebuilts via optionalDependencies.
+        # Each matrix runner is native to its arch (macos-latest = arm64, macos-13 = x64 Intel),
+        # so npm ci pulls the correct native binaries for that architecture.
         env:
           npm_config_fund: "false"
           npm_config_audit: "false"
@@ -55,7 +66,7 @@ jobs:
           NO_UPDATE_NOTIFIER: "1"
         run: |
           set -eo pipefail
-          npx electron-builder --mac --arm64 --publish never 2>&1 | tail -120
+          npx electron-builder --mac --${{ matrix.arch }} --publish never 2>&1 | tail -120
 
       - name: List dist artifacts
         run: |
@@ -67,13 +78,15 @@ jobs:
           APP=$(find dist -maxdepth 2 -type d -name "*.app" | head -n 1)
           echo "App path: $APP"
           ls "$APP/Contents/Resources/" | head -n 30
+          echo "--- native modules (arch sanity) ---"
+          file "$APP/Contents/Resources/node_modules/better-sqlite3/build/Release/better_sqlite3.node" 2>/dev/null || echo "better_sqlite3 not found"
           echo "--- browser-extension files ---"
           ls -la "$APP/Contents/Resources/browser-extension" 2>/dev/null || echo "MISSING"
 
       - name: Upload artifacts (dmg)
         uses: actions/upload-artifact@v5
         with:
-          name: quickbrain-mac-arm64
+          name: ${{ matrix.artifact }}
           if-no-files-found: error
           retention-days: 14
           path: |
@@ -82,8 +95,8 @@ jobs:
             dist/latest-mac.yml
             dist/*.blockmap
 
-      - name: Create GitHub Release (tag push only)
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Create GitHub Release (tag push only, arm64)
+        if: startsWith(github.ref, 'refs/tags/v') && matrix.arch == 'arm64'
         uses: softprops/action-gh-release@v2
         with:
           draft: false

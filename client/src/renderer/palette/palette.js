@@ -38,7 +38,11 @@ if (api.onPaletteReset) api.onPaletteReset(() => {
   currentResults = []
   selectedIndex = 0
   render()
-  els.input.focus()
+  // Defer focus so the BrowserWindow has had time to actually take focus.
+  requestAnimationFrame(() => {
+    els.input.focus()
+    els.input.select()
+  })
 })
 
 function handleKeydown(e) {
@@ -272,7 +276,7 @@ function buildContext() {
     showStats: () => { api.locateNoteInMain(0); window.close() },
     relaunch: () => api.relaunch(),
     quit: () => api.quit(),
-    showAbout: () => api.notify({ title: 'QuickBrain v1.0', body: '个人知识助手' }),
+    showAbout: () => api.notify({ title: '速脑 v1.0', body: '个人知识助手' }),
     scheduleAIFormat: (id, content) => {
       // 后台异步 AI 格式化（不阻塞）
       api.formatWithAI({ content, style: 'summary' }).then(r => {

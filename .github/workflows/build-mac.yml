@@ -30,7 +30,7 @@ jobs:
           - os: macos-latest
             arch: arm64
             artifact: quickbrain-mac-arm64
-          - os: macos-13
+          - os: macos-latest
             arch: x64
             artifact: quickbrain-mac-x64
     steps:
@@ -52,11 +52,15 @@ jobs:
 
       - name: Install deps (workspaces)
         # better-sqlite3 + @node-rs/jieba ship per-arch darwin prebuilts via optionalDependencies.
-        # Each matrix runner is native to its arch (macos-latest = arm64, macos-13 = x64 Intel),
-        # so npm ci pulls the correct native binaries for that architecture.
+        # We pin npm's arch/cpu so each matrix job installs the NATIVE binaries for its target
+        # arch (x64 job pulls darwin-x64 prebuilts even though it runs on an Apple Silicon runner),
+        # producing a working Intel app instead of one bundling arm64 .node files.
         env:
           npm_config_fund: "false"
           npm_config_audit: "false"
+          npm_config_arch: ${{ matrix.arch }}
+          npm_config_cpu: ${{ matrix.arch }}
+          npm_config_os: darwin
         run: npm ci --include=optional
 
       - name: Build macOS dmg

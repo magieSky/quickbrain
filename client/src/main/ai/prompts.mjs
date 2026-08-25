@@ -18,3 +18,17 @@ export function buildSemanticSearchPrompt(query, noteSummaries) {
   const list = noteSummaries.map((s, i) => `${i + 1}. ${s}`).join('\n')
   return `用户的查询是："${query}"\n\n以下是从本地笔记库中检索到的候选笔记（按相关度排序）：\n` + `${list}` + `\n\n请分析用户的真实意图，返回最相关的笔记编号列表。\n\n返回JSON格式：{"matchedIds":[编号数组，从1开始],"reasoning":"选择理由"}`
 }
+export function buildFieldExtractPrompt(query, noteSummaries) {
+  const list = noteSummaries.map((s, i) => `${i + 1}. ${s}`).join('\n')
+  return `用户想从笔记中找到「${query}」对应的字段值。
+
+候选笔记摘要（含编号）：
+${list}
+
+任务：在候选笔记中抽取用户需要的字段值，返回该值所在的笔记编号和你的判断。
+- 如果找到，只输出字段值（不要解释、不要加引号）；找不到字段值时输出 NONE
+- 优先选择最近/最相关的笔记
+- 字段名不限：IP、URL、端口、命令、密码、token、邮箱、电话、日期、原因、答案、任何用户问到的内容
+
+返回 JSON：{"value":"字段值或 NONE","sourceId":起始编号1,"confidence":0到1的小数}`
+}

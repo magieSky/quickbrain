@@ -60,6 +60,18 @@ async function categorizeViaServer({ content }) {
   })
 }
 
+async function extractFieldViaServer({ query, candidateSummaries }) {
+  const ctx = getProxyContext()
+  if (!ctx) return { success: false, error: 'server-mode-disabled' }
+  return req({
+    serverUrl: ctx.serverUrl,
+    bearer: ctx.bearer,
+    deviceId: ctx.deviceId,
+    path: '/v1/ai/extract',
+    body: { query, candidateSummaries }
+  })
+}
+
 async function semanticSearchViaServer({ query, candidateSummaries }) {
   const ctx = getProxyContext()
   if (!ctx) return { success: false, error: 'server-mode-disabled' }
@@ -72,4 +84,4 @@ async function semanticSearchViaServer({ query, candidateSummaries }) {
   })
 }
 
-module.exports = { formatViaServer, categorizeViaServer, semanticSearchViaServer, getProxyContext }
+module.exports = { formatViaServer, categorizeViaServer, semanticSearchViaServer, extractFieldViaServer, getProxyContext }

@@ -1,6 +1,6 @@
 import { buildExtractPrompt, parseAtomJson } from './extract.js'
 import OpenAI from 'openai'
-import { SYSTEM_PROMPT, CATEGORIZE_PROMPT, buildFormatPrompt, buildSemanticSearchPrompt } from './prompts.mjs'
+import { SYSTEM_PROMPT, CATEGORIZE_PROMPT, buildFormatPrompt, buildSemanticSearchPrompt, buildFieldExtractPrompt } from './prompts.mjs'
 import { getProvider } from './providers.js'
 
 function extractJSON(raw) {
@@ -113,6 +113,41 @@ export class AIService {
     }
   }
 
+
+  async aiExtract(query, candidateSummaries) {
+    console.log('[ai aiExtract] provider=' + this.providerId + ' model=' + this.defaultModel + ' query=' + JSON.stringify(query) + ' candidates=' + (candidateSummaries || []).length)
+    const userPrompt = buildFieldExtractPrompt(query, candidateSummaries)
+    try {
+      const response = await this.client.chat.completions.create({
+        model: this.defaultModel,
+        messages: [
+          { role: 'system', content: '你是一个字段抽取助手。从候选笔记中抽取用户问到的字段值，找不到返回 NONE。' },
+          { role: 'user', content: userPrompt }
+        ],
+        response_format: { type: 'json_object' },
+        temperature: 0.1,
+        reasoning_split: true
+      })
+      const msg = response.choices[0].message || {}
+      const raw = msg.content || ''
+      const parsed = extractJSON(raw)
+      if (!parsed) throw new Error('LLM response is not valid JSON: ' + raw.substring(0, 120))
+      const value = (parsed.value || '').toString().trim()
+      if (!value || value.toUpperCase() === 'NONE') {
+        console.log('[ai aiExtract] no value found')
+        return { value: null, sourceId: null, confidence: 0 }
+      }
+      console.log('[ai aiExtract] value=' + JSON.stringify(value) + ' sourceId=' + parsed.sourceId + ' confidence=' + parsed.confidence)
+      return {
+        value,
+        sourceId: parsed.sourceId != null ? Number(parsed.sourceId) : null,
+        confidence: Number(parsed.confidence) || 0
+      }
+    } catch (error) {
+      console.log('[ai aiExtract] error: ' + error.message)
+      return { value: null, sourceId: null, confidence: 0, error: error.message }
+    }
+  }
 
   async extractAtoms({ title, content }) {
     if (!this.client) throw new Error('AI not configured')

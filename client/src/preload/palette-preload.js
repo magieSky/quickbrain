@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('paletteAPI', {
   // AI
   formatWithAI: (params) => ipcRenderer.invoke('format-with-ai', params),
   semanticSearch: (params) => ipcRenderer.invoke('semantic-search', params),
+  aiExtract: (params) => ipcRenderer.invoke('ai-extract', params),
 
   getNote: (id) => ipcRenderer.invoke('get-note', id),
   writeClipboard: (text) => ipcRenderer.invoke('write-clipboard', text),

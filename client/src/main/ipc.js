@@ -383,6 +383,15 @@ return { success: true, ...result }
     if (!aiService) return { success: false, error: 'no-ai' }
     return await aiService.semanticSearch(query, candidateSummaries)
   })
+  ipcMain.handle('ai-extract', async (event, { query, candidateSummaries }) => {
+    try {
+      const serverProxy = require('./ai/server-proxy')
+      const ctx = serverProxy.getProxyContext ? serverProxy.getProxyContext() : null
+      if (ctx) return await serverProxy.extractFieldViaServer({ query, candidateSummaries })
+    } catch (e) { console.error('[ipc] server proxy error:', e.message) }
+    if (!aiService) return { value: null, sourceId: null, confidence: 0, error: 'no-ai' }
+    return await aiService.aiExtract(query, candidateSummaries)
+  })
 
   ipcMain.handle('get-all-notes', async () => {
     const db = getDB()

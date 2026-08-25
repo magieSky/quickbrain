@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "速脑 Bridge",
   "version": "0.3.0",
-  "description": "Save web pages and selections to QuickBrain (local desktop app or self-hosted server)",
+  "description": "Save web pages and selections to 速脑 (local desktop app or self-hosted server)",
   "icons": {
     "16": "icons/16.png",
     "32": "icons/32.png",
@@ -20,7 +20,7 @@
   "permissions": ["contextMenus", "storage", "activeTab", "scripting", "alarms"],
   "host_permissions": ["http://127.0.0.1:7421/*", "<all_urls>"],
   "commands": {
-    "save-selection": { "suggested_key": { "default": "Alt+Shift+S" }, "description": "Save selection to QuickBrain" },
-    "save-page": { "suggested_key": { "default": "Alt+Shift+P" }, "description": "Save page to QuickBrain" }
+    "save-selection": { "suggested_key": { "default": "Alt+Shift+S" }, "description": "Save selection to 速脑" },
+    "save-page": { "suggested_key": { "default": "Alt+Shift+P" }, "description": "Save page to 速脑" }
   }
 }

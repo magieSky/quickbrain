@@ -37,7 +37,7 @@ function createTray({ onShowPalette, onShowMain, onSettings, onQuit }) {
     { label: '退出', click: () => onQuit && onQuit() }
   ])
 
-  tray.setToolTip('QuickBrain - 个人知识助手\n快捷键: Alt+K 命令面板 | Ctrl+Q 主窗口')
+  tray.setToolTip('速脑 - 个人知识助手\n快捷键: Alt+K 命令面板 | Ctrl+Q 主窗口')
   tray.setContextMenu(contextMenu)
   tray.on('click', () => onShowPalette && onShowPalette())
 

@@ -4,7 +4,7 @@ const path = require('path');
 
 // 日志文件
 const LOG_FILE = path.join(os.homedir(), 'quickbrain-debug.log');
-try { fs.appendFileSync(LOG_FILE, '\n=== QuickBrain Debug Log ' + new Date().toISOString() + ' ===\n'); } catch (e) {}
+try { fs.appendFileSync(LOG_FILE, '\n=== 速脑 Debug Log ' + new Date().toISOString() + ' ===\n'); } catch (e) {}
 
 // 重写 console.log/error 写入文件
 const _log = console.log.bind(console);
@@ -59,7 +59,7 @@ function openAISettings(AIService) {
         path.join(app.getPath('userData'), 'config.json'),
         JSON.stringify(config, null, 2)
       )
-      notify('QuickBrain', 'AI 配置已更新')
+      notify('速脑', 'AI 配置已更新')
     }
   })
 }

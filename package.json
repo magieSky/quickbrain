@@ -109,6 +109,18 @@
       "hardenedRuntime": false,
       "gatekeeperAssess": false,
       "identity": null
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Utility",
+      "icon": "client/src/assets/icon@6x.png",
+      "synopsis": "Personal knowledge management - quickly search and organize scattered information",
+      "desktop": {
+        "Name": "QuickBrain"
+      }
     }
   },
   "workspaces": [

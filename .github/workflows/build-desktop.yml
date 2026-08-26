@@ -1,4 +1,4 @@
-﻿name: build-mac
+name: build-desktop
 
 on:
   push:
@@ -15,11 +15,11 @@ permissions:
   contents: write
 
 concurrency:
-  group: build-mac-${{ github.ref }}
+  group: build-desktop-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  build-mac:
+  build-macos:
     name: Build macOS (${{ matrix.arch }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 40
@@ -112,3 +112,71 @@ jobs:
             dist/*.blockmap
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-linux:
+    name: Build Linux (x64)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Show toolchain
+        run: |
+          node --version
+          npm --version
+          uname -a || true
+
+      - name: Install system deps for packaging
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends fakeroot dpkg
+
+      - name: Install deps (workspaces)
+        # On ubuntu-latest npm ci pulls linux native prebuilts (better-sqlite3, @node-rs/jieba).
+        env:
+          npm_config_fund: "false"
+          npm_config_audit: "false"
+        run: npm ci --include=optional
+
+      - name: Build Linux packages
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+          USE_HARD_LINKS: "false"
+          NO_UPDATE_NOTIFIER: "1"
+        run: |
+          set -eo pipefail
+          npx electron-builder --linux --publish never 2>&1 | tail -120
+
+      - name: List dist artifacts
+        run: |
+          ls -lh dist/ || true
+          find dist -maxdepth 3 -type f \( -name "*.AppImage" -o -name "*.deb" -o -name "*.rpm" -o -name "*.snap" -o -name "latest-linux.yml" -o -name "*.blockmap" \) | sort
+
+      - name: Verify native modules (arch sanity)
+        run: |
+          AI=$(find dist -maxdepth 2 -type f -name "*.AppImage" | head -n 1)
+          echo "AppImage: $AI"
+          file "$AI" 2>/dev/null || true
+          MOD=$(find dist -path "*better-sqlite3/build/Release/better_sqlite3.node" | head -n 1)
+          echo "better_sqlite3.node: $MOD"
+          file "$MOD" 2>/dev/null || echo "better_sqlite3.node not found"
+
+      - name: Upload artifacts (linux)
+        uses: actions/upload-artifact@v5
+        with:
+          name: quickbrain-linux
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            dist/*.AppImage
+            dist/*.deb
+            dist/*.rpm
+            dist/latest-linux.yml
+            dist/*.blockmap

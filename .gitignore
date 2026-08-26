@@ -26,3 +26,6 @@ extension/.key.txt
 # Editor bundle: built from editor.js + TipTap deps via esbuild.
 # Generated automatically by the prebuild hook (npm run build:editor).
 /client/src/renderer/editor/editor.bundle.js
+
+# Generated icon sizes (rebuilt from icon.svg via client/scripts/build-icons.js).
+/client/src/assets/icon-*.png

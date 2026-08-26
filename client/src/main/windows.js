@@ -38,6 +38,7 @@ function createPaletteWindow(preloadPath) {
   const pos = getPalettePosition()
   paletteWindow = new BrowserWindow({
     ...pos,
+    icon: path.join(__dirname, '..', 'assets', 'icon.png'),
     frame: false,
     transparent: true,
     hasShadow: true,
@@ -88,6 +89,7 @@ function createMainWindow(preloadPath) {
   const pos = getMainPosition()
   mainWindow = new BrowserWindow({
     ...pos,
+    icon: path.join(__dirname, '..', 'assets', 'icon.png'),
     minWidth: 400,
     minHeight: 500,
     frame: false,
@@ -217,6 +219,7 @@ function createNoteEditorWindow(note, preloadPath) {
   const existing = editorWindows.get(note.id)
   if (existing && !existing.isDestroyed()) { existing.focus(); return existing }
   const editor = new BrowserWindow({
+    icon: path.join(__dirname, '..', 'assets', 'icon.png'),
     width: 880,
     height: 640,
     minWidth: 480,

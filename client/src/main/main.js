@@ -79,6 +79,9 @@ function showAddDialog() {
 app.whenReady().then(async () => {
   await initDatabase()
 
+  // Auto-update: check on packaged builds, prompt user before downloading / installing.
+  try { const updater = require('./updater'); const { dialog } = require('electron'); updater.setupAutoUpdater({ app, dialog }) } catch (e) { console.error('[updater] setup failed:', e.message) }
+
   // AIService 是 ESM 模块（CJS 不能 require .mjs）
   const { AIService } = await import('./ai/service.mjs')
   const aiService = loadAIConfig(AIService)

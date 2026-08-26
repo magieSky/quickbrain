@@ -44,6 +44,7 @@
     "@quickbrain/shared": "file:./shared",
     "auto-launch": "^5.0.6",
     "better-sqlite3": "^11.10.0",
+    "electron-updater": "^6.8.9",
     "openai": "^4.104.0",
     "pinyin-pro": "^3.29.3",
     "sql.js": "^1.10.3"
@@ -74,7 +75,11 @@
     "win": {
       "target": "nsis",
       "icon": "client/src/assets/icon.ico",
-      "signAndEditExecutable": false
+      "signAndEditExecutable": false,
+      "publish": {
+        "provider": "generic",
+        "url": "https://note.bjhzsk.cn/download/windows"
+      }
     },
     "nsis": {
       "oneClick": false,
@@ -111,7 +116,11 @@
       "icon": "client/src/assets/icon@6x.png",
       "hardenedRuntime": false,
       "gatekeeperAssess": false,
-      "identity": null
+      "identity": null,
+      "publish": {
+        "provider": "generic",
+        "url": "https://note.bjhzsk.cn/download/mac"
+      }
     },
     "linux": {
       "target": [
@@ -123,9 +132,27 @@
       "synopsis": "Personal knowledge management - quickly search and organize scattered information",
       "desktop": {
         "Name": "QuickBrain"
+      },
+      "publish": {
+        "provider": "generic",
+        "url": "https://note.bjhzsk.cn/download/linux"
       }
     },
-    "afterPack": "scripts/after-pack-icon.cjs"
+    "afterPack": "scripts/after-pack-icon.cjs",
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "https://note.bjhzsk.cn/download/windows"
+      },
+      {
+        "provider": "generic",
+        "url": "https://note.bjhzsk.cn/download/mac"
+      },
+      {
+        "provider": "generic",
+        "url": "https://note.bjhzsk.cn/download/linux"
+      }
+    ]
   },
   "workspaces": [
     "client",

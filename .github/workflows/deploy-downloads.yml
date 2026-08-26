@@ -1,0 +1,131 @@
+﻿name: deploy-downloads
+
+# Triggered after a successful build-desktop run, or manually.
+# Pulls the freshly-built installers + latest*.yml + blockmaps for each
+# platform and SCPs them into /var/www/quickbrain-downloads/<plat>/ on the
+# production server, behind nginx /download/.
+
+on:
+  workflow_run:
+    workflows: ["build-desktop"]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: deploy-downloads
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - name: Resolve run id
+        id: vars
+        env:
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+        run: |
+          if [ -n "$RUN_URL" ]; then
+            echo "run_id=$(echo "$RUN_URL" | awk -F/ '{print $NF}')" >> "$GITHUB_OUTPUT"
+            echo "Detected workflow_run id"
+          else
+            echo "run_id=${{ github.run_id }}" >> "$GITHUB_OUTPUT"
+            echo "Manual dispatch - using current run id"
+          fi
+
+      - name: Download build artifacts
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_ID: ${{ steps.vars.outputs.run_id }}
+        run: |
+          set -e
+          mkdir -p artifacts
+          gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" --dir artifacts
+          echo "--- downloaded artifacts ---"
+          find artifacts -maxdepth 3 -type f | sort
+
+      - name: Stage downloads
+        run: |
+          set -e
+          mkdir -p staging/windows staging/mac staging/linux
+
+          # Windows
+          if [ -d artifacts/quickbrain-windows ]; then
+            cp -v artifacts/quickbrain-windows/*.exe      staging/windows/ 2>/dev/null || true
+            cp -v artifacts/quickbrain-windows/*.yml      staging/windows/ 2>/dev/null || true
+            cp -v artifacts/quickbrain-windows/*.blockmap staging/windows/ 2>/dev/null || true
+          fi
+
+          # Mac (arm64 + x64 live in the same /download/mac/ dir)
+          for plat in quickbrain-mac-arm64 quickbrain-mac-x64; do
+            if [ -d "artifacts/$plat" ]; then
+              cp -v "artifacts/$plat"/*.dmg       staging/mac/ 2>/dev/null || true
+              cp -v "artifacts/$plat"/*.zip       staging/mac/ 2>/dev/null || true
+              cp -v "artifacts/$plat"/*.yml       staging/mac/ 2>/dev/null || true
+              cp -v "artifacts/$plat"/*.blockmap  staging/mac/ 2>/dev/null || true
+            fi
+          done
+
+          # Linux
+          if [ -d artifacts/quickbrain-linux ]; then
+            cp -v artifacts/quickbrain-linux/*.AppImage staging/linux/ 2>/dev/null || true
+            cp -v artifacts/quickbrain-linux/*.deb      staging/linux/ 2>/dev/null || true
+            cp -v artifacts/quickbrain-linux/*.rpm      staging/linux/ 2>/dev/null || true
+            cp -v artifacts/quickbrain-linux/*.yml      staging/linux/ 2>/dev/null || true
+            cp -v artifacts/quickbrain-linux/*.blockmap staging/linux/ 2>/dev/null || true
+          fi
+
+          echo "--- staged windows ---"; ls -lh staging/windows/ || true
+          echo "--- staged mac ---";    ls -lh staging/mac/    || true
+          echo "--- staged linux ---";  ls -lh staging/linux/  || true
+
+      - name: SCP to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          username: ${{ secrets.DEPLOY_USER || 'root' }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          source: "staging"
+          target: "/var/www/quickbrain-downloads/"
+          strip_components: 1
+
+      - name: Cleanup old versions (keep newest 5 per platform/extension)
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          username: ${{ secrets.DEPLOY_USER || 'root' }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            set -e
+            REMOTE=/var/www/quickbrain-downloads
+            for plat in windows mac linux; do
+              cd "$REMOTE/$plat"
+              for ext in exe dmg AppImage deb rpm zip yml blockmap; do
+                # Keep `latest*.yml` / `latest-mac.yml` / `latest-linux.yml` forever
+                # (electron-updater always reads these to discover new releases).
+                ls -t *.$ext 2>/dev/null | grep -v '^latest' | tail -n +6 | xargs -r rm -f -- || true
+              done
+            done
+            echo "--- after cleanup ---"
+            for plat in windows mac linux; do
+              echo "[$plat]"
+              ls -lh "$REMOTE/$plat" | head -n 20 || true
+            done
+
+      - name: Smoke test
+        run: |
+          set -e
+          for url in \
+            https://note.bjhzsk.cn/download/windows/latest.yml \
+            https://note.bjhzsk.cn/download/mac/latest-mac.yml \
+            https://note.bjhzsk.cn/download/linux/latest-linux.yml; do
+            code=$(curl -fsSL -o /dev/null -w "%{http_code}" "$url" || echo "fail")
+            echo "$url -> $code"
+          done

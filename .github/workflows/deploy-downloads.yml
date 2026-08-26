@@ -1,9 +1,25 @@
 ﻿name: deploy-downloads
 
 # Triggered after a successful build-desktop run, or manually.
-# Pulls the freshly-built installers + latest*.yml + blockmaps for each
-# platform and SCPs them into /var/www/quickbrain-downloads/<plat>/ on the
-# production server, behind nginx /download/.
+# Pulls the freshly-built installers + latest*.yml + blockmaps and SCPs them
+# into /var/www/quickbrain-website/downloads/desktop/ on the production server.
+# nginx already serves /var/www/quickbrain-website as static files, so no
+# nginx config change is required.
+#
+# Layout on the server (flat, all platforms in one dir):
+#   /var/www/quickbrain-website/downloads/desktop/
+#     QuickBrain-Setup-<ver>.exe          (Windows)
+#     QuickBrain-Setup-<ver>.exe.blockmap
+#     latest.yml
+#     QuickBrain-<ver>-arm64.dmg         (macOS)
+#     QuickBrain-<ver>-arm64.dmg.blockmap
+#     QuickBrain-<ver>-x64.dmg
+#     QuickBrain-<ver>-x64.dmg.blockmap
+#     latest-mac.yml
+#     QuickBrain-<ver>.AppImage          (Linux)
+#     QuickBrain-<ver>.deb
+#     latest-linux.yml
+#     *.blockmap
 
 on:
   workflow_run:
@@ -49,40 +65,39 @@ jobs:
           echo "--- downloaded artifacts ---"
           find artifacts -maxdepth 3 -type f | sort
 
-      - name: Stage downloads
+      - name: Stage downloads (flat - all platforms in one dir)
         run: |
           set -e
-          mkdir -p staging/windows staging/mac staging/linux
+          mkdir -p staging
 
           # Windows
           if [ -d artifacts/quickbrain-windows ]; then
-            cp -v artifacts/quickbrain-windows/*.exe      staging/windows/ 2>/dev/null || true
-            cp -v artifacts/quickbrain-windows/*.yml      staging/windows/ 2>/dev/null || true
-            cp -v artifacts/quickbrain-windows/*.blockmap staging/windows/ 2>/dev/null || true
+            cp -v artifacts/quickbrain-windows/*.exe      staging/ 2>/dev/null || true
+            cp -v artifacts/quickbrain-windows/*.yml      staging/ 2>/dev/null || true
+            cp -v artifacts/quickbrain-windows/*.blockmap staging/ 2>/dev/null || true
           fi
 
-          # Mac (arm64 + x64 live in the same /download/mac/ dir)
+          # macOS (arm64 + x64)
           for plat in quickbrain-mac-arm64 quickbrain-mac-x64; do
             if [ -d "artifacts/$plat" ]; then
-              cp -v "artifacts/$plat"/*.dmg       staging/mac/ 2>/dev/null || true
-              cp -v "artifacts/$plat"/*.zip       staging/mac/ 2>/dev/null || true
-              cp -v "artifacts/$plat"/*.yml       staging/mac/ 2>/dev/null || true
-              cp -v "artifacts/$plat"/*.blockmap  staging/mac/ 2>/dev/null || true
+              cp -v "artifacts/$plat"/*.dmg       staging/ 2>/dev/null || true
+              cp -v "artifacts/$plat"/*.zip       staging/ 2>/dev/null || true
+              cp -v "artifacts/$plat"/*.yml       staging/ 2>/dev/null || true
+              cp -v "artifacts/$plat"/*.blockmap  staging/ 2>/dev/null || true
             fi
           done
 
           # Linux
           if [ -d artifacts/quickbrain-linux ]; then
-            cp -v artifacts/quickbrain-linux/*.AppImage staging/linux/ 2>/dev/null || true
-            cp -v artifacts/quickbrain-linux/*.deb      staging/linux/ 2>/dev/null || true
-            cp -v artifacts/quickbrain-linux/*.rpm      staging/linux/ 2>/dev/null || true
-            cp -v artifacts/quickbrain-linux/*.yml      staging/linux/ 2>/dev/null || true
-            cp -v artifacts/quickbrain-linux/*.blockmap staging/linux/ 2>/dev/null || true
+            cp -v artifacts/quickbrain-linux/*.AppImage staging/ 2>/dev/null || true
+            cp -v artifacts/quickbrain-linux/*.deb      staging/ 2>/dev/null || true
+            cp -v artifacts/quickbrain-linux/*.rpm      staging/ 2>/dev/null || true
+            cp -v artifacts/quickbrain-linux/*.yml      staging/ 2>/dev/null || true
+            cp -v artifacts/quickbrain-linux/*.blockmap staging/ 2>/dev/null || true
           fi
 
-          echo "--- staged windows ---"; ls -lh staging/windows/ || true
-          echo "--- staged mac ---";    ls -lh staging/mac/    || true
-          echo "--- staged linux ---";  ls -lh staging/linux/  || true
+          echo "--- staged files ---"
+          ls -lh staging/ || true
 
       - name: SCP to server
         uses: appleboy/scp-action@v0.1.7
@@ -92,10 +107,10 @@ jobs:
           username: ${{ secrets.DEPLOY_USER || 'root' }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           source: "staging"
-          target: "/var/www/quickbrain-downloads/"
+          target: "/var/www/quickbrain-website/downloads/desktop/"
           strip_components: 1
 
-      - name: Cleanup old versions (keep newest 5 per platform/extension)
+      - name: Cleanup old versions (keep newest 5 per extension)
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.DEPLOY_HOST }}
@@ -104,28 +119,23 @@ jobs:
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           script: |
             set -e
-            REMOTE=/var/www/quickbrain-downloads
-            for plat in windows mac linux; do
-              cd "$REMOTE/$plat"
-              for ext in exe dmg AppImage deb rpm zip yml blockmap; do
-                # Keep `latest*.yml` / `latest-mac.yml` / `latest-linux.yml` forever
-                # (electron-updater always reads these to discover new releases).
-                ls -t *.$ext 2>/dev/null | grep -v '^latest' | tail -n +6 | xargs -r rm -f -- || true
-              done
+            REMOTE=/var/www/quickbrain-website/downloads/desktop
+            cd "$REMOTE"
+            for ext in exe dmg AppImage deb rpm zip yml blockmap; do
+              # Keep `latest.yml` / `latest-mac.yml` / `latest-linux.yml` forever
+              # (electron-updater always reads these to discover new releases).
+              ls -t *.$ext 2>/dev/null | grep -v '^latest' | tail -n +6 | xargs -r rm -f -- || true
             done
             echo "--- after cleanup ---"
-            for plat in windows mac linux; do
-              echo "[$plat]"
-              ls -lh "$REMOTE/$plat" | head -n 20 || true
-            done
+            ls -lh "$REMOTE" | head -n 30
 
       - name: Smoke test
         run: |
           set -e
           for url in \
-            https://note.bjhzsk.cn/download/windows/latest.yml \
-            https://note.bjhzsk.cn/download/mac/latest-mac.yml \
-            https://note.bjhzsk.cn/download/linux/latest-linux.yml; do
+            https://note.bjhzsk.cn/downloads/desktop/latest.yml \
+            https://note.bjhzsk.cn/downloads/desktop/latest-mac.yml \
+            https://note.bjhzsk.cn/downloads/desktop/latest-linux.yml; do
             code=$(curl -fsSL -o /dev/null -w "%{http_code}" "$url" || echo "fail")
             echo "$url -> $code"
           done

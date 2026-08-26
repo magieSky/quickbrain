@@ -1,6 +1,6 @@
 ﻿# 速脑 桌面端自动更新部署
 
-本文档说明 GitHub Actions 如何把构建产物自动同步到 `note.bjhzsk.cn/download/`，以及用户端 `electron-updater` 如何发现并安装新版本。
+本文档说明 GitHub Actions 如何把构建产物自动同步到 `note.bjhzsk.cn/downloads/desktop/`，以及用户端 `electron-updater` 如何发现并安装新版本。
 
 ## 整体流程
 
@@ -10,9 +10,9 @@ push tag v*  ──>  build-desktop.yml           (构建三平台 + 发 GitHub 
                    └─ workflow_run success ──> deploy-downloads.yml
                                                  │
                                                  ├─ 下载 artifacts
-                                                 ├─ SCP 到服务器 /var/www/quickbrain-downloads/
-                                                 ├─ 清理老版本（每平台每扩展名留最新 5 个）
-                                                 └─ smoke test https://note.bjhzsk.cn/download/<plat>/latest*.yml
+                                                 ├─ SCP 到服务器 /var/www/quickbrain-website/downloads/desktop/
+                                                 ├─ 清理老版本（每扩展名留最新 5 个）
+                                                 └─ smoke test https://note.bjhzsk.cn/downloads/desktop/latest*.yml
 
 用户启动客户端 ──> electron-updater 拉取 latest*.yml
                    │
@@ -21,31 +21,46 @@ push tag v*  ──>  build-desktop.yml           (构建三平台 + 发 GitHub 
                    └─ 退出安装
 ```
 
+## 服务器目录结构（扁平，所有平台混在一起）
+
+`/var/www/quickbrain-website/downloads/desktop/`
+```
+QuickBrain-Setup-<ver>.exe            (Windows 安装包)
+QuickBrain-Setup-<ver>.exe.blockmap
+latest.yml                            (Win 给 electron-updater 读)
+QuickBrain-<ver>-arm64.dmg            (macOS Apple Silicon)
+QuickBrain-<ver>-arm64.dmg.blockmap
+QuickBrain-<ver>-x64.dmg              (macOS Intel)
+QuickBrain-<ver>-x64.dmg.blockmap
+latest-mac.yml                        (mac 给 electron-updater 读)
+QuickBrain-<ver>.AppImage             (Linux AppImage)
+QuickBrain-<ver>.deb                  (Linux deb)
+latest-linux.yml                      (Linux 给 electron-updater 读)
+```
+
+nginx 已经在 conf.d 里把 `/var/www/quickbrain-website` 当静态目录 serve（`location / { try_files ... }`），**不需要再改 nginx**。
+
 ## 一次性配置
 
 ### 1. 服务器（117.72.162.39:22277，root 免密）
 
 ```bash
-# 创建下载根目录
-sudo mkdir -p /var/www/quickbrain-downloads/{windows,mac,linux}
-sudo chown root:root /var/www/quickbrain-downloads
+# 下载目录已经存在 (/var/www/quickbrain-website/downloads/desktop/)，
+# 不用创建。但如果新机器则需要：
+sudo mkdir -p /var/www/quickbrain-website/downloads/desktop
+sudo chown root:root /var/www/quickbrain-website/downloads/desktop
+sudo chmod 755 /var/www/quickbrain-website/downloads/desktop
 
-# 把公钥加到 root authorized_keys（GH Actions 用）
-# 在本地生成：
-ssh-keygen -t ed25519 -C "github-actions-deploy" -f ~/.ssh/quickbrain_deploy
-# 把 ~/.ssh/quickbrain_deploy.pub 追加到服务器的 ~/.ssh/authorized_keys
-# 私钥 ~/.ssh/quickbrain_deploy（完整内容，含 BEGIN/END 行）填到 GitHub Secret
+# 把 deploy 公钥加到服务器的 ~/.ssh/authorized_keys
+# （在本地生成并填到 GitHub Secret 的私钥成对的那个 .pub）
 
-# 拉取新 nginx 配置 + reload
-sudo cp note.bjhzsk.cn.conf /etc/nginx/conf.d/note.bjhzsk.cn.conf
+# nginx conf 不需要改动；如果改了 deploy/note.bjhzsk.cn.conf 才需要 reload：
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
-> `/download/` 路由必须放在 nginx 默认 `/`（try_files）之前，否则会被兜底路由拦截。
-
 ### 2. GitHub 仓库 Secrets
 
-进入 https://github.com/<owner>/quickbrain/settings/secrets/actions 添加：
+进入 https://github.com/magieSky/quickbrain/settings/secrets/actions 添加：
 
 | Secret          | 值                       | 说明                                |
 |-----------------|--------------------------|------------------------------------|
@@ -74,13 +89,15 @@ git push origin v1.0.1
 - **下载完成**：再弹窗「稍后 / 立即重启」
 - **重启**：调用 `quitAndInstall(false, true)`
 
-`package.json` 的 `build.publish` 已配好三平台 download URL：
+`package.json` 的 `build.publish` 已统一配为同一个 URL：
 
 ```json
-"win":   { "publish": { "provider": "generic", "url": "https://note.bjhzsk.cn/download/windows" } },
-"mac":   { "publish": { "provider": "generic", "url": "https://note.bjhzsk.cn/download/mac" } },
-"linux": { "publish": { "provider": "generic", "url": "https://note.bjhzsk.cn/download/linux" } }
+"win":   { "publish": { "provider": "generic", "url": "https://note.bjhzsk.cn/downloads/desktop" } },
+"mac":   { "publish": { "provider": "generic", "url": "https://note.bjhzsk.cn/downloads/desktop" } },
+"linux": { "publish": { "provider": "generic", "url": "https://note.bjhzsk.cn/downloads/desktop" } }
 ```
+
+electron-updater 会按平台自动拼出 `latest.yml` / `latest-mac.yml` / `latest-linux.yml`。
 
 ## 验证清单
 
@@ -88,13 +105,13 @@ git push origin v1.0.1
 # 1. workflow YAML 语法
 node -e "require('js-yaml').load(require('fs').readFileSync('.github/workflows/deploy-downloads.yml','utf8'))"
 
-# 2. nginx 配置语法
+# 2. nginx 配置语法（不需要 reload）
 ssh root@117.72.162.39 -p 22277 "nginx -t"
 
 # 3. latest.yml 可访问
-curl -fsSL https://note.bjhzsk.cn/download/windows/latest.yml | head
-curl -fsSL https://note.bjhzsk.cn/download/mac/latest-mac.yml | head
-curl -fsSL https://note.bjhzsk.cn/download/linux/latest-linux.yml | head
+curl -fsSL https://note.bjhzsk.cn/downloads/desktop/latest.yml | head
+curl -fsSL https://note.bjhzsk.cn/downloads/desktop/latest-mac.yml | head
+curl -fsSL https://note.bjhzsk.cn/downloads/desktop/latest-linux.yml | head
 
 # 4. 手动跑一次 deploy
 gh workflow run deploy-downloads.yml
@@ -105,6 +122,7 @@ gh workflow run deploy-downloads.yml
 ## 注意事项
 
 - **macOS 未签名**：`CSC_IDENTITY_AUTO_DISCOVERY=false`，dmg 没公证。用户首次需在「系统设置 → 隐私与安全性」点「仍要打开」。
-- **清理策略**：每个平台每个扩展名（`exe`/`dmg`/`AppImage`/`deb`/`blockmap` 等）只保留最新 5 个旧版本；`latest*.yml` / `latest-mac.yml` / `latest-linux.yml` 永远保留。
+- **清理策略**：每个扩展名（`exe`/`dmg`/`AppImage`/`deb`/`blockmap` 等）只保留最新 5 个旧版本；`latest.yml` / `latest-mac.yml` / `latest-linux.yml` 永远保留。
 - **失败重试**：手动 `Run workflow` 即可触发重新部署，不会重复发 GitHub Release。
 - **GitHub Release**：仍由 `build-desktop.yml` 在 arm64 job 里自动创建（用户也能从 GitHub 下载）。
+- **为什么 desktop/ 目录？** 官网首页 index.html 硬编码了 `/downloads/desktop/` 这条路径；extension 包走 `/downloads/quickbrain-extension-*.zip`，所以桌面端统一放 `desktop/` 子目录。

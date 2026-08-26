@@ -78,7 +78,7 @@
       "signAndEditExecutable": false,
       "publish": {
         "provider": "generic",
-        "url": "https://note.bjhzsk.cn/download/windows"
+        "url": "https://note.bjhzsk.cn/downloads/desktop"
       }
     },
     "nsis": {
@@ -119,7 +119,7 @@
       "identity": null,
       "publish": {
         "provider": "generic",
-        "url": "https://note.bjhzsk.cn/download/mac"
+        "url": "https://note.bjhzsk.cn/downloads/desktop"
       }
     },
     "linux": {
@@ -135,22 +135,22 @@
       },
       "publish": {
         "provider": "generic",
-        "url": "https://note.bjhzsk.cn/download/linux"
+        "url": "https://note.bjhzsk.cn/downloads/desktop"
       }
     },
     "afterPack": "scripts/after-pack-icon.cjs",
     "publish": [
       {
         "provider": "generic",
-        "url": "https://note.bjhzsk.cn/download/windows"
+        "url": "https://note.bjhzsk.cn/downloads/desktop"
       },
       {
         "provider": "generic",
-        "url": "https://note.bjhzsk.cn/download/mac"
+        "url": "https://note.bjhzsk.cn/downloads/desktop"
       },
       {
         "provider": "generic",
-        "url": "https://note.bjhzsk.cn/download/linux"
+        "url": "https://note.bjhzsk.cn/downloads/desktop"
       }
     ]
   },

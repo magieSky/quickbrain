@@ -42,6 +42,22 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
+
+      - name: Normalize DEPLOY_SSH_KEY (strip CR, trim each line)
+        id: norm-key
+        env:
+          RAW_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -e
+          printf '%s' "$RAW_KEY" \
+            | tr -d '\r' \
+            | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//' \
+            > /tmp/deploy_key
+          chmod 600 /tmp/deploy_key
+          echo "key_bytes=$(wc -c < /tmp/deploy_key)"
+          echo "key_first=$(head -c 5 /tmp/deploy_key | od -An -c | tr -s ' ')"
+          echo "key_last=$(tail -c 5 /tmp/deploy_key | od -An -c | tr -s ' ')"
+          ssh-keygen -y -f /tmp/deploy_key >/dev/null && echo "ssh-keygen OK" || { echo "ssh-keygen FAIL after normalize"; exit 1; }
       - name: Resolve run id
         id: vars
         env:
@@ -54,34 +70,6 @@ jobs:
             echo "run_id=${{ github.run_id }}" >> "$GITHUB_OUTPUT"
             echo "Manual dispatch - using current run id"
           fi
-
-      - name: Debug DEPLOY_SSH_KEY (sanity check)
-        env:
-          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
-        run: |
-          set -e
-          echo "length=${#KEY}"
-          printf '%s' "$KEY" > /tmp/_key_raw
-          printf '%s' "$KEY" | tr -d '\r' > /tmp/_key_nocr
-          echo "bytes_with_cr=$(wc -c < /tmp/_key_raw)"
-          echo "bytes_no_cr=$(wc -c < /tmp/_key_nocr)"
-          echo "cr_count=$(tr -cd '\r' < /tmp/_key_raw | wc -c)"
-          echo "lf_count=$(tr -cd '\n' < /tmp/_key_raw | wc -c)"
-          echo "first16=$(od -An -c -N 16 /tmp/_key_raw | tr -s ' ')"
-          echo "last16=$(tail -c 16 /tmp/_key_raw | od -An -c | tr -s ' ')"
-          echo "around_first_lf=$(od -An -c -N 50 /tmp/_key_raw | tr -s ' ')"
-          echo "line_lengths=$(awk 'BEGIN{RS="\\n"} {print length($0)}' /tmp/_key_raw | sort -u | tr '\n' ',')"
-          # Dump the actual key bytes as base64 (so user can compare in plain text)
-          base64 /tmp/_key_raw | tr -d '\n' > /tmp/_key.b64
-          echo "sha256_of_secret_value=$(sha256sum /tmp/_key_raw | awk '{print $1}')"
-          echo "expected_sha256=cd5ad2cd322dd180e40b2db19fffc605765629ffefa8211fcddaffce95a333cf"
-          echo "secret_b64_prefix=$(head -c 80 /tmp/_key.b64)"
-          echo "secret_b64_suffix=$(tail -c 80 /tmp/_key.b64)"
-          # Try parsing with ssh-keygen
-          echo "--- ssh-keygen probe ---"
-          chmod 600 /tmp/_key_raw
-          ssh-keygen -y -f /tmp/_key_raw >/dev/null 2>&1 && echo "ssh-keygen OK" || echo "ssh-keygen FAIL"
-          ssh-keygen -y -f /tmp/_key_nocr >/dev/null 2>&1 && echo "ssh-keygen OK after tr -d \\r" || echo "ssh-keygen FAIL after tr -d \\r"
 
       - name: Resolve extension version
         id: ext-ver
@@ -161,7 +149,7 @@ jobs:
           host: ${{ secrets.DEPLOY_HOST }}
           port: ${{ secrets.DEPLOY_PORT || 22 }}
           username: ${{ secrets.DEPLOY_USER || 'root' }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          key_path: /tmp/deploy_key
           source: "staging-desktop"
           target: "/var/www/quickbrain-website/downloads/desktop/"
           strip_components: 1
@@ -172,7 +160,7 @@ jobs:
           host: ${{ secrets.DEPLOY_HOST }}
           port: ${{ secrets.DEPLOY_PORT || 22 }}
           username: ${{ secrets.DEPLOY_USER || 'root' }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          key_path: /tmp/deploy_key
           source: "staging-extension"
           target: "/var/www/quickbrain-website/downloads/"
           strip_components: 1
@@ -183,7 +171,7 @@ jobs:
           host: ${{ secrets.DEPLOY_HOST }}
           port: ${{ secrets.DEPLOY_PORT || 22 }}
           username: ${{ secrets.DEPLOY_USER || 'root' }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          key_path: /tmp/deploy_key
           source: "staging-website/index.html"
           target: "/var/www/quickbrain-website/index.html.new"
           strip_components: 1
@@ -194,7 +182,7 @@ jobs:
           host: ${{ secrets.DEPLOY_HOST }}
           port: ${{ secrets.DEPLOY_PORT || 22 }}
           username: ${{ secrets.DEPLOY_USER || 'root' }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          key_path: /tmp/deploy_key
           script: |
             set -e
             SITE=/var/www/quickbrain-website
@@ -218,7 +206,7 @@ jobs:
           host: ${{ secrets.DEPLOY_HOST }}
           port: ${{ secrets.DEPLOY_PORT || 22 }}
           username: ${{ secrets.DEPLOY_USER || 'root' }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          key_path: /tmp/deploy_key
           script: |
             set -e
             # Desktop installers

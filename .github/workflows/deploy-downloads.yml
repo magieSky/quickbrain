@@ -149,7 +149,18 @@ jobs:
           target: "/var/www/quickbrain-website/downloads/"
           strip_components: 1
 
-      - name: Backup + deploy rendered index.html to server
+      - name: SCP rendered index.html to server (staging as .new)
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          username: ${{ secrets.DEPLOY_USER || 'root' }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          source: "staging-website/index.html"
+          target: "/var/www/quickbrain-website/index.html.new"
+          strip_components: 1
+
+      - name: Backup old + atomically swap in rendered index.html
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.DEPLOY_HOST }}
@@ -158,20 +169,20 @@ jobs:
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           script: |
             set -e
-            if [ ! -f staging-website/index.html ]; then
-              echo "no staged index.html; skipping website deploy"
+            SITE=/var/www/quickbrain-website
+            if [ ! -f "$SITE/index.html.new" ]; then
+              echo "no .new uploaded; skipping website deploy"
               exit 0
             fi
-            SITE=/var/www/quickbrain-website
             BACKUP="$SITE/index.html.bak.$(date +%Y%m%d-%H%M%S)"
             cp -v "$SITE/index.html" "$BACKUP"
             # keep last 5 backups
             ls -1tr "$SITE"/index.html.bak.* 2>/dev/null | head -n -5 | xargs -r rm -f -- || true
-            cp -v staging-website/index.html "$SITE/index.html"
+            mv -v "$SITE/index.html.new" "$SITE/index.html"
             chown root:root "$SITE/index.html"
             chmod 644 "$SITE/index.html"
             echo "--- verify ---"
-            grep -oE "v[0-9]+\.[0-9]+\.[0-9]+" "$SITE/index.html" | head -3
+            grep -oE "v[0-9]+\.[0-9]+\.[0-9]+" "$SITE/index.html" | sort -u
 
       - name: Cleanup old versions (keep newest 5 per extension)
         uses: appleboy/ssh-action@v1.0.3

@@ -23,7 +23,8 @@
     "prebuild": "npm run build:icons && npm run build:editor",
     "build:icons": "node client/scripts/build-icons.js",
     "prebuild:editor": "npm run build:icons",
-    "dev:website": "node scripts/dev-website.cjs"
+    "dev:website": "node scripts/dev-website.cjs",
+    "smoke:website": "node scripts/smoke-website.cjs"
   },
   "keywords": [
     "knowledge",

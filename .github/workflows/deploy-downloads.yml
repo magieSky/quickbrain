@@ -71,7 +71,13 @@ jobs:
           echo "last16=$(tail -c 16 /tmp/_key_raw | od -An -c | tr -s ' ')"
           echo "around_first_lf=$(od -An -c -N 50 /tmp/_key_raw | tr -s ' ')"
           echo "line_lengths=$(awk 'BEGIN{RS="\\n"} {print length($0)}' /tmp/_key_raw | sort -u | tr '\n' ',')"
-          # Try parsing with ssh-keygen - if it succeeds, the format is OK; if not, the issue is encoding
+          # Dump the actual key bytes as base64 (so user can compare in plain text)
+          base64 /tmp/_key_raw | tr -d '\n' > /tmp/_key.b64
+          echo "sha256_of_secret_value=$(sha256sum /tmp/_key_raw | awk '{print $1}')"
+          echo "expected_sha256=cd5ad2cd322dd180e40b2db19fffc605765629ffefa8211fcddaffce95a333cf"
+          echo "secret_b64_prefix=$(head -c 80 /tmp/_key.b64)"
+          echo "secret_b64_suffix=$(tail -c 80 /tmp/_key.b64)"
+          # Try parsing with ssh-keygen
           echo "--- ssh-keygen probe ---"
           chmod 600 /tmp/_key_raw
           ssh-keygen -y -f /tmp/_key_raw >/dev/null 2>&1 && echo "ssh-keygen OK" || echo "ssh-keygen FAIL"

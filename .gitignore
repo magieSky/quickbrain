@@ -29,3 +29,7 @@ extension/.key.txt
 
 # Generated icon sizes (rebuilt from icon.svg via client/scripts/build-icons.js).
 /client/src/assets/icon-*.png
+
+# Local dev-only rendered website (built by npm run dev:website)
+.dev/
+

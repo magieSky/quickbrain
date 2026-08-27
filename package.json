@@ -22,7 +22,8 @@
     "prebuild:win": "npm run build:icons && npm run build:editor",
     "prebuild": "npm run build:icons && npm run build:editor",
     "build:icons": "node client/scripts/build-icons.js",
-    "prebuild:editor": "npm run build:icons"
+    "prebuild:editor": "npm run build:icons",
+    "dev:website": "node scripts/dev-website.cjs"
   },
   "keywords": [
     "knowledge",

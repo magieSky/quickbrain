@@ -213,10 +213,27 @@ jobs:
             exit 1
           fi
 
-      - name: Upload artifact
+      - name: Render website/index.html with extension version
+        run: |
+          cp website/index.html /tmp/index.html
+          sed -i "s|__QB_EXT_VERSION__|${{ steps.ver.outputs.version }}|g" /tmp/index.html
+          echo "--- rendered version markers ---"
+          grep -o "v[0-9][0-9.]*[0-9]" /tmp/index.html | sort -u
+          mkdir -p dist-website
+          mv /tmp/index.html dist-website/index.html
+
+      - name: Upload extension artifact
         uses: actions/upload-artifact@v5
         with:
           name: quickbrain-extension
           if-no-files-found: error
           retention-days: 30
           path: quickbrain-extension-v${{ steps.ver.outputs.version }}.zip
+
+      - name: Upload rendered website artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: quickbrain-website
+          if-no-files-found: error
+          retention-days: 30
+          path: dist-website/index.html

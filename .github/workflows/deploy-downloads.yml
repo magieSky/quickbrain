@@ -61,11 +61,21 @@ jobs:
         run: |
           set -e
           echo "length=${#KEY}"
-          echo "first40=$(printf '%s' "$KEY" | head -c 40 | od -c | head -1)"
-          echo "last20=$(printf '%s' "$KEY" | tail -c 20 | od -c | head -1)"
-          echo "sha256=$(printf '%s' "$KEY" | sha256sum | awk '{print $1}')"
-          echo "begins_open=$(printf '%s' "$KEY" | head -c 3 | od -An -c | tr -d ' ')"
-          echo "ends_open=$(printf '%s' "$KEY" | tail -c 3 | od -An -c | tr -d ' ')"
+          printf '%s' "$KEY" > /tmp/_key_raw
+          printf '%s' "$KEY" | tr -d '\r' > /tmp/_key_nocr
+          echo "bytes_with_cr=$(wc -c < /tmp/_key_raw)"
+          echo "bytes_no_cr=$(wc -c < /tmp/_key_nocr)"
+          echo "cr_count=$(tr -cd '\r' < /tmp/_key_raw | wc -c)"
+          echo "lf_count=$(tr -cd '\n' < /tmp/_key_raw | wc -c)"
+          echo "first16=$(od -An -c -N 16 /tmp/_key_raw | tr -s ' ')"
+          echo "last16=$(tail -c 16 /tmp/_key_raw | od -An -c | tr -s ' ')"
+          echo "around_first_lf=$(od -An -c -N 50 /tmp/_key_raw | tr -s ' ')"
+          echo "line_lengths=$(awk 'BEGIN{RS="\\n"} {print length($0)}' /tmp/_key_raw | sort -u | tr '\n' ',')"
+          # Try parsing with ssh-keygen - if it succeeds, the format is OK; if not, the issue is encoding
+          echo "--- ssh-keygen probe ---"
+          chmod 600 /tmp/_key_raw
+          ssh-keygen -y -f /tmp/_key_raw >/dev/null 2>&1 && echo "ssh-keygen OK" || echo "ssh-keygen FAIL"
+          ssh-keygen -y -f /tmp/_key_nocr >/dev/null 2>&1 && echo "ssh-keygen OK after tr -d \\r" || echo "ssh-keygen FAIL after tr -d \\r"
 
       - name: Resolve extension version
         id: ext-ver

@@ -52,6 +52,13 @@ jobs:
             echo "Manual dispatch - using current run id"
           fi
 
+      - name: Resolve extension version
+        id: ext-ver
+        run: |
+          VER=$(node -p "require('./extension/manifest.json').version")
+          echo "version=$VER" >> "$GITHUB_OUTPUT"
+          echo "Extension version: $VER"
+
       - name: Download build artifacts
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -190,14 +197,11 @@ jobs:
             echo "--- after extension cleanup ---"
             ls -lh "$REMOTE_E" | head -n 20
 
-      - name: Smoke test
+      - name: Smoke test (post-deploy verification)
+        env:
+          QB_BASE: https://note.bjhzsk.cn
+          QB_VER: ${{ steps.ext-ver.outputs.version || '0.0.0' }}
         run: |
           set -e
-          for url in \
-            https://note.bjhzsk.cn/downloads/desktop/latest.yml \
-            https://note.bjhzsk.cn/downloads/desktop/latest-mac.yml \
-            https://note.bjhzsk.cn/downloads/desktop/latest-linux.yml \
-            https://note.bjhzsk.cn/downloads/quickbrain-extension-v0.3.0.zip; do
-            code=$(curl -fsSL -o /dev/null -w "%{http_code}" "$url" || echo "fail")
-            echo "$url -> $code"
-          done
+          echo "[smoke] using QB_BASE=$QB_BASE QB_VER=$QB_VER"
+          node scripts/smoke-website.cjs

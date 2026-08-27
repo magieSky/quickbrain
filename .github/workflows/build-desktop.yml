@@ -1,4 +1,4 @@
-name: build-desktop
+﻿name: build-desktop
 
 on:
   push:
@@ -180,3 +180,43 @@ jobs:
             dist/*.rpm
             dist/latest-linux.yml
             dist/*.blockmap
+
+  build-extension:
+    name: Build Browser Extension (zip)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Read version from manifest
+        id: ver
+        run: |
+          VER=$(node -p "require('./extension/manifest.json').version")
+          echo "version=$VER" >> "$GITHUB_OUTPUT"
+          echo "Extension version: $VER"
+
+      - name: Zip extension (exclude .key.txt - it's a private RSA key)
+        run: |
+          cd extension
+          zip -r "../quickbrain-extension-v${{ steps.ver.outputs.version }}.zip" . -x '.key.txt' '.key.txt/*'
+          cd ..
+          ls -lh "quickbrain-extension-v${{ steps.ver.outputs.version }}.zip"
+
+      - name: Verify zip contents
+        run: |
+          VER=${{ steps.ver.outputs.version }}
+          unzip -l "quickbrain-extension-v$VER.zip" | head -30
+          # Sanity check: .key.txt must NOT be inside
+          if unzip -l "quickbrain-extension-v$VER.zip" | grep -q '\.key\.txt'; then
+            echo "ERROR: .key.txt leaked into the zip!"
+            exit 1
+          fi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: quickbrain-extension
+          if-no-files-found: error
+          retention-days: 30
+          path: quickbrain-extension-v${{ steps.ver.outputs.version }}.zip

@@ -5,14 +5,15 @@
 ## 整体流程
 
 ```
-push tag v*  ──>  build-desktop.yml           (构建三平台 + 发 GitHub Release)
+push tag v*  ──>  build-desktop.yml           (构建 mac/linux + 打 extension zip + 发 GitHub Release)
                    │
                    └─ workflow_run success ──> deploy-downloads.yml
                                                  │
-                                                 ├─ 下载 artifacts
-                                                 ├─ SCP 到服务器 /var/www/quickbrain-website/downloads/desktop/
-                                                 ├─ 清理老版本（每扩展名留最新 5 个）
-                                                 └─ smoke test https://note.bjhzsk.cn/downloads/desktop/latest*.yml
+                                                 ├─ 下载 artifacts (mac / linux / extension)
+                                                 ├─ SCP 桌面安装包 → /downloads/desktop/
+                                                 ├─ SCP 浏览器扩展 → /downloads/
+                                                 ├─ 清理老版本 (desktop 每扩展名留 5；extension zip 留 10)
+                                                 └─ smoke test (latest*.yml + extension zip)
 
 用户启动客户端 ──> electron-updater 拉取 latest*.yml
                    │
@@ -40,6 +41,15 @@ latest-linux.yml                      (Linux 给 electron-updater 读)
 
 nginx 已经在 conf.d 里把 `/var/www/quickbrain-website` 当静态目录 serve（`location / { try_files ... }`），**不需要再改 nginx**。
 
+
+## 浏览器扩展 zip（独立于桌面端）
+
+`/var/www/quickbrain-website/downloads/quickbrain-extension-v<ver>.zip` 由 `build-extension` job 自动打包：
+- 读取 `extension/manifest.json` 的 `version` 字段
+- 把 `extension/` 目录打成 zip（**排除 `.key.txt`，那是 RSA 私钥**）
+- deploy-downloads 把它 SCP 到 `/downloads/`
+
+首页 `index.html` 直接引用 `https://note.bjhzsk.cn/downloads/quickbrain-extension-v<ver>.zip`，自动跟 manifest version 同步。
 ## 一次性配置
 
 ### 1. 服务器（117.72.162.39:22277，root 免密）
@@ -108,10 +118,14 @@ node -e "require('js-yaml').load(require('fs').readFileSync('.github/workflows/d
 # 2. nginx 配置语法（不需要 reload）
 ssh root@117.72.162.39 -p 22277 "nginx -t"
 
-# 3. latest.yml 可访问
+# 3. latest.yml + extension zip 可访问
 curl -fsSL https://note.bjhzsk.cn/downloads/desktop/latest.yml | head
 curl -fsSL https://note.bjhzsk.cn/downloads/desktop/latest-mac.yml | head
 curl -fsSL https://note.bjhzsk.cn/downloads/desktop/latest-linux.yml | head
+curl -fsSL -o /dev/null -w "%{http_code}\n" https://note.bjhzsk.cn/downloads/quickbrain-extension-v0.3.0.zip
+# 确认 zip 里没有 .key.txt（安全检查）：
+curl -fsSL https://note.bjhzsk.cn/downloads/quickbrain-extension-v0.3.0.zip -o /tmp/eq.zip
+unzip -l /tmp/eq.zip | grep -q '\.key\.txt' && echo "LEAK!" || echo "ok no key"
 
 # 4. 手动跑一次 deploy
 gh workflow run deploy-downloads.yml

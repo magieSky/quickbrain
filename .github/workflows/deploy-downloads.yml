@@ -3,23 +3,21 @@
 # Triggered after a successful build-desktop run, or manually.
 # Pulls the freshly-built installers + latest*.yml + blockmaps and SCPs them
 # into /var/www/quickbrain-website/downloads/desktop/ on the production server.
+# Also deploys the browser-extension zip into /downloads/ (one level up).
 # nginx already serves /var/www/quickbrain-website as static files, so no
 # nginx config change is required.
 #
-# Layout on the server (flat, all platforms in one dir):
-#   /var/www/quickbrain-website/downloads/desktop/
-#     QuickBrain-Setup-<ver>.exe          (Windows)
+# Layout on the server:
+#   /var/www/quickbrain-website/downloads/desktop/        (electron-updater)
+#     QuickBrain-Setup-<ver>.exe
 #     QuickBrain-Setup-<ver>.exe.blockmap
 #     latest.yml
-#     QuickBrain-<ver>-arm64.dmg         (macOS)
-#     QuickBrain-<ver>-arm64.dmg.blockmap
-#     QuickBrain-<ver>-x64.dmg
-#     QuickBrain-<ver>-x64.dmg.blockmap
+#     QuickBrain-<ver>-arm64.dmg / -x64.dmg / *.blockmap
 #     latest-mac.yml
-#     QuickBrain-<ver>.AppImage          (Linux)
-#     QuickBrain-<ver>.deb
+#     QuickBrain-<ver>.AppImage / *.deb
 #     latest-linux.yml
-#     *.blockmap
+#   /var/www/quickbrain-website/downloads/                 (browser extension)
+#     quickbrain-extension-v<ver>.zip
 
 on:
   workflow_run:
@@ -65,49 +63,70 @@ jobs:
           echo "--- downloaded artifacts ---"
           find artifacts -maxdepth 3 -type f | sort
 
-      - name: Stage downloads (flat - all platforms in one dir)
+      - name: Stage desktop installers (flat - all platforms in one dir)
         run: |
           set -e
-          mkdir -p staging
+          mkdir -p staging-desktop
 
           # Windows
           if [ -d artifacts/quickbrain-windows ]; then
-            cp -v artifacts/quickbrain-windows/*.exe      staging/ 2>/dev/null || true
-            cp -v artifacts/quickbrain-windows/*.yml      staging/ 2>/dev/null || true
-            cp -v artifacts/quickbrain-windows/*.blockmap staging/ 2>/dev/null || true
+            cp -v artifacts/quickbrain-windows/*.exe      staging-desktop/ 2>/dev/null || true
+            cp -v artifacts/quickbrain-windows/*.yml      staging-desktop/ 2>/dev/null || true
+            cp -v artifacts/quickbrain-windows/*.blockmap staging-desktop/ 2>/dev/null || true
           fi
 
           # macOS (arm64 + x64)
           for plat in quickbrain-mac-arm64 quickbrain-mac-x64; do
             if [ -d "artifacts/$plat" ]; then
-              cp -v "artifacts/$plat"/*.dmg       staging/ 2>/dev/null || true
-              cp -v "artifacts/$plat"/*.zip       staging/ 2>/dev/null || true
-              cp -v "artifacts/$plat"/*.yml       staging/ 2>/dev/null || true
-              cp -v "artifacts/$plat"/*.blockmap  staging/ 2>/dev/null || true
+              cp -v "artifacts/$plat"/*.dmg       staging-desktop/ 2>/dev/null || true
+              cp -v "artifacts/$plat"/*.zip       staging-desktop/ 2>/dev/null || true
+              cp -v "artifacts/$plat"/*.yml       staging-desktop/ 2>/dev/null || true
+              cp -v "artifacts/$plat"/*.blockmap  staging-desktop/ 2>/dev/null || true
             fi
           done
 
           # Linux
           if [ -d artifacts/quickbrain-linux ]; then
-            cp -v artifacts/quickbrain-linux/*.AppImage staging/ 2>/dev/null || true
-            cp -v artifacts/quickbrain-linux/*.deb      staging/ 2>/dev/null || true
-            cp -v artifacts/quickbrain-linux/*.rpm      staging/ 2>/dev/null || true
-            cp -v artifacts/quickbrain-linux/*.yml      staging/ 2>/dev/null || true
-            cp -v artifacts/quickbrain-linux/*.blockmap staging/ 2>/dev/null || true
+            cp -v artifacts/quickbrain-linux/*.AppImage staging-desktop/ 2>/dev/null || true
+            cp -v artifacts/quickbrain-linux/*.deb      staging-desktop/ 2>/dev/null || true
+            cp -v artifacts/quickbrain-linux/*.rpm      staging-desktop/ 2>/dev/null || true
+            cp -v artifacts/quickbrain-linux/*.yml      staging-desktop/ 2>/dev/null || true
+            cp -v artifacts/quickbrain-linux/*.blockmap staging-desktop/ 2>/dev/null || true
           fi
 
-          echo "--- staged files ---"
-          ls -lh staging/ || true
+          echo "--- staged desktop files ---"
+          ls -lh staging-desktop/ || true
 
-      - name: SCP to server
+      - name: Stage browser extension (separate dir from installers)
+        run: |
+          set -e
+          mkdir -p staging-extension
+          if [ -d artifacts/quickbrain-extension ]; then
+            cp -v artifacts/quickbrain-extension/*.zip staging-extension/ 2>/dev/null || true
+          fi
+          echo "--- staged extension files ---"
+          ls -lh staging-extension/ || true
+
+      - name: SCP desktop installers to server
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           port: ${{ secrets.DEPLOY_PORT || 22 }}
           username: ${{ secrets.DEPLOY_USER || 'root' }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
-          source: "staging"
+          source: "staging-desktop"
           target: "/var/www/quickbrain-website/downloads/desktop/"
+          strip_components: 1
+
+      - name: SCP browser extension to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          username: ${{ secrets.DEPLOY_USER || 'root' }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          source: "staging-extension"
+          target: "/var/www/quickbrain-website/downloads/"
           strip_components: 1
 
       - name: Cleanup old versions (keep newest 5 per extension)
@@ -119,15 +138,23 @@ jobs:
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           script: |
             set -e
-            REMOTE=/var/www/quickbrain-website/downloads/desktop
-            cd "$REMOTE"
+            # Desktop installers
+            REMOTE_D=/var/www/quickbrain-website/downloads/desktop
+            cd "$REMOTE_D"
             for ext in exe dmg AppImage deb rpm zip yml blockmap; do
               # Keep `latest.yml` / `latest-mac.yml` / `latest-linux.yml` forever
               # (electron-updater always reads these to discover new releases).
               ls -t *.$ext 2>/dev/null | grep -v '^latest' | tail -n +6 | xargs -r rm -f -- || true
             done
-            echo "--- after cleanup ---"
-            ls -lh "$REMOTE" | head -n 30
+            echo "--- after desktop cleanup ---"
+            ls -lh "$REMOTE_D" | head -n 30
+
+            # Browser extension (keep newest 10 zip versions; they're small)
+            REMOTE_E=/var/www/quickbrain-website/downloads
+            cd "$REMOTE_E"
+            ls -t quickbrain-extension-v*.zip 2>/dev/null | tail -n +11 | xargs -r rm -f -- || true
+            echo "--- after extension cleanup ---"
+            ls -lh "$REMOTE_E" | head -n 20
 
       - name: Smoke test
         run: |
@@ -135,7 +162,8 @@ jobs:
           for url in \
             https://note.bjhzsk.cn/downloads/desktop/latest.yml \
             https://note.bjhzsk.cn/downloads/desktop/latest-mac.yml \
-            https://note.bjhzsk.cn/downloads/desktop/latest-linux.yml; do
+            https://note.bjhzsk.cn/downloads/desktop/latest-linux.yml \
+            https://note.bjhzsk.cn/downloads/quickbrain-extension-v0.3.0.zip; do
             code=$(curl -fsSL -o /dev/null -w "%{http_code}" "$url" || echo "fail")
             echo "$url -> $code"
           done

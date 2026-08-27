@@ -55,6 +55,18 @@ jobs:
             echo "Manual dispatch - using current run id"
           fi
 
+      - name: Debug DEPLOY_SSH_KEY (sanity check)
+        env:
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -e
+          echo "length=${#KEY}"
+          echo "first40=$(printf '%s' "$KEY" | head -c 40 | od -c | head -1)"
+          echo "last20=$(printf '%s' "$KEY" | tail -c 20 | od -c | head -1)"
+          echo "sha256=$(printf '%s' "$KEY" | sha256sum | awk '{print $1}')"
+          echo "begins_open=$(printf '%s' "$KEY" | head -c 3 | od -An -c | tr -d ' ')"
+          echo "ends_open=$(printf '%s' "$KEY" | tail -c 3 | od -An -c | tr -d ' ')"
+
       - name: Resolve extension version
         id: ext-ver
         run: |

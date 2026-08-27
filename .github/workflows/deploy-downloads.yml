@@ -36,7 +36,7 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 10
     if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     steps:
       - name: Checkout
@@ -143,7 +143,14 @@ jobs:
           echo "--- staged website files ---"
           ls -lh staging-website/ || true
 
-      - name: SCP desktop installers to server (native scp)
+      # NOTE: only sync *.yml + *.blockmap here. The dmg/exe/AppImage installers
+      # (hundreds of MB) are too slow to push from GitHub Actions to a
+      # domestic server over SSH, and users already download them from
+      # the GitHub Release page (or get them via electron-updater, which
+      # reads latest*.yml from this server but downloads installers
+      # directly from the Release). Use --max-size=2M as a hard ceiling
+      # in case the metadata set grows.
+      - name: SCP desktop installers to server (metadata only)
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || '22' }}
@@ -151,7 +158,7 @@ jobs:
         run: |
           set -e
           ssh_opts="-i /tmp/deploy_key -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null -p ${DEPLOY_PORT}"
-          rsync -av -e "ssh ${ssh_opts}" --include='*/' --include='*' --exclude='*' --partial --timeout=120 "staging-desktop/" "${DEPLOY_USER}@${DEPLOY_HOST}:/var/www/quickbrain-website/downloads/desktop/"
+          rsync -av -e "ssh ${ssh_opts}" --include='*/' --include='*.yml' --include='*.blockmap' --exclude='*' --partial --timeout=120 "staging-desktop/" "${DEPLOY_USER}@${DEPLOY_HOST}:/var/www/quickbrain-website/downloads/desktop/"
       - name: SCP browser extension to server (native scp)
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
@@ -160,7 +167,7 @@ jobs:
         run: |
           set -e
           ssh_opts="-i /tmp/deploy_key -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null -p ${DEPLOY_PORT}"
-          rsync -av -e "ssh ${ssh_opts}" --include='*/' --include='*' --exclude='*' --partial --timeout=120 "staging-extension/" "${DEPLOY_USER}@${DEPLOY_HOST}:/var/www/quickbrain-website/downloads/"
+          rsync -av -e "ssh ${ssh_opts}" --include='*/' --include='*.yml' --include='*.blockmap' --exclude='*' --partial --timeout=120 "staging-extension/" "${DEPLOY_USER}@${DEPLOY_HOST}:/var/www/quickbrain-website/downloads/"
       - name: SCP rendered index.html to server (staging as .new)
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}

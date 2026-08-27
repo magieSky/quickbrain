@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "速脑 Bridge",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Save web pages and selections to 速脑 (local desktop app or self-hosted server)",
   "icons": {
     "16": "icons/16.png",

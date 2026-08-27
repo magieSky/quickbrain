@@ -36,7 +36,7 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     steps:
       - name: Checkout
@@ -151,7 +151,7 @@ jobs:
         run: |
           set -e
           ssh_opts="-i /tmp/deploy_key -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null -p ${DEPLOY_PORT}"
-          rsync -av -e "ssh ${ssh_opts}" --include='*/' --include='*' --exclude='*' --delete-after "staging-desktop/" "${DEPLOY_USER}@${DEPLOY_HOST}:/var/www/quickbrain-website/downloads/desktop/"
+          rsync -av -e "ssh ${ssh_opts}" --include='*/' --include='*' --exclude='*' --partial --timeout=120 "staging-desktop/" "${DEPLOY_USER}@${DEPLOY_HOST}:/var/www/quickbrain-website/downloads/desktop/"
       - name: SCP browser extension to server (native scp)
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
@@ -160,7 +160,7 @@ jobs:
         run: |
           set -e
           ssh_opts="-i /tmp/deploy_key -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null -p ${DEPLOY_PORT}"
-          rsync -av -e "ssh ${ssh_opts}" --include='*/' --include='*' --exclude='*' --delete-after "staging-extension/" "${DEPLOY_USER}@${DEPLOY_HOST}:/var/www/quickbrain-website/downloads/"
+          rsync -av -e "ssh ${ssh_opts}" --include='*/' --include='*' --exclude='*' --partial --timeout=120 "staging-extension/" "${DEPLOY_USER}@${DEPLOY_HOST}:/var/www/quickbrain-website/downloads/"
       - name: SCP rendered index.html to server (staging as .new)
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}

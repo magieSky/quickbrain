@@ -143,39 +143,33 @@ jobs:
           echo "--- staged website files ---"
           ls -lh staging-website/ || true
 
-      - name: SCP desktop installers to server
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          port: ${{ secrets.DEPLOY_PORT || 22 }}
-          username: ${{ secrets.DEPLOY_USER || 'root' }}
-          key_path: /tmp/deploy_key
-          source: "staging-desktop"
-          target: "/var/www/quickbrain-website/downloads/desktop/"
-          strip_components: 1
-
-      - name: SCP browser extension to server
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          port: ${{ secrets.DEPLOY_PORT || 22 }}
-          username: ${{ secrets.DEPLOY_USER || 'root' }}
-          key_path: /tmp/deploy_key
-          source: "staging-extension"
-          target: "/var/www/quickbrain-website/downloads/"
-          strip_components: 1
-
+      - name: SCP desktop installers to server (native scp)
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || '22' }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER || 'root' }}
+        run: |
+          set -e
+          ssh_opts="-i /tmp/deploy_key -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null -p ${DEPLOY_PORT}"
+          rsync -av -e "ssh ${ssh_opts}" --include='*/' --include='*' --exclude='*' --delete-after "staging-desktop/" "${DEPLOY_USER}@${DEPLOY_HOST}:/var/www/quickbrain-website/downloads/desktop/"
+      - name: SCP browser extension to server (native scp)
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || '22' }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER || 'root' }}
+        run: |
+          set -e
+          ssh_opts="-i /tmp/deploy_key -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null -p ${DEPLOY_PORT}"
+          rsync -av -e "ssh ${ssh_opts}" --include='*/' --include='*' --exclude='*' --delete-after "staging-extension/" "${DEPLOY_USER}@${DEPLOY_HOST}:/var/www/quickbrain-website/downloads/"
       - name: SCP rendered index.html to server (staging as .new)
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          port: ${{ secrets.DEPLOY_PORT || 22 }}
-          username: ${{ secrets.DEPLOY_USER || 'root' }}
-          key_path: /tmp/deploy_key
-          source: "staging-website/index.html"
-          target: "/var/www/quickbrain-website/index.html.new"
-          strip_components: 1
-
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || '22' }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER || 'root' }}
+        run: |
+          set -e
+          ssh_opts="-i /tmp/deploy_key -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null -p ${DEPLOY_PORT}"
+          scp ${ssh_opts} staging-website/index.html "${DEPLOY_USER}@${DEPLOY_HOST}:/var/www/quickbrain-website/index.html.new"
       - name: Backup old + atomically swap in rendered index.html
         uses: appleboy/ssh-action@v1.0.3
         with:

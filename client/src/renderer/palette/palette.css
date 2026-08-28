@@ -119,11 +119,13 @@ html, body {
 }
 
 .item-reveal {
-  font-size: 13px;
+  font-size: 16px;
+  line-height: 1;
   padding: 2px 6px;
   border-radius: 4px;
   cursor: pointer;
-  color: rgba(120, 180, 255, 0.85);
+  color: rgba(120, 180, 255, 0.95);
+  font-family: -apple-system, "Segoe UI", "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif;
 }
 .item-reveal:hover {
   background: rgba(120, 150, 255, 0.2);

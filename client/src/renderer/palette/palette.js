@@ -96,11 +96,14 @@ async function doSearch(input, epoch = searchEpoch) {
     log('doSearch:ai:result', JSON.stringify(result))
     if (isStale()) { log('doSearch:stale', 'ai-search post-llm'); return }
     if (result && result.matchedIds && result.matchedIds.length) {
+      if (isStale()) { log('doSearch:stale', 'ai-search pre-fetch'); return }
       currentResults = await fetchNotesByIds(result.matchedIds)
+      if (isStale()) { log('doSearch:stale', 'ai-search post-fetch'); return }
       setStatus(`AI 召回 ${currentResults.length} 条`)
     } else {
       // AI 没匹配上 → 回退到关键词搜索 + 提供"添加"入口
       log('doSearch:ai:fallback-keyword', parsed.query)
+      if (isStale()) { log('doSearch:stale', 'ai-search pre-kw'); return }
       const kwResults = await api.searchNotes(parsed.query).catch(() => [])
       log('doSearch:ai:fallback-keyword:results', kwResults.length)
       if (isStale()) { log('doSearch:stale', 'ai-search fallback-kw'); return }
@@ -113,6 +116,7 @@ async function doSearch(input, epoch = searchEpoch) {
         setStatus('AI 未匹配 · 按 Enter 添加为新笔记')
       }
     }
+    if (isStale()) { log('doSearch:stale', 'ai-search final'); return }
     render()
     return
   }
@@ -137,7 +141,9 @@ async function doSearch(input, epoch = searchEpoch) {
       // 找到字段值：尝试定位源笔记
       let sourceNote = null
       if (extract.sourceId) {
+        if (isStale()) { log('doSearch:stale', 'extract pre-source'); return }
         const pool = await api.getRecentNotes(200).catch(() => [])
+        if (isStale()) { log('doSearch:stale', 'extract post-source'); return }
         sourceNote = pool.find(n => n.id === extract.sourceId) || null
       }
       const item = {
@@ -155,14 +161,17 @@ async function doSearch(input, epoch = searchEpoch) {
     } else {
       // 未抽取到值 → 回退到 ai-search，再回退到关键词搜索
       log('doSearch:extract:fallback-ai-search', parsed.query)
+      if (isStale()) { log('doSearch:stale', 'extract pre-fallback-ai'); return }
       const ai = await api.semanticSearch({ query: parsed.query, candidateSummaries: summaryList }).catch(() => null)
       log('doSearch:extract:fallback-ai-search:result', JSON.stringify(ai))
       if (isStale()) { log('doSearch:stale', 'extract fallback-ai'); return }
       if (ai && ai.matchedIds && ai.matchedIds.length) {
         if (isStale()) { log('doSearch:stale', 'extract fallback-ai pre-fetch'); return }
         currentResults = await fetchNotesByIds(ai.matchedIds)
+        if (isStale()) { log('doSearch:stale', 'extract fallback-ai post-fetch'); return }
         setStatus('AI 未抽取到值 · 召回 ' + currentResults.length + ' 条')
       } else {
+        if (isStale()) { log('doSearch:stale', 'extract pre-fallback-kw'); return }
         const kwResults = await api.searchNotes(parsed.query).catch(() => [])
         log('doSearch:extract:fallback-kw:results', kwResults.length)
         if (isStale()) { log('doSearch:stale', 'extract fallback-kw'); return }
@@ -176,8 +185,8 @@ async function doSearch(input, epoch = searchEpoch) {
         }
       }
     }
+    if (isStale()) { log('doSearch:stale', 'ai-extract final'); return }
     render()
-    return
   }
 
   if (parsed.type === 'command') {
@@ -190,19 +199,22 @@ async function doSearch(input, epoch = searchEpoch) {
   }
 
   if (parsed.type === 'ai-format') {
+    if (isStale()) { log('doSearch:stale', 'ai-format pre'); return }
     const results = await api.searchNotes(parsed.keyword || '')
     log('doSearch:ai-format:results', results.length)
     if (isStale()) { log('doSearch:stale', 'ai-format'); return }
     if (results.length === 0) { setStatus('未找到匹配'); render(); return }
     currentResults = [{ type: 'note', note: results[0] }]
     setStatus(`按 Enter AI ${parsed.style}`)
+    if (isStale()) { log('doSearch:stale', 'ai-format final'); return }
     render()
     return
   }
 
-  // new-content — 默认搜索现有笔记, 附带"添加"建议
+  // new-content — 默认搜索现有笔记, 附带添加入口
   try {
     log('doSearch:new-content:searching', parsed.content)
+    if (isStale()) { log('doSearch:stale', 'new-content pre'); return }
     const results = await api.searchNotes(parsed.content)
     log('doSearch:new-content:results', results.length, results.slice(0, 2).map(r => r.id))
     if (isStale()) { log('doSearch:stale', 'new-content'); return }
@@ -211,13 +223,18 @@ async function doSearch(input, epoch = searchEpoch) {
     setStatus(results.length > 0
       ? `找到 ${results.length} 条 · 按 Enter 添加 / Shift+Enter 详情`
       : '按 Enter 添加为新笔记')
+    if (isStale()) { log('doSearch:stale', 'new-content final'); return }
+    render()
+    return
   } catch (e) {
+    log('doSearch:new-content:error', e.message)
     currentResults = [{ type: 'new-content', content: parsed.content }]
     setStatus('按 Enter 添加 (搜索失败)')
+    if (isStale()) { log('doSearch:stale', 'new-content catch'); return }
+    render()
   }
-  render()
-}
 
+}
 async function fetchTopSummaries(limit, query) {
   const ftsLimit = Math.max(limit, 50)
   const recentLimit = Math.max(limit, 50)
@@ -239,10 +256,22 @@ async function fetchTopSummaries(limit, query) {
 
 async function fetchNotesByIds(ids) {
   log('fetchNotesByIds:requested', JSON.stringify(ids))
-  const all = await api.getRecentNotes(200)
-  log('fetchNotesByIds:pool', 'size=' + all.length + ' ids=' + JSON.stringify(all.map(n => n.id)))
-  const map = new Map(all.map(n => [n.id, n]))
-  const found = ids.map(id => map.get(id)).filter(Boolean)
+  // 第一步：从最近 200 条里找
+  const recent = await api.getRecentNotes(200).catch(() => [])
+  log('fetchNotesByIds:pool-recent', 'size=' + recent.length)
+  const map = new Map(recent.map(n => [n.id, n]))
+  const found = []
+  const missing = []
+  for (const id of ids) {
+    if (map.has(id)) found.push(map.get(id))
+    else missing.push(id)
+  }
+  // 第二步：对未找到的 id 单独按 ID 查（覆盖老笔记）
+  if (missing.length) {
+    log('fetchNotesByIds:missing', JSON.stringify(missing))
+    const fetched = await Promise.all(missing.map(id => api.getNote(id).catch(() => null)))
+    for (const n of fetched) if (n) found.push(n)
+  }
   log('fetchNotesByIds:found', 'size=' + found.length)
   return found.map(n => ({ type: 'note', note: n }))
 }
@@ -262,13 +291,14 @@ function render() {
   currentResults.forEach((item, idx) => {
     const div = document.createElement('div')
     div.className = 'item' + (idx === selectedIndex ? ' selected' : '')
+    try {
     if (item.type === 'command') {
       div.innerHTML = `<span class="item-icon">${item.cmd.icon}</span><span class="item-text">${item.cmd.name}${item.keyword ? ' ' + item.keyword : ''}</span>`
       div.onclick = () => { selectedIndex = idx; triggerAction('enter') }
     } else if (item.type === 'note') {
       const sourceBtn = (function () {
         if (!item.note.source_path) return ''
-        const isW = item.note.source_type === 'web' || /^https?:\/\\//i.test(item.note.source_path || '')
+        const isW = item.note.source_type === 'web' || /^https?:\/\//i.test(item.note.source_path || '')
         const label = isW ? '🔗' : '📁'
         const title = isW ? ('打开 ' + item.note.source_path) : ('定位 ' + item.note.source_path)
         return `<span class="item-reveal" data-path="${escapeHTML(item.note.source_path)}" data-web="${isW ? '1' : '0'}" title="${escapeHTML(title)}">${label}</span>`
@@ -296,6 +326,7 @@ function render() {
       div.innerHTML = `<span class="item-icon">⭐</span><span class="item-text">${escapeHTML(item.field)}: <b>${escapeHTML(valShort)}</b></span><span class="item-meta">抽取 · 来自「${escapeHTML(srcTitle)}」· ${confPct}%</span>`
       div.onclick = () => { selectedIndex = idx; triggerAction('enter') }
     }
+    } catch (e) { log('render:item-error', idx, item && item.type, e.message, e.stack && e.stack.split('\\n')[1]) }
     els.results.appendChild(div)
   })
   const itemHeight = 36

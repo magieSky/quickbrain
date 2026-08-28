@@ -38,6 +38,8 @@ async function findByClientId(db, userId, client_id) {
   }
 }
 
+const embed = require('./embedding')
+
 async function upsertNote(db, userId, incoming) {
   const existing = await findByClientId(db, userId, incoming.client_id)
   if (existing && !lwwIncomingWins(existing, incoming)) {
@@ -47,6 +49,9 @@ async function upsertNote(db, userId, incoming) {
     await db.insertInto('notes').values(mapIncoming(incoming, userId))
       .onConflict(oc => oc.column('client_id').doUpdateSet(mapIncoming(incoming, userId)))
       .executeTakeFirst()
+    // Best-effort: write embedding for semantic recall. Never fails the request.
+    const row = await findByClientId(db, userId, incoming.client_id)
+    if (row && row.id && incoming.content) embed.scheduleEmbed(db, row.id, incoming.content)
     return { status: 'accepted' }
   } catch (e) {
     return { status: 'error', error: e.message }
@@ -62,6 +67,7 @@ async function softDelete(db, userId, client_id, updated_at) {
       .where('user_id', '=', userId)
       .where('client_id', '=', client_id)
       .executeTakeFirst()
+    if (existing.id) embed.scheduleEmbedDelete(db, existing.id)
     return { conflict: false }
   } catch (e) {
     return { conflict: false, error: e.message }

@@ -48,6 +48,10 @@ contextBridge.exposeInMainWorld('quickbrain', {
   registerWithServer: (payload) => ipcRenderer.invoke('register-with-server', payload),
   signInWithToken: (payload) => ipcRenderer.invoke('sign-in-with-token', payload),
 
+  // Embedding (semantic recall) configuration
+  getEmbeddingConfig: () => ipcRenderer.invoke('get-embedding-config'),
+  setEmbeddingConfig: (patch) => ipcRenderer.invoke('set-embedding-config', patch),
+  getEmbeddingStats: () => ipcRenderer.invoke('get-embedding-stats'),
   // Settings (privacy defaults, future per-user prefs)
   getSettings: () => ipcRenderer.invoke('get-settings'),
   setSettings: (patch) => ipcRenderer.invoke('set-settings', patch),

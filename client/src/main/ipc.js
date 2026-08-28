@@ -21,6 +21,42 @@ function getConfigPath() {
   return path.join(app.getPath('userData'), 'config.json')
 }
 
+const vec = require('./db/vec')
+const { getEmbedding } = require('./ai/embedding')
+
+/*
+ * Schedule a best-effort embedding upsert for a note. Fire-and-forget;
+ * must NEVER throw out of the caller path. When sqlite-vec is not loaded
+ * or the embedding service is unreachable we simply mark the meta row
+ * pending/failed so the diagnostics UI can surface it.
+ */
+function scheduleEmbed(noteId) {
+  if (!vec.isLoaded()) return
+  setImmediate(async () => {
+    try {
+      const db = getDB()
+      const row = db.prepare('SELECT title, content, deleted_at FROM notes WHERE id = ?').get(noteId)
+      if (!row || row.deleted_at) return
+      vec.markPending(db, noteId)
+      const cfgNow = readConfig()
+      const text = ((row.title || '') + '\n' + (row.content || '')).trim()
+      if (!text) return
+      const v = await getEmbedding(text, cfgNow.embedding)
+      if (v) vec.upsertEmbedding(db, noteId, v, 'bge-m3')
+      else vec.markFailed(db, noteId, 'embedding service unavailable')
+    } catch (e) {
+      console.warn('[ipc embed] note', noteId, 'failed:', e.message)
+      try { vec.markFailed(getDB(), noteId, e.message) } catch (_) {}
+    }
+  })
+}
+function scheduleEmbedDelete(noteId) {
+  if (!vec.isLoaded()) return
+  setImmediate(() => {
+    try { vec.deleteEmbedding(getDB(), noteId) } catch (e) { console.warn('[ipc embed delete]', e.message) }
+  })
+}
+
 function readConfig() {
   const p = getConfigPath()
   if (!fs.existsSync(p)) return {}
@@ -284,8 +320,10 @@ function registerIpcHandlers() {
         if (!w.isDestroyed()) w.webContents.send('notes-updated', { type: 'add', id })
       }
     } catch (_) {}
+    scheduleEmbed(id)
     return { id, ...(noteData || {}), is_private: isPrivate }
   })
+
 
   ipcMain.handle('import-document', async (event, filePath) => {
     if (!filePath || typeof filePath !== 'string') {
@@ -305,12 +343,14 @@ function registerIpcHandlers() {
             console.error('[import] extract failed:', err.message))
         })
       } catch (e) { console.error('[import] extract setup failed:', e.message) }
-return { success: true, ...result }
+    scheduleEmbed(result.id)
+    return { success: true, ...result }
     } catch (error) {
       console.log('[ipc import-document] error: ' + error.message)
       return { success: false, error: error.message }
     }
   })
+
 
   ipcMain.handle('reveal-in-folder', async (event, filePath) => {
     if (!filePath || typeof filePath !== 'string') {
@@ -332,6 +372,7 @@ return { success: true, ...result }
     db.prepare(`UPDATE notes SET ${setClause}, updated_at = ? WHERE id = ?`)
       .run(...keys.map(k => typeof updates[k] === 'object' ? JSON.stringify(updates[k]) : updates[k]), Date.now(), id)
     enqueueNoteOutbox(db, id, 'upsert')
+    scheduleEmbed(id)
   })
 
 
@@ -364,8 +405,10 @@ return { success: true, ...result }
         if (!w.isDestroyed()) w.webContents.send('notes-updated', { type: 'editor-save', id, is_private: nextPrivate })
       }
     } catch (_) {}
+    scheduleEmbed(id)
     return { ok: true, id }
   })
+
 
   // Custom window controls for frameless windows (main board + editor).
   ipcMain.on('window-control', (event, action) => {
@@ -388,8 +431,10 @@ return { success: true, ...result }
     } else {
       db.prepare('DELETE FROM notes WHERE id = ?').run(id)
     }
+    scheduleEmbedDelete(id)
     return true
   })
+
 
   ipcMain.handle('format-with-ai', async (event, { content, style }) => {
     console.log('[ipc] format-with-ai style=' + style + ' contentLen=' + (content || '').length)
@@ -420,6 +465,30 @@ return { success: true, ...result }
     return await aiService.categorizeContent(content)
   })
   ipcMain.handle('semantic-search', async (event, { query, candidateSummaries }) => {
+    // Best-effort: if the local sqlite-vec index is loaded AND the embedding
+    // service is reachable, swap the renderer-supplied candidateSummaries
+    // for top-K vector recall. Falls back to the original list on any
+    // failure so legacy behaviour is preserved when embedding is not
+    // configured or temporarily unavailable.
+    try {
+      if (vec.isLoaded() && query && typeof query === 'string') {
+        const cfgNow = readConfig()
+        const v = await getEmbedding(query, cfgNow.embedding)
+        if (v) {
+          const ids = vec.vectorSearch(getDB(), v, 30)
+          if (ids.length) {
+            const placeholders = ids.map(() => '?').join(',')
+            const rows = getDB().prepare(`SELECT id, title, content FROM notes WHERE id IN (${placeholders}) AND deleted_at IS NULL`).all(...ids.map(r => r.note_id))
+            const byId = new Map(rows.map(r => [r.id, r]))
+            const recalled = ids
+              .map(r => byId.get(r.note_id))
+              .filter(Boolean)
+              .map(r => `${r.id}: ${r.title || '(无标题)'} - ${(r.content || '').substring(0, 100)}`)
+            if (recalled.length) candidateSummaries = recalled
+          }
+        }
+      }
+    } catch (e) { console.warn('[ipc semantic-search] vector recall skipped:', e.message) }
     try {
       const serverProxy = require('./ai/server-proxy')
       const ctx = serverProxy.getProxyContext ? serverProxy.getProxyContext() : null
@@ -662,5 +731,30 @@ function broadcastNotesUpdated(detail) {
     console.error('[native-host] broadcast failed:', e.message)
   }
 }
+  ipcMain.handle('get-embedding-config', async () => {
+    const c = readConfig()
+    return (c.embedding) || { baseURL: '', apiKey: '', model: 'bge-m3', dims: 1024 }
+  })
+  ipcMain.handle('set-embedding-config', async (_e, patch) => {
+    const c = readConfig()
+    const cur = c.embedding || {}
+    const next = Object.assign({}, cur, patch || {})
+    if (typeof next.baseURL === 'string') next.baseURL = next.baseURL.replace(/\/+$/, '')
+    c.embedding = next
+    fs.writeFileSync(getConfigPath(), JSON.stringify(c, null, 2), 'utf8')
+    console.log('[ipc] embedding-config saved; baseURL=' + next.baseURL + ' hasKey=' + !!next.apiKey)
+    return next
+  })
+  ipcMain.handle('get-embedding-stats', async () => {
+    try {
+      const db = getDB()
+      const total = db.prepare('SELECT COUNT(*) AS c FROM notes_vec_meta').get().c
+      const ok = db.prepare("SELECT COUNT(*) AS c FROM notes_vec_meta WHERE status = 'ok'").get().c
+      const pending = db.prepare("SELECT COUNT(*) AS c FROM notes_vec_meta WHERE status = 'pending'").get().c
+      const failed = db.prepare("SELECT COUNT(*) AS c FROM notes_vec_meta WHERE status = 'failed'").get().c
+      return { loaded: vec.isLoaded(), total, ok, pending, failed, dims: vec.expectedDims() }
+    } catch (e) { return { loaded: false, total: 0, ok: 0, pending: 0, failed: 0, dims: 0, error: e.message } }
+  })
+
 module.exports = { registerIpcHandlers, setAIService, autoLaunch, onPipeMessage, nativeBridge: pipeBridge, broadcastNotesUpdated, smartSearch, toResult }
 

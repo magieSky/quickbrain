@@ -85,7 +85,18 @@ const els = {
   modalPrivate: document.getElementById('modal-private'),
   modalPrivateHint: document.getElementById('modal-private-hint'),
   settingsDefaultPrivate: document.getElementById('settings-default-private'),
-  privacyBlock: document.getElementById('privacy-block')
+  privacyBlock: document.getElementById('privacy-block'),
+  embeddingToggle: document.getElementById('embedding-toggle'),
+  embeddingBody: document.getElementById('embedding-body'),
+  embeddingBaseUrl: document.getElementById('embedding-base-url'),
+  embeddingApiKey: document.getElementById('embedding-api-key'),
+  embeddingModel: document.getElementById('embedding-model'),
+  embeddingDims: document.getElementById('embedding-dims'),
+  embeddingUseDefault: document.getElementById('embedding-use-default'),
+  embeddingStatus: document.getElementById('embedding-status'),
+  embeddingStatusLine: document.getElementById('embedding-status-line'),
+  embeddingTestBtn: document.getElementById('embedding-test'),
+  embeddingSaveBtn: document.getElementById('embedding-save')
 }
 
 let allNotes = []
@@ -829,11 +840,99 @@ async function openSyncSettings() {
     }
   } catch (_) {}
   await refreshSyncStatus()
+  await loadEmbeddingConfig()
 }
 
 function closeSyncSettings() {
   els.syncModal.classList.remove('show')
 }
+
+// ---- Embedding ?????? ----
+async function loadEmbeddingConfig() {
+  try {
+    const c = await api.getEmbeddingConfig()
+    els.embeddingBaseUrl.value = c.baseURL || ""
+    els.embeddingApiKey.value = c.apiKey || ""
+    els.embeddingModel.value = c.model || "bge-m3"
+    els.embeddingDims.value = String(c.dims || 1024)
+    await refreshEmbeddingStatus()
+  } catch (e) {
+    setEmbeddingStatus("??????: " + e.message, "idle")
+  }
+}
+
+async function refreshEmbeddingStatus() {
+  try {
+    const s = await api.getEmbeddingStats()
+    if (!s.loaded) {
+      setEmbeddingStatus("?????????????????", "idle")
+      return
+    }
+    els.embeddingStatusLine.textContent = "????: " + s.ok + "/" + s.total + " ??? (" + s.pending + " ???, " + s.failed + " ??)"
+    els.embeddingStatus.className = "embedding-status " + (s.failed > s.ok * 0.5 ? "bad" : "ok")
+  } catch (e) {
+    setEmbeddingStatus("??????: " + e.message, "idle")
+  }
+}
+
+function setEmbeddingStatus(text, kind) {
+  els.embeddingStatus.className = "embedding-status " + (kind || "idle")
+  els.embeddingStatusLine.textContent = text
+}
+
+async function testEmbeddingConnection() {
+  const baseURL = els.embeddingBaseUrl.value.trim().replace(/\/+$/, "")
+  const apiKey = els.embeddingApiKey.value.trim()
+  const model = els.embeddingModel.value.trim() || "bge-m3"
+  if (!baseURL) { setEmbeddingStatus("???????", "idle"); return }
+  els.embeddingTestBtn.disabled = true
+  setEmbeddingStatus("???...", "idle")
+  try {
+    const headers = { "Content-Type": "application/json" }
+    if (apiKey) headers["Authorization"] = "Bearer " + apiKey
+    const url = baseURL + "/v1/embeddings"
+    const r = await fetch(url, {
+      method: "POST", headers,
+      body: JSON.stringify({ model, input: "????" }),
+      signal: AbortSignal.timeout(8000)
+    })
+    if (!r.ok) {
+      setEmbeddingStatus("??: HTTP " + r.status + " " + (await r.text().catch(()=>"")).slice(0,80), "bad")
+      return
+    }
+    const j = await r.json()
+    const dims = j && j.data && j.data[0] && j.data[0].embedding && j.data[0].embedding.length
+    setEmbeddingStatus("????(???? " + (dims || "?") + ")", "ok")
+  } catch (e) {
+    setEmbeddingStatus("??: " + e.message, "bad")
+  } finally {
+    els.embeddingTestBtn.disabled = false
+  }
+}
+
+async function saveEmbeddingConfig() {
+  const baseURL = els.embeddingBaseUrl.value.trim().replace(/\/+$/, "")
+  const apiKey = els.embeddingApiKey.value.trim()
+  const model = els.embeddingModel.value.trim() || "bge-m3"
+  const dims = parseInt(els.embeddingDims.value, 10) || 1024
+  try {
+    await api.setEmbeddingConfig({ baseURL, apiKey, model, dims })
+    setEmbeddingStatus("???", "ok")
+    setTimeout(refreshEmbeddingStatus, 200)
+  } catch (e) {
+    setEmbeddingStatus("????: " + e.message, "bad")
+  }
+}
+
+function toggleEmbeddingSection() {
+  const open = els.embeddingBody.classList.toggle("show")
+  els.embeddingToggle.classList.toggle("open", open)
+}
+
+els.embeddingToggle.onclick = toggleEmbeddingSection
+els.embeddingUseDefault.onclick = (e) => { e.preventDefault(); els.embeddingBaseUrl.value = "https://embedding.bjhzsk.cn"; els.embeddingBaseUrl.focus() }
+els.embeddingTestBtn.onclick = testEmbeddingConnection
+els.embeddingSaveBtn.onclick = saveEmbeddingConfig
 
 async function refreshSyncStatus() {
   let c
@@ -924,6 +1023,7 @@ els.syncSubmitSignup.onclick = async () => {
     if (r.ok) {
       showSyncFeedback(els.syncFeedbackSignup, '账号已创建并已连接为 ' + r.username, true)
       await refreshSyncStatus()
+  await loadEmbeddingConfig()
       setTimeout(closeSyncSettings, 1200)
     } else {
       showSyncFeedback(els.syncFeedbackSignup, '失败：' + translateSyncError(r.error), false)
@@ -948,6 +1048,7 @@ els.syncSubmitSignin.onclick = async () => {
     if (r.ok) {
       showSyncFeedback(els.syncFeedbackSignin, '已登录为 ' + (r.username || '用户'), true)
       await refreshSyncStatus()
+  await loadEmbeddingConfig()
       setTimeout(closeSyncSettings, 1200)
     } else {
       showSyncFeedback(els.syncFeedbackSignin, '失败：' + translateSyncError(r.error), false)
@@ -962,6 +1063,7 @@ els.syncDisconnect.onclick = async () => {
   try {
     await api.setSyncConfig({ enabled: false })
     await refreshSyncStatus()
+  await loadEmbeddingConfig()
   } catch (e) {
     api.log('error', ['[sync-disconnect]', e.message])
   }

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
@@ -410,6 +410,22 @@
     .ai-form .form-hint { font-size: 10px; color: rgba(255,255,255,0.4); margin-top: 4px; }
     .ai-form .form-hint a { color: rgba(120,150,255,0.7); text-decoration: none; }
     .ai-form .form-hint a:hover { text-decoration: underline; }
+    .embedding-section { margin-top: 14px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 12px; }
+    .embedding-toggle { display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none; padding: 4px 0; color: rgba(255,255,255,0.7); font-size: 12px; }
+    .embedding-toggle .arrow { font-size: 10px; color: rgba(255,255,255,0.4); transition: transform 0.15s; }
+    .embedding-toggle.open .arrow { transform: rotate(90deg); }
+    .embedding-body { display: none; margin-top: 8px; }
+    .embedding-body.show { display: block; }
+    .embedding-row { display: flex; gap: 6px; align-items: center; margin-bottom: 8px; }
+    .embedding-row .form-input { flex: 1; font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: 11px; }
+    .embedding-status { margin-top: 8px; padding: 6px 10px; border-radius: 6px; font-size: 11px; }
+    .embedding-status.idle { background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.45); }
+    .embedding-status.ok { background: rgba(80,180,120,0.15); color: #8be58b; }
+    .embedding-status.bad { background: rgba(220,80,80,0.15); color: #ff9b9b; }
+    .embedding-status .es-line { line-height: 1.6; }
+    .embedding-actions { display: flex; gap: 6px; margin-top: 8px; }
+    .embedding-actions button { flex: 1; padding: 6px 10px; font-size: 11px; }
+    .embedding-hint { font-size: 10px; color: rgba(255,255,255,0.4); margin-top: 6px; line-height: 1.5; }
     .ai-status { margin-top: 8px; padding: 8px 10px; border-radius: 6px; font-size: 11px; display: none; }
     .ai-status.show { display: block; }
     .ai-status.success { background: rgba(80,200,120,0.15); color: #7ed99a; }

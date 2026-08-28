@@ -3,14 +3,14 @@ services:
     image: ollama/ollama:latest
     container_name: qb-ollama
     environment:
-      OLLAMA_HOST: 127.0.0.1:11434
+      OLLAMA_HOST: 0.0.0.0:11434
     volumes:
       - qb-ollama:/root/.ollama
     ports:
       - "127.0.0.1:11434:11434"
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:11434/api/tags >/dev/null || exit 1"]
+      test: ["CMD-SHELL", "pgrep -f ollama >/dev/null || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 5

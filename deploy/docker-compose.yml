@@ -21,7 +21,7 @@ services:
           memory: 3G
 
   postgres:
-    image: postgres:16-alpine
+    image: qb-pgvector:16
     container_name: qb-postgres
     environment:
       POSTGRES_USER: qb

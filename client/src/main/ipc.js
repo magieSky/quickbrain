@@ -757,5 +757,29 @@ function broadcastNotesUpdated(detail) {
   })
 
 
+
+  // debug: list failed vector embeddings for the renderer so the user
+  // can see the actual error message from getEmbedding.
+  ipcMain.handle('debug-vec-meta', async () => {
+    try {
+      const db = getDB()
+      const rows = db.prepare("SELECT note_id, status, model, dims, error, updated_at FROM notes_vec_meta ORDER BY updated_at DESC LIMIT 20").all()
+      return { rows }
+    } catch (e) { return { error: e.message } }
+  })
+
+
+  // debug: re-run scheduleEmbed for the given noteIds (or all failed ones).
+  ipcMain.handle('debug-retry-embed', async (_e, ids) => {
+    try {
+      const db = getDB()
+      let targets
+      if (Array.isArray(ids) && ids.length > 0) targets = ids
+      else targets = db.prepare("SELECT note_id FROM notes_vec_meta WHERE status = 'failed'").all().map(r => r.note_id)
+      for (const id of targets) scheduleEmbed(Number(id))
+      return { ok: true, scheduled: targets }
+    } catch (e) { return { ok: false, msg: e.message } }
+  })
+
 module.exports = { registerIpcHandlers, setAIService, autoLaunch, onPipeMessage, nativeBridge: pipeBridge, broadcastNotesUpdated, smartSearch, toResult }
 

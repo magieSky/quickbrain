@@ -473,48 +473,58 @@ function updateToolbarDisabled() {
   }
 }
 
+if (els.batchToggleBtn) {
 els.batchToggleBtn.onclick = () => setSelectionMode(!selectionMode)
+}
 
+if (els.fbExit) {
 els.fbExit.onclick = () => setSelectionMode(false)
+}
 
+if (els.fbSelectAll) {
 els.fbSelectAll.onclick = () => {
-  const visible = getFiltered().map(n => n.id)
-  const allSelected = visible.length > 0 && visible.every(id => selectedIds.has(id))
-  if (allSelected) visible.forEach(id => selectedIds.delete(id))
-  else visible.forEach(id => selectedIds.add(id))
-  render()
+    const visible = getFiltered().map(n => n.id)
+    const allSelected = visible.length > 0 && visible.every(id => selectedIds.has(id))
+    if (allSelected) visible.forEach(id => selectedIds.delete(id))
+    else visible.forEach(id => selectedIds.add(id))
+    render()
+}
 }
 
+if (els.fbSetPublic) {
 els.fbSetPublic.onclick = async () => {
-  if (selectedIds.size === 0) return
-  const ids = Array.from(selectedIds)
-  setStatus('正在设为公开·' + ids.length + ' 条…')
-  try {
-    const r = await api.setNotesPrivateBulk(ids, false)
-    if (r && r.ok) {
-      setStatus('已将 ' + r.count + ' 条设为公开，同步中…')
-      setSelectionMode(false)
-      await loadNotes()
-    } else {
-      setStatus('设为公开失败: ' + (r && r.error))
-    }
-  } catch (e) { setStatus('设为公开失败: ' + e.message) }
+    if (selectedIds.size === 0) return
+    const ids = Array.from(selectedIds)
+    setStatus('正在设为公开·' + ids.length + ' 条…')
+    try {
+      const r = await api.setNotesPrivateBulk(ids, false)
+      if (r && r.ok) {
+        setStatus('已将 ' + r.count + ' 条设为公开，同步中…')
+        setSelectionMode(false)
+        await loadNotes()
+      } else {
+        setStatus('设为公开失败: ' + (r && r.error))
+      }
+    } catch (e) { setStatus('设为公开失败: ' + e.message) }
+}
 }
 
+if (els.fbSetPrivate) {
 els.fbSetPrivate.onclick = async () => {
-  if (selectedIds.size === 0) return
-  const ids = Array.from(selectedIds)
-  setStatus('正在设为隐私·' + ids.length + ' 条…')
-  try {
-    const r = await api.setNotesPrivateBulk(ids, true)
-    if (r && r.ok) {
-      setStatus('已将 ' + r.count + ' 条设为隐私，已从云端撤销')
-      setSelectionMode(false)
-      await loadNotes()
-    } else {
-      setStatus('设为隐私失败: ' + (r && r.error))
-    }
-  } catch (e) { setStatus('设为隐私失败: ' + e.message) }
+    if (selectedIds.size === 0) return
+    const ids = Array.from(selectedIds)
+    setStatus('正在设为隐私·' + ids.length + ' 条…')
+    try {
+      const r = await api.setNotesPrivateBulk(ids, true)
+      if (r && r.ok) {
+        setStatus('已将 ' + r.count + ' 条设为隐私，已从云端撤销')
+        setSelectionMode(false)
+        await loadNotes()
+      } else {
+        setStatus('设为隐私失败: ' + (r && r.error))
+      }
+    } catch (e) { setStatus('设为隐私失败: ' + e.message) }
+}
 }
 
 function renderFloatBatch() {
@@ -562,7 +572,9 @@ function toggleFilterPopover() {
   }
 }
 
+if (els.filterBtn) {
 els.filterBtn.onclick = (e) => { e.stopPropagation(); toggleFilterPopover() }
+}
 
 els.filterPopover.addEventListener('click', (e) => {
   const chip = e.target.closest('.filter-popover-chip')
@@ -576,12 +588,14 @@ els.filterPopover.addEventListener('click', (e) => {
   render()
 })
 
+if (els.filterClear) {
 els.filterClear.onclick = () => {
-  currentCategory = 'all'
-  currentType = 'all'
-  currentPrivacy = 'all'
-  renderFilterPopover()
-  render()
+    currentCategory = 'all'
+    currentType = 'all'
+    currentPrivacy = 'all'
+    renderFilterPopover()
+    render()
+}
 }
 
 document.addEventListener('click', (e) => {
@@ -600,10 +614,18 @@ document.addEventListener('keydown', (e) => {
   setSelectionMode(!selectionMode)
 })
 
+if (els.addBtn) {
 els.addBtn.onclick = showAddModal
+}
+if (els.modalCancel) {
 els.modalCancel.onclick = hideAddModal
+}
+if (els.modalSave) {
 els.modalSave.onclick = saveModal
+}
+if (els.modal) {
 els.modal.onclick = (e) => { if (e.target === els.modal) hideAddModal() }
+}
 
 // ===== 导入文件 =====
 async function importFile(filePath) {
@@ -623,7 +645,9 @@ async function importFile(filePath) {
   }
 }
 
+if (els.importBtn) {
 els.importBtn.onclick = () => { els.importFile.value = ''; els.importFile.click() }
+}
 els.importFile.onchange = async (e) => {
   const files = Array.from(e.target.files || [])
   for (const f of files) {
@@ -674,7 +698,9 @@ els.search.addEventListener('input', () => {
 })
 
 // #filters container removed; filter popover above handles filter state.
+if (els.aiBtn) {
 els.aiBtn.onclick = () => openAISettings()
+}
 
 async function refreshAutoLaunch() {
   try {
@@ -684,21 +710,23 @@ async function refreshAutoLaunch() {
   } catch (e) { /* ignore */ }
 }
 
+if (els.autoLaunchBtn) {
 els.autoLaunchBtn.onclick = async () => {
-  try {
-    const on = await api.getAutoLaunch()
-    const want = !on
-    if (!window.confirm('当前开机自启：' + (on ? '已开启' : '已关闭') + '\n\n点确定即' + (want ? '开启' : '关闭') + '。')) return
-    const r = await api.setAutoLaunch(want)
-    if (r.success) {
-      setStatus((want ? '✅ 已' : '❌ 已') + (want ? '开启' : '关闭') + '开机自启')
-      refreshAutoLaunch()
-    } else {
-      setStatus('设置失败: ' + (r.error || '未知错误'))
+    try {
+      const on = await api.getAutoLaunch()
+      const want = !on
+      if (!window.confirm('当前开机自启：' + (on ? '已开启' : '已关闭') + '\n\n点确定即' + (want ? '开启' : '关闭') + '。')) return
+      const r = await api.setAutoLaunch(want)
+      if (r.success) {
+        setStatus((want ? '✅ 已' : '❌ 已') + (want ? '开启' : '关闭') + '开机自启')
+        refreshAutoLaunch()
+      } else {
+        setStatus('设置失败: ' + (r.error || '未知错误'))
+      }
+    } catch (e) {
+      setStatus('操作失败: ' + e.message)
     }
-  } catch (e) {
-    setStatus('操作失败: ' + e.message)
-  }
+}
 }
 
 refreshAutoLaunch()
@@ -780,46 +808,54 @@ function buildConfigFromForm() {
   return cfg
 }
 
+if (els.aiToggleKey) {
 els.aiToggleKey.onclick = () => {
-  els.aiApiKey.type = els.aiApiKey.type === 'password' ? 'text' : 'password'
+    els.aiApiKey.type = els.aiApiKey.type === 'password' ? 'text' : 'password'
+}
 }
 
+  if (els.aiTest) {
   els.aiTest.onclick = async () => {
   const cfg = buildConfigFromForm()
   if (cfg.apiKey === '__KEEP__') cfg.apiKey = ''  // 测试时不能保留，让服务器报错
   els.aiTest.disabled = true
   showAIStatus('测试中...', true)
   try {
-    const r = await api.testAIConnection(cfg)
-    if (r.success) showAIStatus('✅ ' + (r.message || '连接成功'), true)
-    else showAIStatus('❌ ' + (r.error || '连接失败'), false)
+      const r = await api.testAIConnection(cfg)
+      if (r.success) showAIStatus('✅ ' + (r.message || '连接成功'), true)
+      else showAIStatus('❌ ' + (r.error || '连接失败'), false)
   } catch (e) {
-    showAIStatus('❌ ' + e.message, false)
+      showAIStatus('❌ ' + e.message, false)
   }
   els.aiTest.disabled = false
 }
-
-els.aiSave.onclick = async () => {
-  const cfg = buildConfigFromForm()
-  if (cfg.apiKey === '__KEEP__') cfg.apiKey = ''  // 保存时也不传，让 main 保留原 key
-  if (cfg.serverToken === '__KEEP__') cfg.serverToken = ''
-  els.aiSave.disabled = true
-  try {
-    const r = await api.saveAIConfig(cfg)
-    if (r.success) {
-      els.aiModal.classList.remove('show')
-      loadNotes()
-    } else {
-      showAIStatus('❌ ' + (r.error || '保存失败'), false)
-    }
-  } catch (e) {
-    showAIStatus('❌ ' + e.message, false)
   }
-  els.aiSave.disabled = false
+
+if (els.aiSave) {
+els.aiSave.onclick = async () => {
+    const cfg = buildConfigFromForm()
+    if (cfg.apiKey === '__KEEP__') cfg.apiKey = ''  // 保存时也不传，让 main 保留原 key
+    if (cfg.serverToken === '__KEEP__') cfg.serverToken = ''
+    els.aiSave.disabled = true
+    try {
+      const r = await api.saveAIConfig(cfg)
+      if (r.success) {
+        els.aiModal.classList.remove('show')
+        loadNotes()
+      } else {
+        showAIStatus('❌ ' + (r.error || '保存失败'), false)
+      }
+    } catch (e) {
+      showAIStatus('❌ ' + e.message, false)
+    }
+    els.aiSave.disabled = false
+}
 }
 
+if (els.aiCancel) {
 els.aiCancel.onclick = () => {
-  els.aiModal.classList.remove('show')
+    els.aiModal.classList.remove('show')
+}
 }
 // ---- Sync / Server Settings modal ----
 
@@ -847,7 +883,7 @@ function closeSyncSettings() {
   els.syncModal.classList.remove('show')
 }
 
-// ---- Embedding ?????? ----
+// ---- Embedding 向量嵌入配置 ----
 async function loadEmbeddingConfig() {
   try {
     const c = await api.getEmbeddingConfig()
@@ -857,7 +893,7 @@ async function loadEmbeddingConfig() {
     els.embeddingDims.value = String(c.dims || 1024)
     await refreshEmbeddingStatus()
   } catch (e) {
-    setEmbeddingStatus("??????: " + e.message, "idle")
+    setEmbeddingStatus("加载配置失败: " + e.message, "idle")
   }
 }
 
@@ -865,13 +901,13 @@ async function refreshEmbeddingStatus() {
   try {
     const s = await api.getEmbeddingStats()
     if (!s.loaded) {
-      setEmbeddingStatus("?????????????????", "idle")
+      setEmbeddingStatus("sqlite-vec 未加载，向量检索退化为普通搜索", "idle")
       return
     }
-    els.embeddingStatusLine.textContent = "????: " + s.ok + "/" + s.total + " ??? (" + s.pending + " ???, " + s.failed + " ??)"
+    els.embeddingStatusLine.textContent = "已索引 " + s.ok + "/" + s.total + " 条（待建 " + s.pending + " 条，失败 " + s.failed + " 条）"
     els.embeddingStatus.className = "embedding-status " + (s.failed > s.ok * 0.5 ? "bad" : "ok")
   } catch (e) {
-    setEmbeddingStatus("??????: " + e.message, "idle")
+    setEmbeddingStatus("加载配置失败: " + e.message, "idle")
   }
 }
 
@@ -884,27 +920,27 @@ async function testEmbeddingConnection() {
   const baseURL = els.embeddingBaseUrl.value.trim().replace(/\/+$/, "")
   const apiKey = els.embeddingApiKey.value.trim()
   const model = els.embeddingModel.value.trim() || "bge-m3"
-  if (!baseURL) { setEmbeddingStatus("???????", "idle"); return }
+  if (!baseURL) { setEmbeddingStatus("请先填写 Base URL", "idle"); return }
   els.embeddingTestBtn.disabled = true
-  setEmbeddingStatus("???...", "idle")
+  setEmbeddingStatus("测试中...", "idle")
   try {
     const headers = { "Content-Type": "application/json" }
     if (apiKey) headers["Authorization"] = "Bearer " + apiKey
     const url = baseURL + "/v1/embeddings"
     const r = await fetch(url, {
       method: "POST", headers,
-      body: JSON.stringify({ model, input: "????" }),
+      body: JSON.stringify({ model, input: "hello" }),
       signal: AbortSignal.timeout(8000)
     })
     if (!r.ok) {
-      setEmbeddingStatus("??: HTTP " + r.status + " " + (await r.text().catch(()=>"")).slice(0,80), "bad")
+      setEmbeddingStatus("失败: HTTP " + r.status + " " + (await r.text().catch(()=>"")).slice(0,80), "bad")
       return
     }
     const j = await r.json()
     const dims = j && j.data && j.data[0] && j.data[0].embedding && j.data[0].embedding.length
-    setEmbeddingStatus("????(???? " + (dims || "?") + ")", "ok")
+    setEmbeddingStatus("连接成功（返回维度 " + (dims || "?") + "）", "ok")
   } catch (e) {
-    setEmbeddingStatus("??: " + e.message, "bad")
+    setEmbeddingStatus("失败: " + e.message, "bad")
   } finally {
     els.embeddingTestBtn.disabled = false
   }
@@ -917,10 +953,10 @@ async function saveEmbeddingConfig() {
   const dims = parseInt(els.embeddingDims.value, 10) || 1024
   try {
     await api.setEmbeddingConfig({ baseURL, apiKey, model, dims })
-    setEmbeddingStatus("???", "ok")
+    setEmbeddingStatus("已保存", "ok")
     setTimeout(refreshEmbeddingStatus, 200)
   } catch (e) {
-    setEmbeddingStatus("????: " + e.message, "bad")
+    setEmbeddingStatus("保存失败: " + e.message, "bad")
   }
 }
 
@@ -929,10 +965,18 @@ function toggleEmbeddingSection() {
   els.embeddingToggle.classList.toggle("open", open)
 }
 
+if (els.embeddingToggle) {
 els.embeddingToggle.onclick = toggleEmbeddingSection
+}
+if (els.embeddingUseDefault) {
 els.embeddingUseDefault.onclick = (e) => { e.preventDefault(); els.embeddingBaseUrl.value = "https://embedding.bjhzsk.cn"; els.embeddingBaseUrl.focus() }
+}
+if (els.embeddingTestBtn) {
 els.embeddingTestBtn.onclick = testEmbeddingConnection
+}
+if (els.embeddingSaveBtn) {
 els.embeddingSaveBtn.onclick = saveEmbeddingConfig
+}
 
 async function refreshSyncStatus() {
   let c
@@ -989,12 +1033,22 @@ function showSyncFeedback(el, msg, ok) {
   el.textContent = msg
 }
 
+if (els.syncTabSignup) {
 els.syncTabSignup.onclick = () => switchSyncTab('signup')
+}
+if (els.syncTabSignin) {
 els.syncTabSignin.onclick = () => switchSyncTab('signin')
+}
 
+if (els.syncCancel) {
 els.syncCancel.onclick = closeSyncSettings
+}
+if (els.syncOpenAiSettings) {
 els.syncOpenAiSettings.onclick = (e) => { e.preventDefault(); closeSyncSettings(); openAISettings() }
+}
+if (els.syncUseDefaultUrl) {
 els.syncUseDefaultUrl.onclick = (e) => { e.preventDefault(); useDefaultSyncServerUrl() }
+}
 els.syncModal.addEventListener('click', (e) => {
   if (e.target === els.syncModal) closeSyncSettings()
 })
@@ -1008,65 +1062,71 @@ els.settingsDefaultPrivate.onchange = async () => {
   }
 }
 
+if (els.syncSubmitSignup) {
 els.syncSubmitSignup.onclick = async () => {
-  const serverUrl = els.syncServerUrl.value.trim()
-  const username = els.syncUsername.value.trim()
-  const password = els.syncPassword.value
-  if (!serverUrl || !username || !password) {
-    showSyncFeedback(els.syncFeedbackSignup, '服务器地址、用户名和密码都是必填项', false)
-    return
-  }
-  els.syncSubmitSignup.disabled = true
-  showSyncFeedback(els.syncFeedbackSignup, '正在创建账号...', true)
-  try {
-    const r = await api.registerWithServer({ serverUrl, username, password })
-    if (r.ok) {
-      showSyncFeedback(els.syncFeedbackSignup, '账号已创建并已连接为 ' + r.username, true)
-      await refreshSyncStatus()
-  await loadEmbeddingConfig()
-      setTimeout(closeSyncSettings, 1200)
-    } else {
-      showSyncFeedback(els.syncFeedbackSignup, '失败：' + translateSyncError(r.error), false)
+    const serverUrl = els.syncServerUrl.value.trim()
+    const username = els.syncUsername.value.trim()
+    const password = els.syncPassword.value
+    if (!serverUrl || !username || !password) {
+      showSyncFeedback(els.syncFeedbackSignup, '服务器地址、用户名和密码都是必填项', false)
+      return
     }
-  } catch (e) {
-    showSyncFeedback(els.syncFeedbackSignup, '网络错误：' + e.message, false)
-  }
-  els.syncSubmitSignup.disabled = false
+    els.syncSubmitSignup.disabled = true
+    showSyncFeedback(els.syncFeedbackSignup, '正在创建账号...', true)
+    try {
+      const r = await api.registerWithServer({ serverUrl, username, password })
+      if (r.ok) {
+        showSyncFeedback(els.syncFeedbackSignup, '账号已创建并已连接为 ' + r.username, true)
+        await refreshSyncStatus()
+    await loadEmbeddingConfig()
+        setTimeout(closeSyncSettings, 1200)
+      } else {
+        showSyncFeedback(els.syncFeedbackSignup, '失败：' + translateSyncError(r.error), false)
+      }
+    } catch (e) {
+      showSyncFeedback(els.syncFeedbackSignup, '网络错误：' + e.message, false)
+    }
+    els.syncSubmitSignup.disabled = false
+}
 }
 
+if (els.syncSubmitSignin) {
 els.syncSubmitSignin.onclick = async () => {
-  const serverUrl = els.syncTokenServerUrl.value.trim()
-  const token = els.syncToken.value.trim()
-  if (!serverUrl || !token) {
-    showSyncFeedback(els.syncFeedbackSignin, '服务器地址和令牌都是必填项', false)
-    return
-  }
-  els.syncSubmitSignin.disabled = true
-  showSyncFeedback(els.syncFeedbackSignin, '正在登录...', true)
-  try {
-    const r = await api.signInWithToken({ serverUrl, token })
-    if (r.ok) {
-      showSyncFeedback(els.syncFeedbackSignin, '已登录为 ' + (r.username || '用户'), true)
-      await refreshSyncStatus()
-  await loadEmbeddingConfig()
-      setTimeout(closeSyncSettings, 1200)
-    } else {
-      showSyncFeedback(els.syncFeedbackSignin, '失败：' + translateSyncError(r.error), false)
+    const serverUrl = els.syncTokenServerUrl.value.trim()
+    const token = els.syncToken.value.trim()
+    if (!serverUrl || !token) {
+      showSyncFeedback(els.syncFeedbackSignin, '服务器地址和令牌都是必填项', false)
+      return
     }
-  } catch (e) {
-    showSyncFeedback(els.syncFeedbackSignin, '网络错误：' + e.message, false)
-  }
-  els.syncSubmitSignin.disabled = false
+    els.syncSubmitSignin.disabled = true
+    showSyncFeedback(els.syncFeedbackSignin, '正在登录...', true)
+    try {
+      const r = await api.signInWithToken({ serverUrl, token })
+      if (r.ok) {
+        showSyncFeedback(els.syncFeedbackSignin, '已登录为 ' + (r.username || '用户'), true)
+        await refreshSyncStatus()
+    await loadEmbeddingConfig()
+        setTimeout(closeSyncSettings, 1200)
+      } else {
+        showSyncFeedback(els.syncFeedbackSignin, '失败：' + translateSyncError(r.error), false)
+      }
+    } catch (e) {
+      showSyncFeedback(els.syncFeedbackSignin, '网络错误：' + e.message, false)
+    }
+    els.syncSubmitSignin.disabled = false
+}
 }
 
+if (els.syncDisconnect) {
 els.syncDisconnect.onclick = async () => {
-  try {
-    await api.setSyncConfig({ enabled: false })
-    await refreshSyncStatus()
-  await loadEmbeddingConfig()
-  } catch (e) {
-    api.log('error', ['[sync-disconnect]', e.message])
-  }
+    try {
+      await api.setSyncConfig({ enabled: false })
+      await refreshSyncStatus()
+    await loadEmbeddingConfig()
+    } catch (e) {
+      api.log('error', ['[sync-disconnect]', e.message])
+    }
+}
 }
 
 // Wire the titlebar gear button to open the sync modal.
@@ -1197,9 +1257,9 @@ function updateReportCount() {
 }
 
 if (els.reportNoteSearch) {
-  els.reportNoteSearch.addEventListener("input", function () {
-    renderReportNotePicker(els.reportNoteSearch.value)
-  })
+    els.reportNoteSearch.addEventListener("input", function () {
+      renderReportNotePicker(els.reportNoteSearch.value)
+    })
 }
 
 function showReportModal() {
@@ -1223,7 +1283,9 @@ function hideReportModal() {
   els.reportModal.classList.remove("show")
   if (reportJobId) { api.cancelReport(reportJobId); reportJobId = null }
 }
+if (els.reportCancel) {
 els.reportCancel.onclick = hideReportModal
+}
 els.reportFiles.addEventListener("change", function () {
   els.reportFileList.innerHTML = ""
   reportFilePaths = []
@@ -1238,63 +1300,71 @@ els.reportFiles.addEventListener("change", function () {
     els.reportFileList.appendChild(span)
   }
 })
+if (els.reportGenerate) {
 els.reportGenerate.onclick = async function () {
-  const prompt = els.reportPrompt.value.trim()
-  const urls = els.reportUrls.value.split("\n").map(function (s) { return s.trim() }).filter(Boolean)
-  if (!prompt) {
-    els.reportPrompt.focus()
-    els.reportStats.textContent = "⚠ 请填写提示词"
-    return
-  }
-  const noteIds = Array.from(selectedIds)
-  if (noteIds.length === 0 && urls.length === 0 && reportFilePaths.length === 0) {
-    els.reportStats.textContent = "⚠ 请至少勾选一条笔记、填一个 URL 或上传一个文件"
-    return
-  }
-  els.reportGenerate.disabled = true
-  els.reportGenerate.textContent = "生成中…"
-  els.reportStream.textContent = ""
-  els.reportStats.textContent = ""
-  els.reportCopy.style.display = "none"
-  els.reportSave.style.display = "none"
-  reportFullText = ""
-  try {
-    const r = await api.startReport({ noteIds: noteIds, urls: urls, filePaths: reportFilePaths, prompt: prompt })
-    if (!r || !r.ok) {
-      els.reportGenerate.disabled = false
-      els.reportGenerate.textContent = "生成"
-      setStatus("生成失败: " + (r && r.error))
+    const prompt = els.reportPrompt.value.trim()
+    const urls = els.reportUrls.value.split("\n").map(function (s) { return s.trim() }).filter(Boolean)
+    if (!prompt) {
+      els.reportPrompt.focus()
+      els.reportStats.textContent = "⚠ 请填写提示词"
       return
     }
-    reportJobId = r.jobId
-  } catch (e) {
-    els.reportGenerate.disabled = false
-    els.reportGenerate.textContent = "生成"
-    setStatus("生成失败: " + e.message)
-  }
+    const noteIds = Array.from(selectedIds)
+    if (noteIds.length === 0 && urls.length === 0 && reportFilePaths.length === 0) {
+      els.reportStats.textContent = "⚠ 请至少勾选一条笔记、填一个 URL 或上传一个文件"
+      return
+    }
+    els.reportGenerate.disabled = true
+    els.reportGenerate.textContent = "生成中…"
+    els.reportStream.textContent = ""
+    els.reportStats.textContent = ""
+    els.reportCopy.style.display = "none"
+    els.reportSave.style.display = "none"
+    reportFullText = ""
+    try {
+      const r = await api.startReport({ noteIds: noteIds, urls: urls, filePaths: reportFilePaths, prompt: prompt })
+      if (!r || !r.ok) {
+        els.reportGenerate.disabled = false
+        els.reportGenerate.textContent = "生成"
+        setStatus("生成失败: " + (r && r.error))
+        return
+      }
+      reportJobId = r.jobId
+    } catch (e) {
+      els.reportGenerate.disabled = false
+      els.reportGenerate.textContent = "生成"
+      setStatus("生成失败: " + e.message)
+    }
 }
+}
+if (els.reportCopy) {
 els.reportCopy.onclick = function () {
-  api.writeClipboard(reportFullText)
-  setStatus("已复制到剪贴板")
+    api.writeClipboard(reportFullText)
+    setStatus("已复制到剪贴板")
 }
+}
+if (els.reportSave) {
 els.reportSave.onclick = async function () {
-  if (!reportFullText) return
-  const firstLine = reportFullText.split("\n")[0].replace(/^#+\s*/, "").trim() || "报告"
-  const title = "[报告] " + firstLine.substring(0, 50)
-  try {
-    await api.addNote({ content: reportFullText, title: title, category: "其他", tags: ["report"], is_private: 0 })
-    setStatus("已保存为笔记")
-    hideReportModal()
-    setSelectionMode(false)
-    await loadNotes()
-  } catch (e) {
-    setStatus("保存失败: " + e.message)
-  }
+    if (!reportFullText) return
+    const firstLine = reportFullText.split("\n")[0].replace(/^#+\s*/, "").trim() || "报告"
+    const title = "[报告] " + firstLine.substring(0, 50)
+    try {
+      await api.addNote({ content: reportFullText, title: title, category: "其他", tags: ["report"], is_private: 0 })
+      setStatus("已保存为笔记")
+      hideReportModal()
+      setSelectionMode(false)
+      await loadNotes()
+    } catch (e) {
+      setStatus("保存失败: " + e.message)
+    }
+}
 }
 if (els.fbReport) {
+  if (els.fbReport) {
   els.fbReport.onclick = function () {
-    showReportModal()
+      showReportModal()
   }
+    }
 }
 
 if (api.onReportMeta) {
@@ -1337,7 +1407,9 @@ if (api.onReportError) {
     els.reportStats.textContent = "失败: " + err
   })
 }
+if (els.settingsBtnMain) {
 els.settingsBtnMain.onclick = openSyncSettings
+}
 
 // Custom frameless-window controls (minimize / toggle maximize / hide to tray).
 function initWindowControls() {

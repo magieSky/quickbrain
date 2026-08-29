@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://embedding.bjhzsk.cn https://note.bjhzsk.cn ws://127.0.0.1:9222">
   <title>速脑</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -410,6 +410,7 @@
     .ai-form .form-hint { font-size: 10px; color: rgba(255,255,255,0.4); margin-top: 4px; }
     .ai-form .form-hint a { color: rgba(120,150,255,0.7); text-decoration: none; }
     .ai-form .form-hint a:hover { text-decoration: underline; }
+    .qb-emb-icon { display: inline-block; color: #b8aaff; margin-right: 4px; font-size: 13px; vertical-align: -1px; }
     .embedding-section { margin-top: 14px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 12px; }
     .embedding-toggle { display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none; padding: 4px 0; color: rgba(255,255,255,0.7); font-size: 12px; }
     .embedding-toggle .arrow { font-size: 10px; color: rgba(255,255,255,0.4); transition: transform 0.15s; }
@@ -694,6 +695,34 @@
         </label>
         <div class="privacy-hint">关闭后，新笔记默认同步到云端。随时可在添加窗口单独指定每条笔记。</div>
       </div>
+      <div class="embedding-section">
+        <div class="embedding-toggle" id="embedding-toggle">
+          <span><span class="qb-emb-icon">⚡</span> 向量嵌入增强（可选）</span>
+          <span class="arrow">▶</span>
+        </div>
+        <div class="embedding-body" id="embedding-body">
+          <div class="embedding-row">
+            <input type="text" class="form-input" id="embedding-base-url" placeholder="Base URL，例如 https://embedding.bjhzsk.cn">
+            <a href="#" id="embedding-use-default" style="font-size:11px; color:rgba(120,150,255,0.7); text-decoration:none; white-space:nowrap;">使用官方地址</a>
+          </div>
+          <div class="embedding-row">
+            <input type="password" class="form-input" id="embedding-api-key" placeholder="API Key（可选）">
+          </div>
+          <div class="embedding-row">
+            <input type="text" class="form-input" id="embedding-model" placeholder="模型" value="bge-m3">
+            <input type="number" class="form-input" id="embedding-dims" placeholder="维度" value="1024">
+          </div>
+          <div class="embedding-status" id="embedding-status">
+            <div class="es-line" id="embedding-status-line">未配置</div>
+          </div>
+          <div class="embedding-actions">
+            <button class="btn" id="embedding-test">测试连接</button>
+            <button class="btn primary" id="embedding-save">保存</button>
+          </div>
+          <div class="embedding-hint">向量检索是可选增强。开启后搜索会按语义匹配相似笔记，不需要有 AI 提供方也能用。</div>
+        </div>
+      </div>
+
       <div class="sync-tabs">
         <button class="sync-tab active" data-tab="signup" id="sync-tab-signup">注册</button>
         <button class="sync-tab" data-tab="signin" id="sync-tab-signin">使用令牌登录</button>
@@ -781,6 +810,7 @@
 
         <script src="../prompt-helper.js"></script>
     <script src="../markdown-helper.js"></script>
+  <script src="placeholders.js"></script>
   <script src="main.js"></script>
 </body>
 </html>

@@ -1,4 +1,4 @@
-const fs = require('fs')
+﻿const fs = require('fs')
 const path = require('path')
 
 const DIR = path.join(__dirname)
@@ -10,10 +10,14 @@ function readMigrations() {
     .map(f => ({ name: f, sql: fs.readFileSync(path.join(DIR, f), 'utf8') }))
 }
 
-function applyAll(db) {
+function applyAll(db, opts) {
+  const skipFiles = opts && opts.skipFiles instanceof Set
+    ? opts.skipFiles
+    : new Set()
   db.exec(`CREATE TABLE IF NOT EXISTS schema_version (version INTEGER PRIMARY KEY, applied_at INTEGER NOT NULL)`)
   const applied = new Set(db.prepare('SELECT version FROM schema_version').all().map(r => r.version))
   for (const m of readMigrations()) {
+    if (skipFiles.has(m.name)) continue
     const version = parseInt(m.name.split('_')[0], 10)
     if (applied.has(version)) continue
     db.transaction(() => {

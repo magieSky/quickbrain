@@ -18,17 +18,31 @@ async function initDatabase() {
   const dbPath = path.join(userDataPath, 'quickbrain.db')
   dbInstance = new Database(dbPath)
 
-  applyAll(dbInstance)
+  // 1) Load sqlite-vec BEFORE running migrations. The 0009_vec_table.sql
+  //    migration creates a vec0 virtual table and will fail if the
+  //    extension is not loaded yet. If loading fails we skip that one
+  //    file so the rest of the schema (and the app) still comes up.
+  let cfg = {}
+  try { cfg = require('./config').read() || {} } catch (e) { /* fresh install */ }
+  const dims = cfg && cfg.embedding && cfg.embedding.dims
+  vec.ensureLoaded(dbInstance, dims || undefined)
 
-  // Try to load sqlite-vec for optional semantic recall. Failures are
-  // logged and turned into no-ops by the wrapper, so the rest of the app
-  // keeps working without vector search.
+  const skipFiles = vec.isLoaded()
+    ? new Set()
+    : new Set(['0009_vec_table.sql'])
+
+  // 2) Apply migrations, skipping the vec virtual-table file when vec0
+  //    is unavailable. The notes_vec_meta table (0008_vec_meta.sql) and
+  //    the rest of the schema always apply.
   try {
-    const cfg = require('./config').read()
-    const dims = cfg && cfg.embedding && cfg.embedding.dims
-    vec.ensureLoaded(dbInstance, dims || undefined)
+    applyAll(dbInstance, { skipFiles })
   } catch (e) {
-    console.warn('[db-init] vec load skipped:', e.message)
+    console.error('[db-init] migration failed:', e.message)
+    // Reset and rethrow so main.js can show the error to the user
+    // instead of silently crashing on unhandled rejection.
+    try { dbInstance.close() } catch {}
+    dbInstance = null
+    throw e
   }
 
   return dbInstance

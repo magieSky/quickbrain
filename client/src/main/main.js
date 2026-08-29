@@ -77,7 +77,14 @@ function showAddDialog() {
 }
 
 app.whenReady().then(async () => {
-  await initDatabase()
+  try {
+    await initDatabase()
+  } catch (e) {
+    console.error('[main] initDatabase failed:', e && e.stack || e)
+    try { dialog.showErrorBox('QuickBrain 启动失败', String(e && e.message || e)) } catch (_) { }
+    app.quit()
+    return
+  }
 
   // Auto-update: check on packaged builds, prompt user before downloading / installing.
   try { const updater = require('./updater'); const { dialog } = require('electron'); updater.setupAutoUpdater({ app, dialog }) } catch (e) { console.error('[updater] setup failed:', e.message) }

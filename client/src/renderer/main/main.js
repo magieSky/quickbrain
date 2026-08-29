@@ -899,9 +899,9 @@ async function loadEmbeddingConfig() {
 
 async function refreshEmbeddingStatus() {
   try {
-    const s = await api.getEmbeddingStats()
+    const s = await api.getEmbeddingStats(); window.__QB_LAST_LOAD_ERROR__ = s.loadError ? 'sqlite-vec 未加载: ' + s.loadError : null
     if (!s.loaded) {
-      setEmbeddingStatus("sqlite-vec 未加载，向量检索退化为普通搜索", "idle")
+      const __msg = (window.__QB_LAST_LOAD_ERROR__ || 'sqlite-vec 未加载，向量检索退化为普通搜索'); setEmbeddingStatus(__msg, "idle")
       return
     }
     els.embeddingStatusLine.textContent = "已索引 " + s.ok + "/" + s.total + " 条（待建 " + s.pending + " 条，失败 " + s.failed + " 条）"

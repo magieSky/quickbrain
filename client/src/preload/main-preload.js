@@ -52,6 +52,7 @@ contextBridge.exposeInMainWorld('quickbrain', {
   getEmbeddingConfig: () => ipcRenderer.invoke('get-embedding-config'),
   setEmbeddingConfig: (patch) => ipcRenderer.invoke('set-embedding-config', patch),
   getEmbeddingStats: () => ipcRenderer.invoke('get-embedding-stats'),
+  debugVecPath: () => ipcRenderer.invoke('debug-vec-path'),
   // Settings (privacy defaults, future per-user prefs)
   getSettings: () => ipcRenderer.invoke('get-settings'),
   setSettings: (patch) => ipcRenderer.invoke('set-settings', patch),

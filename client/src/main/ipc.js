@@ -752,9 +752,10 @@ function broadcastNotesUpdated(detail) {
       const ok = db.prepare("SELECT COUNT(*) AS c FROM notes_vec_meta WHERE status = 'ok'").get().c
       const pending = db.prepare("SELECT COUNT(*) AS c FROM notes_vec_meta WHERE status = 'pending'").get().c
       const failed = db.prepare("SELECT COUNT(*) AS c FROM notes_vec_meta WHERE status = 'failed'").get().c
-      return { loaded: vec.isLoaded(), total, ok, pending, failed, dims: vec.expectedDims() }
+      return { loaded: vec.isLoaded(), loadError: vec.getLoadError ? vec.getLoadError() : null, total, ok, pending, failed, dims: vec.expectedDims() }
     } catch (e) { return { loaded: false, total: 0, ok: 0, pending: 0, failed: 0, dims: 0, error: e.message } }
   })
+
 
 module.exports = { registerIpcHandlers, setAIService, autoLaunch, onPipeMessage, nativeBridge: pipeBridge, broadcastNotesUpdated, smartSearch, toResult }
 

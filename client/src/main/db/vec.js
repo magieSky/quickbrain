@@ -14,7 +14,15 @@
  * rest of the app keeps working without semantic recall.
  */
 
+const fs = require('fs')
 const sqliteVec = require('sqlite-vec')
+
+let _loadError = null
+
+function getLoadError() {
+  return _loadError
+}
+
 
 const FALLBACK_DIMS = 1024
 let _loadTried = false
@@ -30,11 +38,26 @@ function ensureLoaded(db, dims) {
   if (_loadTried) return _loadOk
   _loadTried = true
   try {
-    sqliteVec.load(db)
+    // vec.js's sqliteVec wrapper calls getLoadablePath() which uses
+    // require.resolve(). In packaged Electron apps, that returns an
+    // "app.asar\node_modules\...\vec0.dll" path. Windows LoadLibrary
+    // does not understand the asar stream protocol, so we manually
+    // rewrite the path to the unpacked variant when needed.
+    const rawPath = sqliteVec.getLoadablePath()
+    const asarIdx = rawPath.lastIndexOf('app.asar\\')
+    const dllPath = asarIdx > 0
+      ? rawPath.slice(0, asarIdx) + 'app.asar.unpacked' + rawPath.slice(asarIdx + 'app.asar'.length)
+      : rawPath
+    // asar-unpacked translation complete
+    if (!fs.existsSync(dllPath)) {
+      throw new Error('vec0.dll not found at ' + dllPath)
+    }
+    db.loadExtension(dllPath)
     _loadOk = true
     console.log('[vec] sqlite-vec loaded; dims=' + _expectedDims)
   } catch (e) {
     _loadOk = false
+    _loadError = e.message
     console.warn('[vec] sqlite-vec load failed, semantic recall disabled:', e.message)
   }
   return _loadOk
@@ -128,7 +151,7 @@ function countIndexed(db) {
 }
 
 module.exports = {
-  ensureLoaded, isLoaded, expectedDims,
+  ensureLoaded, isLoaded, expectedDims, getLoadError, _loadError,
   upsertEmbedding, deleteEmbedding, markFailed, markPending,
   vectorSearch, countIndexed
 }

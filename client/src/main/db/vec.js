@@ -1,4 +1,4 @@
-﻿/**
+/**
  * sqlite-vec wrapper.
  *
  * Provides:
@@ -68,17 +68,33 @@ function isLoaded() {
 }
 
 function upsertEmbedding(db, noteId, vec, model) {
+  // Accept plain JS Array OR any TypedArray (Float32Array is the canonical
+  // form better-sqlite3 binds to vec0's float[N] column).
+  const isVec = vec && (Array.isArray(vec) || ArrayBuffer.isView(vec))
   if (!_loadOk) return false
-  if (!noteId || !Array.isArray(vec) || vec.length === 0) return false
+  if (!noteId || !isVec || vec.length === 0) return false
+  // sqlite-vec's vec0 rowid check refuses JS Number 閳?it expects a true
+  // SQLITE_INTEGER, which better-sqlite3 binds from BigInt. Passing a
+  // Number (even 36.0) triggers "Only integers are allows for primary
+  // key values on notes_vec". Coerce to BigInt here so callers can
+  // pass Number (from IPC payloads / search.js addNote) without thinking.
+  const nid = (function (n) {
+    if (typeof n === 'bigint') return n
+    if (typeof n === 'number' && Number.isInteger(n)) return BigInt(n)
+    if (typeof n === 'string' && /^\d+$/.test(n)) return BigInt(n)
+    console.warn('[vec] skip upsert: non-integer noteId', typeof n, n)
+    return null
+  })(noteId)
+  if (nid == null) return false
   if (vec.length !== _expectedDims) {
-    console.warn('[vec] skip note', noteId, ': dim mismatch', vec.length, '!=', _expectedDims)
+    console.warn('[vec] skip note', Number(nid), ': dim mismatch', vec.length, '!=', _expectedDims)
     return false
   }
   const f32 = vec instanceof Float32Array ? vec : new Float32Array(vec)
   const tx = db.transaction(() => {
     // vec0 has no UPSERT; mirror a write-or-replace via rowid.
-    db.prepare('DELETE FROM notes_vec WHERE rowid = ?').run(noteId)
-    db.prepare('INSERT INTO notes_vec(rowid, embedding) VALUES (?, ?)').run(noteId, f32)
+    db.prepare('DELETE FROM notes_vec WHERE rowid = ?').run(nid)
+    db.prepare('INSERT INTO notes_vec(rowid, embedding) VALUES (?, ?)').run(nid, f32)
     const now = Date.now()
     db.prepare(`
       INSERT INTO notes_vec_meta(note_id, model, dims, updated_at, status, error)
@@ -89,7 +105,7 @@ function upsertEmbedding(db, noteId, vec, model) {
         updated_at = excluded.updated_at,
         status = 'ok',
         error = NULL
-    `).run(noteId, model || 'bge-m3', _expectedDims, now)
+    `).run(nid, model || 'bge-m3', _expectedDims, now)
   })
   tx()
   return true

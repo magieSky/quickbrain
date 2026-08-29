@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Embedding client.
  *
  * Calling convention: every public function returns null on any failure and
@@ -13,7 +13,7 @@
 const DEFAULT_BASE_URL = 'https://embedding.bjhzsk.cn'
 const DEFAULT_MODEL = 'bge-m3'
 const DEFAULT_DIMS = 1024
-const REQUEST_TIMEOUT_MS = 15000
+const REQUEST_TIMEOUT_MS = 30000
 
 function resolveConfig(embeddingCfg) {
   const emb = embeddingCfg || {}

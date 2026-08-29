@@ -21,7 +21,7 @@ function addNote(db, note) {
     `)
     const result = stmt.run(clientId, content, title, category, JSON.stringify(tags), original_content,
       source_path, source_type, parent_id, source_range, is_atom, now, is_private ? 1 : 0)
-    const id = result.lastInsertRowid
+    const id = Number(result.lastInsertRowid)
     const py = generatePinyinForNote(title, content)
     db.prepare(`INSERT INTO notes_pinyin (id, pinyin_title, pinyin_content) VALUES (?, ?, ?)`)
       .run(id, py.pinyinTitle, py.pinyinContent)

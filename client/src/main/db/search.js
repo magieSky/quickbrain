@@ -89,6 +89,13 @@ function getNoteById(db, id) {
   return rowToNote(row)
 }
 
+function getDeletedNoteById(db, id) {
+  if (!id) return null
+  const row = db.prepare('SELECT * FROM notes WHERE id = ? AND deleted_at IS NOT NULL').get(id)
+  if (!row) return null
+  return rowToNote(row)
+}
+
 
 function rowToNote(row) {
   if (!row) return null
@@ -153,4 +160,4 @@ function getSourceNotes(db, { onlyUnExtracted = false, keyword = null } = {}) {
   return rows.map(row => ({ ...rowToNote(row), score: 0 }))
 }
 
-module.exports = { searchNotes, addNote, addAtomNote, getNoteById, getRecentNotes, getSourceNotes, rowToNote }
+module.exports = { searchNotes, addNote, addAtomNote, getNoteById, getDeletedNoteById, getRecentNotes, getSourceNotes, rowToNote }

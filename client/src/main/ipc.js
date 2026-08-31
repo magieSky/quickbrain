@@ -478,13 +478,25 @@ function registerIpcHandlers() {
           const ids = vec.vectorSearch(getDB(), v, 30)
           if (ids.length) {
             const placeholders = ids.map(() => '?').join(',')
-            const rows = getDB().prepare(`SELECT id, title, content FROM notes WHERE id IN (${placeholders}) AND deleted_at IS NULL`).all(...ids.map(r => r.note_id))
+            // vec.vectorSearch 可能返回 {note_id: ...} 或直接 {id: ...} 或原始 id
+            const normalizeId = r => r.note_id ?? r.id ?? r
+            const rows = getDB().prepare(`SELECT id, title, content FROM notes WHERE id IN (${placeholders}) AND deleted_at IS NULL`).all(...ids.map(normalizeId))
             const byId = new Map(rows.map(r => [r.id, r]))
             const recalled = ids
-              .map(r => byId.get(r.note_id))
+              .map(r => byId.get(normalizeId(r)))
               .filter(Boolean)
               .map(r => `${r.id}: ${r.title || '(无标题)'} - ${(r.content || '').substring(0, 100)}`)
-            if (recalled.length) candidateSummaries = recalled
+            if (recalled.length && Array.isArray(candidateSummaries)) {
+              const extractId = s => {
+                const parts = String(s).split(':')
+                return parts.length > 1 ? parts[0].trim() : null
+              }
+              const seen = new Set(recalled.map(s => extractId(s)).filter(Boolean))
+              const ftsOnly = candidateSummaries.filter(s => !seen.has(extractId(s)))
+              candidateSummaries = recalled.concat(ftsOnly).slice(0, 100)
+            } else if (recalled.length) {
+              candidateSummaries = recalled
+            }
           }
         }
       }
@@ -495,8 +507,25 @@ function registerIpcHandlers() {
       if (ctx) return await serverProxy.semanticSearchViaServer({ query, candidateSummaries })
     } catch (e) { console.error('[ipc] server proxy error:', e.message) }
     if (!aiService) return { success: false, error: 'no-ai' }
-    return await aiService.semanticSearch(query, candidateSummaries)
+    const r = await aiService.semanticSearch(query, candidateSummaries)
+    const filteredIds = filterMatchedIds(r && r.matchedIds)
+    return {
+      ...r,
+      matchedIds: filteredIds,
+      // 明确标记过滤是否成功，防止调用方因空 matchedIds 而误判业务状态
+      _matchedIdsFiltered: filteredIds.length !== (r.matchedIds?.length ?? 0)
+    }
   })
+  function filterMatchedIds(ids) {
+    if (!Array.isArray(ids) || !ids.length) return []
+    try {
+      const db = getDB()
+      const placeholders = ids.map(() => '?').join(',')
+      const rows = db.prepare(`SELECT id FROM notes WHERE id IN (` + placeholders + `) AND deleted_at IS NULL`).all(...ids)
+      const alive = new Set(rows.map(r => r.id))
+      return ids.filter(id => alive.has(id))
+    } catch (e) { console.warn('[ipc semantic-search] filter failed:', e.message); return [] }
+  }
   ipcMain.handle('ai-extract', async (event, { query, candidateSummaries }) => {
     try {
       const serverProxy = require('./ai/server-proxy')
